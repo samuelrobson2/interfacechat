@@ -31,6 +31,14 @@ import { useIsMobile } from "@/shared/lib/react/use-mobile";
 import { SidebarUserMenuMobile } from "./compose/sidebar-user-menu-mobile";
 
 // Bubble 1 — the pharos-standard apps this fork inherits.
+// The library of mini interface shells chat opens, at every size.
+const interfaceLibraryItem: MenuItem = {
+  title: "Interface library",
+  url: ROUTES.INTERFACE_LIBRARY,
+  matchPaths: [{ path: ROUTES.INTERFACE_LIBRARY, end: false }],
+  icon: <LayoutGrid className="size-5" />,
+};
+
 const pharosItems: MenuItem[] = [
   {
     title: "Build",
@@ -66,6 +74,7 @@ const pharosItems: MenuItem[] = [
     matchPaths: [{ path: ROUTES.CHAT_LAB, end: true }],
     icon: <ChatIcon />,
   },
+  interfaceLibraryItem,
   ...(isChatVisualizeEnabled()
     ? [
         {
@@ -111,20 +120,12 @@ const commonUiExamplesItem: MenuItem = {
   icon: <LayoutTemplate className="size-5" />,
 };
 
-// The library of mini interface shells chat opens, at every size.
-const interfaceLibraryItem: MenuItem = {
-  title: "Interface library",
-  url: ROUTES.INTERFACE_LIBRARY,
-  matchPaths: [{ path: ROUTES.INTERFACE_LIBRARY, end: false }],
-  icon: <LayoutGrid className="size-5" />,
-};
-
 // Bubble 3 — Tools, its own bubble holding a collapsible section.
 const toolsItems: SidebarEntry[] = [
   {
     title: "Tools",
     icon: <Wrench className="size-5" />,
-    items: [uiKitItem, commonUiExamplesItem, interfaceLibraryItem],
+    items: [uiKitItem, commonUiExamplesItem],
     // Collapsed by default — expand to reveal developer tools.
     defaultOpen: false,
   },

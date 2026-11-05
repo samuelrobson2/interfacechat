@@ -2,7 +2,7 @@
 
 Chat is the conversation. The interface library is the set of product surfaces that chat can open beside it. A reply stays in the thread. A paper, a plan or a list opens as its own interface, and you edit it there.
 
-Chat is in the sidebar as **Chat** (`/app/chat-lab`). The library is under **Tools → Interface library** (`/app/interface-library`).
+Chat is in the sidebar as **Chat** (`/app/chat-lab`). The **Interface library** (`/app/interface-library`) sits right below it.
 
 ## Three layers: interfaces, chat modes and tools
 

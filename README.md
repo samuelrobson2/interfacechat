@@ -13,12 +13,13 @@ It is a standalone copy of the sam-ideas prototype, cut down to the chat, the in
 
 The sidebar has two groups.
 
-**Pharos.** These are the core pillars from Pharos, running on demo data.
+**Main.** The core pillars from Pharos, running on demo data, with the Interface library next to Chat.
 
 | Item | Route | What it is |
 | --- | --- | --- |
 | Build / Dashboard | `/app/datasets`, `/app/dataset/:id` | Datasets, a dataset's dashboard, the new-dataset flow and fine-tuning. |
 | Chat | `/app/chat-lab` | The chat home and threads, with the interface library wired in. This is the main work. |
+| Interface library | `/app/interface-library` | All 14 interfaces in one table. Each row has a live preview at any size, plus its parts, description and example queries. You design interfaces here, and retrieval reads from here. |
 | Visualize | `/app/chat/visualize` | Chat that answers with charts. It uses the `visualize` endpoint. |
 | History | `/app/chat-folders` | Past chats and folders. |
 
@@ -28,7 +29,6 @@ The sidebar has two groups.
 | --- | --- | --- |
 | UI Kit | `/app/ui-kit` | The component kit (`src/shared/ui/kit`), with a page per component. |
 | Common UI Examples | `/app/common-ui-examples` | Reference compositions, such as the document analyser. |
-| Interface library | `/app/interface-library` | All 14 interfaces in one table. Each row has a live preview at any size, plus its parts, description and example queries. You design interfaces here, and retrieval reads from here. |
 
 ## Run locally
 
