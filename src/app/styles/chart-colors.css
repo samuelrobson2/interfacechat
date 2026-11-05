@@ -1,0 +1,257 @@
+/**
+ * Chart color tokens
+ *
+ * The single place every plot color comes from, and a closed set: the swatches
+ * the "Charts Palette" frame publishes, on the same tens scale and under the
+ * same family names it uses. Anything a chart needs that is not here is a design
+ * decision, not a code one. The Figma frame is the source of truth; where the
+ * designer's reference HTML disagrees with it, the frame wins.
+ *
+ * Charts get their own namespace because the design system and the chart palette
+ * disagree: the palette ships a full warm ramp, plus indigo, chartreuse and
+ * yellow families the UI has no name for. Adopting those values app-wide would
+ * move `--primary`, `--accent` and every badge, so charts carry them under
+ * `--chart-*` and the UI palette in `colors.css` stays untouched.
+ *
+ * Where the app palette already publishes the same hex *as a numbered stop of
+ * the same family*, the token here is an alias rather than a copy, so there is
+ * one source of truth per color. Indigo, warm, chartreuse and the dark half of
+ * yellow are literals even where a hex matches, because the app only names
+ * those tones by role (`--color-indigo-light` is a folder-card tint, not a ramp
+ * step) and aliasing would tie a chart ramp to an unrelated component.
+ *
+ * ## Two layers, and why
+ *
+ * **Family stops** are raw tones and mean the same hex in both themes, so a
+ * token name can be reasoned about, logged and compared against a hex a user
+ * typed.
+ *
+ * **Roles** are what a chart actually paints with, and they flip with the theme:
+ *
+ * - `--chart-core-*` — the solid tone. It is the outline on a tinted or
+ *   gradient fill, and it is the fill itself when a chart uses a single flat
+ *   color. Core is the stop the palette designates per theme, and every one of
+ *   them clears WCAG 3:1 against its own canvas — which is what makes a tinted
+ *   fill legible, since the tint alone does not reach 3:1 and the outline does.
+ * - `--chart-tint-*` — the pale fill a series takes behind its core edge, and
+ *   the near stop of a gradient fill.
+ * - `--chart-alt-*` — the family's *second* accessible step, so a palette that
+ *   runs out of families can give one family two adjacent slots instead of
+ *   cycling back round to blue. It moves away from the canvas: the darkest stop
+ *   in light, the lightest in dark.
+ * - `--chart-fade` — the far stop of every gradient. Pure white in light, the
+ *   dark canvas in dark. Never `transparent`: CSS `transparent` is transparent
+ *   *black*, and SVG interpolates color and alpha as separate channels, so a
+ *   ramp towards it greys out well before it disappears.
+ *
+ * Cores and tints differ per theme, so a category keeps its *family* across a
+ * theme flip rather than its exact hex. Nothing repaints or recompiles for it —
+ * Vega copies the token string into the SVG and the browser resolves it, so a
+ * `.dark-region` scope is the whole mechanism.
+ *
+ * Declared in plain `:root` rather than `@theme` on purpose. Tailwind drops
+ * theme variables it cannot see being used, and these names are only ever used
+ * inside Vega-Lite spec strings, which the Tailwind scanner never reads.
+ */
+:root {
+  /* ----- Gray: chrome tones, and a series family of its own -----
+     On the frame's numbering as of the 08/26 revision, which is a step off the
+     one this file used before it: the frame inserted #e5e5e5 at gray-20 and
+     pushed every darker stop down one. Anything reading a gray *stop* by number
+     therefore moved; the chrome roles below did not, because each one was
+     re-pointed at the stop holding its old hex.
+
+     gray-0 is not on the frame — it is what a gradient fades to in light mode.
+     gray-15 is not either, and is kept only so a spec persisted against the old
+     numbering still resolves; nothing new should reach for it.
+
+     The suffix is not a darkness rank. gray-0, gray-10 and gray-70 are three
+     near-whites within seven points of each other, and the ramp only starts
+     descending at gray-20. Read the hex, never the number. */
+  --chart-gray-0: var(--color-gray-0); /* #ffffff */
+  --chart-gray-10: var(--color-gray-1); /* #fafafa */
+  --chart-gray-15: #f5f5f5; /* legacy, off the frame */
+  --chart-gray-20: var(--color-gray-1-mid); /* #e5e5e5  1.21 /  9.44  tint, both themes */
+  --chart-gray-30: var(--color-gray-2); /* #c4c4c4  1.67 /  6.83  DARK CORE */
+  --chart-gray-40: var(--color-gray-3); /* #7a7a7a  4.11 /  2.77  LIGHT CORE */
+  --chart-gray-50: var(--color-gray-4); /* #373737 11.41 /  1.00 */
+  --chart-gray-60: var(--color-gray-5); /* #1a1718 17.06 /  1.50 */
+  --chart-gray-70: var(--color-gray-6); /* #f3f2f3  1.07 / 10.66 */
+
+  /* ----- Blue: the sequential ramp, and the default series family -----
+     Contrast is given against both canvases, because core is designated per
+     theme: light #fafafa / dark #373737. */
+  --chart-blue-10: var(--color-blue-1); /* #e7f7ff  1.05 / 10.85 */
+  --chart-blue-20: var(--color-blue-2); /* #c8e9fa  1.22 /  9.35  light tint */
+  --chart-blue-30: var(--color-blue-3); /* #85c9ee  1.74 /  6.57  dark tint */
+  --chart-blue-40: var(--color-blue-4); /* #46a5d8  2.64 /  4.33  DARK CORE */
+  --chart-blue-50: var(--color-blue-5); /* #1a84ae  4.06 /  2.81  LIGHT CORE */
+  --chart-blue-60: var(--color-blue-6); /* #054761  9.67 /  1.18 */
+
+  /* ----- Mint ----- */
+  --chart-mint-10: var(--color-mint-1); /* #b6e8e2  1.29 /  8.86  light tint */
+  --chart-mint-20: var(--color-mint-2); /* #7fb5b3  2.20 /  5.19  dark tint */
+  --chart-mint-30: #39adb0; /*                      2.59 /  4.41  DARK CORE */
+  --chart-mint-40: #13808a; /*                      4.49 /  2.54  LIGHT CORE */
+  --chart-mint-50: var(--color-mint-3); /* #004652 10.07 /  1.13 */
+  --chart-mint-60: #002a31; /*                     14.63 /  1.28 */
+
+  /* ----- Indigo: the one family whose tint is the same in both themes ----- */
+  --chart-indigo-10: #dce4f3; /*  1.22 /  9.32 */
+  --chart-indigo-20: #c4c8f2; /*  1.56 /  7.31  tint, both themes */
+  --chart-indigo-30: #9f99bd; /*  2.59 /  4.40  DARK CORE */
+  --chart-indigo-35: #7e6f8f; /*  4.41 /  2.58  LIGHT CORE */
+  --chart-indigo-40: #453f6b; /*  9.24 /  1.23 */
+  --chart-indigo-50: #1f1828; /* 16.50 /  1.45 */
+
+  /* ----- Rose: the one family whose core is the same in both themes ----- */
+  --chart-rose-10: var(--color-rose-1); /* #ffe5fa  1.13 / 10.11  light tint */
+  --chart-rose-20: var(--color-rose-2); /* #df91c6  2.23 /  5.10  dark tint */
+  --chart-rose-30: #d855af; /*                      3.45 /  3.31  CORE, both */
+  --chart-rose-40: #95196d; /*                      7.63 /  1.50 */
+  --chart-rose-50: var(--color-rose-3); /* #631d4d 11.09 /  1.03 */
+  --chart-rose-60: #3d0a2d; /*                     15.72 /  1.38 */
+
+  /* ----- Warm: an orange ramp, replacing the brown family -----
+     The old `--chart-orange-50` hex (#573000) is now its darkest stop. */
+  --chart-warm-10: #fbeade; /*  1.12 / 10.16  light tint */
+  --chart-warm-20: #f8cdb1; /*  1.40 /  8.14 */
+  --chart-warm-30: #eaaf8a; /*  1.83 /  6.23  dark tint */
+  --chart-warm-40: #de6d1c; /*  3.19 /  3.58  DARK CORE */
+  --chart-warm-50: #ba4308; /*  5.17 /  2.21  LIGHT CORE */
+  --chart-warm-60: #573000; /* 11.01 /  1.04 */
+
+  /* ----- Chartreuse: the sixth family, added so six categories fit -----
+     Its tint is the same in both themes, like indigo's. */
+  --chart-chartreuse-10: #eff3da; /*  1.09 / 10.49 */
+  --chart-chartreuse-20: #d6da84; /*  1.41 /  8.06  tint, both themes */
+  --chart-chartreuse-30: #b5b88c; /*  1.97 /  5.78  DARK CORE */
+  --chart-chartreuse-40: #848920; /*  3.61 /  3.16  LIGHT CORE */
+  --chart-chartreuse-50: #383a16; /* 11.27 /  1.01 */
+  --chart-chartreuse-60: #1f200c; /* 15.84 /  1.39 */
+
+  /* ----- Yellow: the family reserved for an aggregated "Other" -----
+     Like chartreuse and indigo it keeps one tint across both themes. It is a
+     full family rather than a lone tone so the residual is painted by the same
+     rule as every other series, rather than by a special case. */
+  --chart-yellow-10: var(--color-yellow-highlight); /* #f5efd6  1.11 / 10.31 */
+  --chart-yellow-20: var(--color-yellow-light); /*    #eddd99  1.30 /  8.74  tint, both themes */
+  --chart-yellow-30: #bead76; /*                                2.13 /  5.34  DARK CORE */
+  --chart-yellow-40: #ab8813; /*                                3.21 /  3.55  LIGHT CORE */
+  --chart-yellow-50: #5f4e10; /*                                7.79 /  1.46 */
+  --chart-yellow-60: #3a3316; /*                               12.08 /  1.06 */
+
+  /* ----- Roles: the solid tone per family, light mode ----- */
+  --chart-core-blue: var(--chart-blue-50);
+  --chart-core-mint: var(--chart-mint-40);
+  --chart-core-indigo: var(--chart-indigo-35);
+  --chart-core-rose: var(--chart-rose-30);
+  --chart-core-warm: var(--chart-warm-50);
+  --chart-core-chartreuse: var(--chart-chartreuse-40);
+  --chart-core-gray: var(--chart-gray-40);
+  --chart-core-yellow: var(--chart-yellow-40);
+
+  /* ----- Roles: the pale fill behind a core edge, light mode ----- */
+  --chart-tint-blue: var(--chart-blue-20);
+  --chart-tint-mint: var(--chart-mint-10);
+  --chart-tint-indigo: var(--chart-indigo-20);
+  --chart-tint-rose: var(--chart-rose-10);
+  --chart-tint-warm: var(--chart-warm-10);
+  --chart-tint-chartreuse: var(--chart-chartreuse-20);
+  --chart-tint-gray: var(--chart-gray-20);
+  --chart-tint-yellow: var(--chart-yellow-20);
+
+  /* ----- Roles: the family's second accessible step, light mode -----
+     Away from the canvas, so it is the darkest stop here. A slot painted
+     `core` over `alt` sits beside the same family's `tint` over `core` and
+     reads as a deliberate pair rather than as a repeat. */
+  --chart-alt-blue: var(--chart-blue-60);
+  --chart-alt-mint: var(--chart-mint-50);
+  --chart-alt-indigo: var(--chart-indigo-40);
+  --chart-alt-rose: var(--chart-rose-40);
+  --chart-alt-warm: var(--chart-warm-60);
+  --chart-alt-chartreuse: var(--chart-chartreuse-50);
+  --chart-alt-gray: var(--chart-gray-50);
+  --chart-alt-yellow: var(--chart-yellow-50);
+
+  /* The far stop of every gradient. White rather than the #fafafa canvas: the
+     frame spells it "to White", so a fill lifts slightly off the card instead
+     of dissolving into it. */
+  --chart-fade: var(--chart-gray-0);
+
+  /* Legacy alias for what an aggregated "Other" used to be painted with. The
+     residual is the yellow family now, and gray is a series family like any
+     other — but specs persisted against the old palette still name this token,
+     and re-pointing it repaints them rather than leaving them unresolved. */
+  --chart-core-neutral: var(--chart-core-yellow);
+
+  /* ----- Chrome: named by role, so the theme can swap the tone -----
+     The three theme-aware ones borrow the app's own roles rather than a chart
+     stop, and they name `--typography-*` / `--background-*` rather than the
+     `--color-*` aliases Tailwind publishes for them. Those aliases resolve on
+     `:root` and `.dark-region` does not redeclare them, so a chart reading one
+     would inherit the light tone into the dark region — see the dark block. */
+  /* Gridlines and the axis domain rule. Same tone in both themes. */
+  --chart-grid: var(--chart-gray-30);
+  /* Tick labels, axis titles, captions. #7a7a7a light, #c4c4c4 dark. */
+  --chart-label: var(--typography-secondary);
+  /* In-chart value labels and headings. #1a1718 light, white dark. */
+  --chart-label-strong: var(--typography-primary);
+  /* Whatever the chart sits on: marker halos, dot rings.
+     #fafafa light, #373737 dark. */
+  --chart-surface: var(--background-primary);
+}
+
+/**
+ * Dark mode.
+ *
+ * Scoped to `.dark-region` rather than a media query, matching the rest of the
+ * app: the plot lab flips a wrapper class, so a light and a dark chart can sit
+ * on the same page.
+ *
+ * Only the roles move. Every family stop above keeps its hex, so `blue-50`
+ * still means #1a84ae here — it just is not what `--chart-core-blue` points at.
+ */
+.dark-region {
+  --chart-core-blue: var(--chart-blue-40);
+  --chart-core-mint: var(--chart-mint-30);
+  --chart-core-indigo: var(--chart-indigo-30);
+  --chart-core-rose: var(--chart-rose-30);
+  --chart-core-warm: var(--chart-warm-40);
+  --chart-core-chartreuse: var(--chart-chartreuse-30);
+  --chart-core-gray: var(--chart-gray-30);
+  --chart-core-yellow: var(--chart-yellow-30);
+
+  --chart-tint-blue: var(--chart-blue-30);
+  --chart-tint-mint: var(--chart-mint-20);
+  --chart-tint-indigo: var(--chart-indigo-20);
+  --chart-tint-rose: var(--chart-rose-20);
+  --chart-tint-warm: var(--chart-warm-30);
+  --chart-tint-chartreuse: var(--chart-chartreuse-20);
+  --chart-tint-gray: var(--chart-gray-20);
+  --chart-tint-yellow: var(--chart-yellow-20);
+
+  /* Away from the canvas is the other direction here, so the second step is the
+     family's lightest stop rather than its darkest. */
+  --chart-alt-blue: var(--chart-blue-20);
+  --chart-alt-mint: var(--chart-mint-10);
+  --chart-alt-indigo: var(--chart-indigo-10);
+  --chart-alt-rose: var(--chart-rose-10);
+  --chart-alt-warm: var(--chart-warm-10);
+  --chart-alt-chartreuse: var(--chart-chartreuse-10);
+  --chart-alt-gray: var(--chart-gray-10);
+  --chart-alt-yellow: var(--chart-yellow-10);
+
+  /* The dark canvas, which is also what `--chart-surface` resolves to here. */
+  --chart-fade: var(--chart-gray-50);
+
+  /* Repeated, not inherited. A custom property is substituted on the element
+     that declares it, so a role written once in `:root` carries the light tone
+     down here no matter what this block does to what it points at. Every role
+     above is restated for that reason, and these four are the ones whose
+     source moves without their name changing. */
+  --chart-label: var(--typography-secondary);
+  --chart-label-strong: var(--typography-primary);
+  --chart-surface: var(--background-primary);
+  --chart-core-neutral: var(--chart-core-yellow);
+}

@@ -1,0 +1,325 @@
+# Users endpoints - all schemas are imported from shared/schemas.yaml
+
+deleteAccount:
+  operationId: UsersController_deleteAccount
+  tags:
+    - Users
+  responses:
+    '200':
+      description: 'Account deleted successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getLanguages:
+  operationId: UsersController_getLanguages
+  tags:
+    - Users
+  responses:
+    '200':
+      description: 'Languages list retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/LanguagesResponseDto'
+
+getCountries:
+  operationId: UsersController_getCountries
+  tags:
+    - Users
+  responses:
+    '200':
+      description: 'Countries list retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CountriesResponseDto'
+
+getLanguageCountryPairs:
+  operationId: UsersController_getLanguageCountryPairs
+  summary: Get supported language-country pairs
+  tags:
+    - Users
+  responses:
+    '200':
+      description: 'Language-country pairs retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/LanguageCountryPairsResponseDto'
+
+getDomains:
+  operationId: UsersController_getDomains
+  tags:
+    - Users
+  responses:
+    '200':
+      description: 'Domains list retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DomainsResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getUser:
+  operationId: UsersController_getUser
+  tags:
+    - Users
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'User retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/UserResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'User not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getUserBadges:
+  operationId: UsersController_getUserBadges
+  summary: List badges earned by the user
+  tags:
+    - Users
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Badges retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/UserBadgesResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'User not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+updateProfile:
+  operationId: UsersController_updateProfile
+  tags:
+    - Users
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/UpdateProfileDto'
+  responses:
+    '200':
+      description: 'Profile updated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/UpdateProfileResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'User not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+setAppKey:
+  operationId: UsersController_setAppKey
+  tags:
+    - Users
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/UpdateUserApiKeysDto'
+  responses:
+    '200':
+      description: 'API key set successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'User not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+deleteSettingsApiToken:
+  operationId: UsersController_deleteDatasetApiToken
+  summary: Remove stored Hugging Face API token from settings
+  tags:
+    - Users
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+    - name: provider
+      required: true
+      in: path
+      schema:
+        type: string
+        enum:
+          - huggingface
+  responses:
+    '200':
+      description: 'API token deleted successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    default:
+      description: 'Error response'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+
+uploadProfileImage:
+  operationId: UsersController_uploadProfileImage
+  tags:
+    - Users
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          required:
+            - file
+          properties:
+            file:
+              type: string
+              format: binary
+  responses:
+    '201':
+      description: 'Profile image uploaded successfully'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'User not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getSettings:
+  operationId: UsersController_getSettings
+  tags:
+    - Users
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'User settings retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GetUserSettingsResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'User not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

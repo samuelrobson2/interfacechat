@@ -1,0 +1,70 @@
+# OAuth endpoints - all schemas are imported from shared/schemas.yaml
+
+connect:
+  summary: Connect Google account
+  description: >-
+    Redirects to Google OAuth consent. Requires JWT (cookie, Authorization
+    header, or query param token). Returns 302 redirect. For Safari: pass
+    token in URL, e.g. redirect to
+    /api/v1/oauth/google/connect?token=<accessToken>&datasetId=<id> so auth
+    works when cookies are not sent.
+  operationId: GoogleOAuthController_connect
+  tags:
+    - Google OAuth
+  parameters:
+    - name: datasetId
+      required: false
+      in: query
+      description: >-
+        When set (must be a valid UUID v4), redirect after OAuth success to
+        /app/dataset/{datasetId}?tab=share&startExport=google-sheets
+      schema:
+        type: string
+        format: uuid
+    - name: token
+      required: false
+      in: query
+      description: >-
+        JWT access token. Pass in URL for Safari (e.g. ?token=...) when
+        cookies are not sent on cross-origin redirect. Frontend should
+        redirect to e.g.
+        /api/v1/oauth/google/connect?token=<accessToken>&datasetId=<id>.
+      schema:
+        type: string
+  responses:
+    '200':
+      description: ''
+    '302':
+      description: Redirect to Google OAuth
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+callback:
+  summary: OAuth callback
+  description: Handles Google OAuth callback. Redirects to frontend on success or failure.
+  operationId: GoogleOAuthController_callback
+  tags:
+    - Google OAuth
+  parameters:
+    - name: code
+      in: query
+      required: true
+      schema:
+        type: string
+    - name: state
+      in: query
+      required: true
+      schema:
+        type: string
+    - name: error
+      in: query
+      required: true
+      schema:
+        type: string
+  responses:
+    '302':
+      description: Redirect to frontend

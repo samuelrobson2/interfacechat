@@ -1,0 +1,1521 @@
+# Dataset endpoints - all schemas are imported from shared/schemas.yaml
+
+initiateUpload:
+  operationId: DatasetController_initiateUpload
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/InitiateDto'
+  responses:
+    '200':
+      description: 'Upload initiated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/InitiateResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+completeUpload:
+  operationId: DatasetController_completeUpload
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CompleteUploadDto'
+  responses:
+    '200':
+      description: 'Upload completed successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CompleteUploadResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+initiateBatchUpload:
+  operationId: DatasetController_initiateBatchUpload
+  summary: Initiate a batch document upload
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/InitiateBatchDto'
+  responses:
+    '201':
+      description: Presigned URLs issued for each file
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/InitiateBatchResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+completeBatchUpload:
+  operationId: DatasetController_completeBatchUpload
+  summary: Complete a batch document upload and trigger extraction
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CompleteBatchDto'
+  responses:
+    '202':
+      description: Batch registered; processing started
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CompleteBatchResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getDatasetStatus:
+  operationId: DatasetController_getDatasetStatus
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Dataset status retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/PublicDatasetStatusResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getFilesFromKaggle:
+  operationId: DatasetController_getFilesFromKaggle
+  tags:
+    - Dataset
+  parameters:
+    - name: kaggleUrl
+      in: query
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Files from Kaggle retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/InitiateHuggingfaceResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+initiateKaggleUpload:
+  operationId: DatasetController_initiateKaggleUpload
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/initiateProviderDownloadDto'
+  responses:
+    '200':
+      description: 'Kaggle upload initiated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CompleteUploadResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getFilesFromHuggingface:
+  operationId: DatasetController_getFilesFromHuggingface
+  tags:
+    - Dataset
+  parameters:
+    - name: huggingfaceUrl
+      in: query
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Files from HuggingFace retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/InitiateHuggingfaceResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+initiateHuggingfaceUpload:
+  operationId: DatasetController_initiateHuggingfaceUpload
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/initiateProviderDownloadDto'
+  responses:
+    '200':
+      description: 'Hugging Face upload initiated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CompleteUploadResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getUploadProgress:
+  operationId: DatasetController_getUploadProgress
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: token
+      in: query
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Get upload progress for each file in HuggingFace upload via Server-Sent Events'
+      content:
+        text/event-stream:
+          schema:
+            type: string
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getSteps:
+  operationId: DatasetController_getSteps
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Dataset steps retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetStepsResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getStep:
+  operationId: DatasetController_getStep
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: key
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Dataset step retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetStepResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset or step not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getDataset:
+  operationId: DatasetController_getDataset
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Dataset retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+patchDataset:
+  operationId: DatasetController_patchDataset
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/PatchDatasetDto'
+  responses:
+    '200':
+      description: 'Dataset updated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+deleteDataset:
+  operationId: DatasetController_deleteDataset
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: ''
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    default:
+      description: ''
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+
+getDatasets:
+  operationId: DatasetController_getDatasets
+  tags:
+    - Dataset
+  parameters:
+    - name: page
+      in: query
+      required: true
+      schema:
+        type: number
+    - name: perPage
+      in: query
+      required: true
+      schema:
+        type: number
+    - name: recent
+      in: query
+      required: false
+      schema:
+        type: boolean
+    - name: period
+      in: query
+      required: false
+      schema:
+        type: string
+    - name: status
+      in: query
+      required: false
+      description: Filter by dataset status (e.g. uploading, processing, ready).
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Datasets retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GetDatasetsResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getDatasetsProgress:
+  operationId: DatasetController_getDatasetsProgress
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/GetDatasetsProgressDto'
+  responses:
+    '200':
+      description: 'Datasets progress retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GetDatasetsProgressResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+markAsHidden:
+  operationId: DatasetController_markAsHidden
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Dataset marked as hidden successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+saveDatasetConfig:
+  operationId: DatasetController_saveDatasetConfig
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/SaveDatasetConfigDto'
+  responses:
+    '200':
+      description: 'Dataset config saved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getPreprocessingCredits:
+  operationId: DatasetController_getPreprocessingCredits
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: pages_to_process
+      in: query
+      required: false
+      description: >-
+        Maximum number of pages to process. Documents are included until this
+        budget is reached. If omitted, all pages are processed.
+      schema:
+        type: number
+        minimum: 1
+    - name: documents_to_process
+      in: query
+      required: false
+      description: >-
+        Maximum number of documents to process. If omitted, all documents are
+        processed.
+      schema:
+        type: number
+        minimum: 1
+  responses:
+    "200":
+      description: Preprocessing credits estimate retrieved successfully
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/PreprocessingCreditsResponseDto"
+    "400":
+      description: Not a document dataset or invalid state
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ErrorResponse"
+    "401":
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ErrorResponse"
+    "404":
+      description: Dataset not found
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ErrorResponse"
+
+getCreditsCalculation:
+  operationId: DatasetController_getCreditsCalculation
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: samples_to_process
+      in: query
+      required: false
+      description: Custom number of rows to calculate cost for. If omitted, dataset.row_count is used.
+      schema:
+        type: number
+        minimum: 1
+  responses:
+    '200':
+      description: 'Credits calculation retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CreditsCalculationResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+export:
+  operationId: DatasetController_export
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: fileFormat
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - csv
+          - json
+          - jsonl
+          - parquet
+  responses:
+    '200':
+      description: 'Dataset exported successfully'
+      content:
+        text/csv:
+          schema:
+            type: string
+            format: binary
+        application/json:
+          schema:
+            type: string
+            format: binary
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+launchDataset:
+  operationId: DatasetController_launchPipeline
+  summary: Launch the augmentation pipeline for a dataset
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/LaunchPipelineDto'
+  responses:
+    '201':
+      description: 'Pipeline launch accepted'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/LaunchPipelineResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '402':
+      description: 'Insufficient credits'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/InsufficientCreditsInfoDto'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+launchPreprocessing:
+  operationId: DatasetController_launchPreprocessing
+  summary: Launch document preprocessing (extraction via Reducto)
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/LaunchPreprocessingDto'
+  responses:
+    '202':
+      description: 'Document preprocessing launch accepted'
+    '400':
+      description: 'Invalid state for preprocessing launch'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '402':
+      description: 'Insufficient credits'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/InsufficientCreditsInfoDto'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+view:
+  operationId: DatasetController_view
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Dataset view retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ViewResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getDatasetExportLinks:
+  operationId: DatasetController_getDatasetExportLinks
+  summary: Poll saved URLs for successful dataset exports (Hugging Face, Kaggle, Google Sheets)
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Export links for completed publishes
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetExportLinksResponseDto'
+    default:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+uploadToHuggingFace:
+  operationId: DatasetController_uploadToHuggingFace
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: false
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          properties:
+            quality_gain:
+              type: string
+              format: binary
+            grade:
+              type: string
+              format: binary
+            percentile_chart:
+              type: string
+              format: binary
+            banner:
+              type: string
+              format: binary
+              description: >-
+                Optional banner image — placed at the start of the README body
+                (after the YAML front matter).
+            isPrivate:
+              type: boolean
+              description: If true, upload is private. Default false (public).
+              default: false
+  responses:
+    '200':
+      description: 'Dataset uploaded to HuggingFace successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+uploadToKaggle:
+  operationId: DatasetController_uploadToKaggle
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: false
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          properties:
+            quality_gain:
+              type: string
+              format: binary
+            grade:
+              type: string
+              format: binary
+            percentile_chart:
+              type: string
+              format: binary
+            banner:
+              type: string
+              format: binary
+            cover_image:
+              type: string
+              format: binary
+              description: Optional cover image for the Kaggle dataset page.
+            isPrivate:
+              type: boolean
+              description: If true, upload is private. Default false (public).
+              default: false
+  responses:
+    '200':
+      description: 'Dataset uploaded to Kaggle successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+uploadToGoogleSheets:
+  operationId: DatasetController_uploadToGoogleSheets
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            isPrivate:
+              type: boolean
+              description: If true, upload is private. Default false (public).
+              default: false
+  responses:
+    '200':
+      description: 'Dataset uploaded to Google Sheets successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+parseFile:
+  operationId: DatasetController_parseFile
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          required:
+            - file
+          properties:
+            file:
+              type: string
+              format: binary
+  responses:
+    '201':
+      description: 'File parsed successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ParseFileResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+uploadBrandFile:
+  operationId: DatasetController_uploadBrandFile
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          required:
+            - file
+          properties:
+            file:
+              type: string
+              format: binary
+  responses:
+    '201':
+      description: 'Brand file uploaded successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/BrandFileDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getBrandFiles:
+  operationId: DatasetController_getBrandFiles
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Brand files retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GetBrandFilesResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+deleteBrandFile:
+  operationId: DatasetController_deleteBrandFile
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: file_name
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Brand file deleted successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Dataset or file not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+validateCombine:
+  operationId: DatasetController_validateCombine
+  summary: Validate that a set of datasets can be combined
+  description: >-
+    Synchronous compatibility check. No writes. Returns either
+    `{ compatible: true, training_type, total_estimated_rows }` or
+    `{ compatible: false, errors: [...] }`.
+  tags:
+    - Dataset
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CombineValidateDto'
+  responses:
+    '200':
+      description: 'Validation result'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CombineValidateResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+combineDatasets:
+  operationId: DatasetController_combineDatasets
+  summary: Combine multiple datasets into a single new Dataset
+  description: >-
+    Creates a new Dataset row plus DatasetSource lineage rows and dispatches the
+    numi combine job. Synchronous — returns when the combined dataset row is
+    `ready`. Use `Idempotency-Key` for safe retries.
+  tags:
+    - Dataset
+  parameters:
+    - name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Client-generated UUID (one per combine attempt). Duplicate keys return
+        the same dataset_id rather than re-running the combine.
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CombineDatasetsDto'
+  responses:
+    '200':
+      description: 'Dataset combined successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CombineDatasetsResponseDto'
+    '201':
+      description: 'Dataset combined successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CombineDatasetsResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+generateSystemPrompt:
+  operationId: DatasetController_generateSystemPrompt
+  tags:
+    - Dataset
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/GenerateSystemPromptDto'
+  responses:
+    '201':
+      description: ''
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GenerateSystemPromptResponseDto'
+    default:
+      description: ''
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GenerateSystemPromptResponseDto'
+listReadyCharts:
+  operationId: DatasetChartsController_listReadyCharts
+  summary: >-
+    List the caller's ready charts for a dataset (picker). Only charts from the
+    caller's sessions; use GET …/displayed for the shared dataset-info tab (all
+    org members with dataset access).
+  tags:
+    - datasets
+  security:
+    - bearer: []
+  parameters:
+    - name: dataset_id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    '200':
+      description: '{ charts: DatasetChartListItem[] }'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetDisplayedChartsResponseDto'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: Dataset not found
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+listDisplayedCharts:
+  operationId: DatasetChartsController_listDisplayedCharts
+  summary: >-
+    List charts marked for the dataset info tab (ready + show_on_dataset),
+    ordered by show_on_dataset_order. Visible to any member with dataset
+    access.
+  tags:
+    - datasets
+  security:
+    - bearer: []
+  parameters:
+    - name: dataset_id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Displayed charts retrieved
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/DatasetDisplayedChartsResponseDto'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: Dataset not found
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+reorderDisplayedCharts:
+  operationId: DatasetChartsController_reorderDisplayedCharts
+  summary: >-
+    Reorder dataset-info charts. Body chart_ids must be a permutation of all
+    currently displayed charts.
+  tags:
+    - datasets
+  security:
+    - bearer: []
+  parameters:
+    - name: dataset_id
+      required: true
+      in: path
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/ReorderDatasetChartsDto'
+  responses:
+    '200':
+      description: Display order updated
+      content:
+        application/json:
+          schema:
+            type: object
+    '400':
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: Dataset not found
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+markChartDisplayed:
+  operationId: DatasetChartsController_markDisplayed
+  summary: Mark one of the caller's ready charts to appear on the dataset info tab.
+  tags:
+    - datasets
+  security:
+    - bearer: []
+  parameters:
+    - name: dataset_id
+      required: true
+      in: path
+      schema:
+        type: string
+    - name: chart_id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Chart marked as displayed
+      content:
+        application/json:
+          schema:
+            type: object
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: Dataset or chart not found
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+unmarkChartDisplayed:
+  operationId: DatasetChartsController_unmarkDisplayed
+  summary: >-
+    Remove one of the caller's charts from the dataset info tab (chat-only
+    again).
+  tags:
+    - datasets
+  security:
+    - bearer: []
+  parameters:
+    - name: dataset_id
+      required: true
+      in: path
+      schema:
+        type: string
+    - name: chart_id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Chart removed from the dataset info tab
+      content:
+        application/json:
+          schema:
+            type: object
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: Dataset or chart not found
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

@@ -1,0 +1,151 @@
+:root {
+  --gradient-ai-rose: #daa7d2;
+  --gradient-ai-lavender: #a9bad1;
+  --gradient-ai-blue: #4986b4;
+  --gradient-ai-gray: #545454;
+}
+
+/* ===== Gradient background utilities ===== */
+
+@utility bg-gradient-yellow {
+  @apply bg-linear-to-b from-gray-1 via-yellow-1 to-gray-1;
+}
+
+@utility bg-gradient-orange {
+  @apply bg-linear-to-b from-gray-1 via-orange-1 to-gray-1;
+}
+
+@utility bg-gradient-red {
+  @apply bg-linear-to-b from-gray-1 via-red-1 to-gray-1;
+}
+
+@utility bg-gradient-green {
+  @apply bg-linear-to-b from-gray-1 via-green-1 to-gray-1;
+}
+
+@utility bg-gradient-blue {
+  @apply bg-linear-to-b from-gray-1 via-blue-1 to-gray-1;
+}
+
+@utility bg-gradient-rose {
+  @apply bg-linear-to-b from-gray-1 via-rose-1 to-gray-1;
+}
+
+@utility bg-gradient-mint {
+  @apply bg-linear-to-b from-gray-1 via-mint-1 to-gray-1;
+}
+
+@utility bg-gradient-black-blue {
+  @apply bg-linear-to-b from-gray-4 to-blue-6;
+}
+
+/* ===== AI "Save interface" button gradients (ported from production) ===== */
+
+/* Idle border (rose -> lavender -> blue -> blue-1). Used as the background of
+ * the button's padding wrapper so the inner fill reveals it as a thin border. */
+@utility bg-gradient-ai-save-border {
+  background-image: linear-gradient(
+    85deg,
+    var(--gradient-ai-rose),
+    var(--gradient-ai-lavender),
+    var(--gradient-ai-blue),
+    var(--color-blue-1)
+  );
+}
+
+/* Saved border (green-5 -> blue-3 -> green-5 -> blue-3). */
+@utility bg-gradient-ai-saved-border {
+  background-image: linear-gradient(
+    85deg,
+    var(--color-green-5),
+    var(--color-blue-3),
+    var(--color-green-5),
+    var(--color-blue-3)
+  );
+}
+
+/* Hover fill for the Save Interface button (rose -> lavender -> blue -> rose). */
+@utility bg-gradient-ai-save-hover {
+  background-image: linear-gradient(
+    77deg,
+    var(--gradient-ai-rose) 0%,
+    var(--gradient-ai-lavender) 51.92%,
+    var(--gradient-ai-blue) 71.59%,
+    var(--gradient-ai-rose) 100%
+  );
+}
+
+/* Figma "Focus Stroke Gradient" — the 1px AI stroke on the chat composer
+ * (focus) and on suggestion cards. Stops copied from Pharos / Figma. */
+@utility bg-gradient-ai-stroke {
+  background-image: linear-gradient(
+    76.08deg,
+    var(--gradient-ai-rose) 0%,
+    var(--gradient-ai-lavender) 11.54%,
+    var(--gradient-ai-blue) 37.5%,
+    var(--gradient-ai-lavender) 57.69%,
+    var(--gradient-ai-rose) 73.56%,
+    var(--gradient-ai-blue) 90.87%
+  );
+}
+
+/* ===== Generated interface frame borders (ported from production) ===== */
+
+/* Animated frame border (saving + skeleton). Stops loop seamlessly so the
+ * `gradient-text-shimmer` class can sweep the highlight across the border. */
+@utility bg-gradient-ai-frame {
+  background-image: linear-gradient(
+    90deg,
+    var(--gradient-ai-rose),
+    var(--gradient-ai-lavender),
+    var(--gradient-ai-blue),
+    var(--gradient-ai-lavender),
+    var(--gradient-ai-rose)
+  );
+}
+
+/* Saved frame border (green-5 -> blue-3 -> green-5). */
+@utility bg-gradient-ai-saved-frame {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-green-5),
+    var(--color-blue-3),
+    var(--color-green-5)
+  );
+}
+
+/* Masked ring: combined with `p-[Npx]` and a `bg-*` gradient it paints only the
+ * padding band (transparent centre), forming an even N px gradient border that
+ * never shifts layout (it's an absolute overlay). */
+@utility gradient-ring {
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+@utility bg-gradient-blue-pink {
+  background-image: linear-gradient(
+    0deg,
+    #daa7d2 14.9%,
+    #a9bad1 40%,
+    #4986b4 82.69%,
+    #545454 100%
+  );
+}
+
+/* Smooth diagonal iridescent ramp — darker, multi-stop blend (mauve → blue →
+ * dark slate) in the spirit of bg-gradient-blue-pink but multi-directional. */
+@utility bg-gradient-iridescent {
+  background-image: linear-gradient(
+    135deg,
+    #b07ba6 0%,
+    #6b7fae 34%,
+    #4986b4 64%,
+    #3e4a5e 100%
+  );
+}

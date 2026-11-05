@@ -1,0 +1,52 @@
+getAll:
+  operationId: SnippetsController_getAll
+  tags:
+    - Snippets
+  security: []
+  responses:
+    '200':
+      description: All snippet cases keyed by name
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/SnippetsListResponseDto'
+
+getForDataset:
+  operationId: SnippetsController_getForDataset
+  tags:
+    - Snippets
+  security: []
+  parameters:
+    - name: datasetId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Full-journey snippet customized for dataset
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/SnippetCaseDto'
+
+getByName:
+  operationId: SnippetsController_getByName
+  tags:
+    - Snippets
+  security: []
+  parameters:
+    - name: name
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Single snippet case
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/SnippetCaseDto'
+    '404':
+      description: Snippet case not found

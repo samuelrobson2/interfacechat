@@ -1,0 +1,66 @@
+/* ===== Hairline (cross-DPI sub-pixel borders) ===== */
+
+/* Cross-DPI thin border: a 1px border drawn on an oversized ::after pseudo, then
+ * scaled down so it renders as a true sub-pixel line on Retina and a thin
+ * anti-aliased line on standard screens (a real border can't go below 1px on DPR=1).
+ * --hairline-color: border color (use a token). --hairline-radius: the element's own
+ * border-radius. --hairline-opacity: opacity. --hairline-scale: line thickness in px
+ * (0.5 = half-pixel default, 1 = 1px, 2 = 2px) — change it per state without layout shift. */
+@utility hairline {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* Size is the inverse of the scale so the box stays full-size after scaling down */
+    width: calc(100% / var(--hairline-scale, 0.5));
+    height: calc(100% / var(--hairline-scale, 0.5));
+    border: 1px solid var(--hairline-color, var(--color-stroke-secondary));
+    border-radius: calc(var(--hairline-radius, 0px) / var(--hairline-scale, 0.5));
+    opacity: var(--hairline-opacity, 1);
+    transform: scale(var(--hairline-scale, 0.5));
+    transform-origin: top left;
+    pointer-events: none;
+  }
+}
+
+/* Bottom-only variant of `hairline` (underlines). Same variables; --hairline-scale
+ * controls the line thickness in px (0.5 default, 1, 2, …). */
+@utility hairline-b {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--hairline-color, var(--color-stroke-secondary));
+    opacity: var(--hairline-opacity, 1);
+    transform: scaleY(var(--hairline-scale, 0.5));
+    transform-origin: bottom;
+    pointer-events: none;
+  }
+}
+
+/* Top-only variant of `hairline` (e.g. table footer divider). */
+@utility hairline-t {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: var(--hairline-color, var(--color-stroke-secondary));
+    opacity: var(--hairline-opacity, 1);
+    transform: scaleY(var(--hairline-scale, 0.5));
+    transform-origin: top;
+    pointer-events: none;
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "name": "@numi-labs/ui-kit",
+  "version": "0.3.0",
+  "description": "Numi Labs shared UI component library",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Numi-Labs/pharos.git"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "scripts": {
+    "build": "tsup --config tsup.config.ts && node build-styles.mjs",
+    "release": "pnpm build && npm publish"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LLM_FRONTEND_GUIDE.md",
+    "*/COMPONENT.md",
+    "_examples/*.md"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "restricted"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "@radix-ui/react-accordion": "^1.0.0",
+    "@radix-ui/react-avatar": "^1.0.0",
+    "@radix-ui/react-checkbox": "^1.0.0",
+    "@radix-ui/react-collapsible": "^1.0.0",
+    "@radix-ui/react-dialog": "^1.0.0",
+    "@radix-ui/react-dropdown-menu": "^2.0.0",
+    "@radix-ui/react-label": "^2.0.0",
+    "@radix-ui/react-popover": "^1.0.0",
+    "@radix-ui/react-progress": "^1.0.0",
+    "@radix-ui/react-radio-group": "^1.0.0",
+    "@radix-ui/react-scroll-area": "^1.0.0",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-separator": "^1.0.0",
+    "@radix-ui/react-slider": "^1.0.0",
+    "@radix-ui/react-slot": "^1.0.0",
+    "@radix-ui/react-switch": "^1.0.0",
+    "@radix-ui/react-tabs": "^1.0.0",
+    "@radix-ui/react-tooltip": "^1.0.0",
+    "lucide-react": ">=0.400.0",
+    "lottie-react": ">=2.0.0",
+    "cmdk": ">=1.0.0",
+    "embla-carousel-react": ">=8.0.0",
+    "embla-carousel-wheel-gestures": ">=8.0.0",
+    "input-otp": ">=1.0.0",
+    "react-day-picker": ">=9.0.0",
+    "react-dropzone": ">=14.0.0",
+    "recharts": ">=2.0.0",
+    "react-zoom-pan-pinch": ">=3.0.0",
+    "sonner": ">=1.0.0",
+    "date-fns": ">=4.0.0",
+    "next-themes": ">=0.4.0",
+    "@base-ui/react": ">=1.0.0",
+    "react-textarea-autosize": ">=8.0.0"
+  }
+}

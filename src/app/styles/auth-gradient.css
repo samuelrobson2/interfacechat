@@ -1,0 +1,103 @@
+/* ===== Auth animated gradient background ===== */
+
+/* Drives the upward "stretch" of the gradient color stops (0 = compressed at
+   the bottom over the dark base, 1 = full idle gradient) */
+@property --auth-spread {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* Entrance: 0 -> 100% opacity over the first ~20 frames (0.66s) */
+@keyframes auth-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes auth-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Stretch the bottom gradient upwards into the full idle gradient */
+@keyframes auth-spread-up {
+  from {
+    --auth-spread: 0;
+  }
+  to {
+    --auth-spread: 1;
+  }
+}
+
+/* Exit: keep stretching up so the upper colors leave the top and only the
+   pink remains before everything fades to white */
+@keyframes auth-spread-out {
+  from {
+    --auth-spread: 1;
+  }
+  to {
+    --auth-spread: 9;
+  }
+}
+
+.auth-bg__gradient {
+  --auth-spread: 0;
+  opacity: 0;
+  /* Design colors/positions (Figma), oriented dark-on-top, pink/white at the
+     bottom. The `2%` after white is a gradient interpolation hint (CSS color
+     midpoint) pushed toward white so pink dominates and white stays at the very
+     edge — i.e. no visible white band. Stop positions are interpolated by
+     --auth-spread so the colors expand from the bottom up. */
+  background-image: linear-gradient(
+    to top,
+    #fafafa 0%,
+    2%,
+    #d9a3cf calc(3% + 9% * var(--auth-spread)),
+    #9caec4 calc(6% + 21% * var(--auth-spread)),
+    #467aa1 calc(9% + 49% * var(--auth-spread)),
+    #192b37 calc(12% + 80% * var(--auth-spread))
+  );
+  /* Fade in (~0.66s) and stretch start together (no delay), so the gradient is
+     never held static at the bottom; the ease-in-out keeps the stretch subtle
+     while it is still fading in. */
+  animation:
+    auth-fade-in 660ms ease forwards,
+    auth-spread-up 1300ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* Idle: skip the entrance animation and show the final settled gradient
+   immediately (used on pages reached after the entrance already played) */
+.auth-bg[data-phase="idle"] .auth-bg__gradient {
+  animation: none;
+  opacity: 1;
+  --auth-spread: 1;
+}
+
+/* On login the gradient stretches further up (pink takes over) while it
+   lightens to the white page */
+.auth-bg[data-phase="out"] .auth-bg__gradient {
+  animation:
+    auth-spread-out 1300ms cubic-bezier(0.3, 0, 0.2, 1) forwards,
+    auth-fade-out 1300ms cubic-bezier(0.5, 0, 1, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-bg__gradient {
+    animation: none;
+    opacity: 1;
+    --auth-spread: 1;
+  }
+
+  .auth-bg[data-phase="out"] .auth-bg__gradient {
+    opacity: 0;
+    transition: opacity 400ms ease;
+  }
+}

@@ -1,0 +1,77 @@
+/**
+ * Figma Color Palettes
+ * This file contains all color palettes from Figma design system
+ * Import this file in index.css to use these colors throughout the project
+ */
+@theme {
+  /* Gray Palette - Base achromatic colors */
+  --color-gray-0: #ffffff;
+  --color-gray-1: #fafafa;
+  --color-gray-2: #c4c4c4;
+  --color-gray-3: #7a7a7a;
+  --color-gray-4: #373737;
+  --color-gray-5: #1a1718;
+  --color-gray-6: #F3F2F3;
+
+  /* Mint Palette */
+  --color-mint-1: #b6e8e2;
+  --color-mint-2: #7fb5b3;
+  --color-mint-3: #004652;
+
+  /* Rose Palette  */
+  --color-rose-1: #ffe5fa;
+  --color-rose-2: #df91c6;
+  --color-rose-3: #631d4d;
+
+  /* Pink Palette */
+  --color-pink-10: #f7e9f4;
+
+  /* Blue Palette - Numbered from 1 to 6 as per Figma */
+  --color-blue-1: #e7f7ff;
+  --color-blue-2: #c8e9fa;
+  --color-blue-3: #85c9ee;
+  --color-blue-4: #46a5d8;
+  --color-blue-5: #1a84ae;
+  --color-blue-6: #054761;
+
+  /* Accent Colors - Red */
+  --color-red-1: #ffebe4;
+  --color-red-5: #f76666;
+
+  /* Accent Colors - Orange */
+  --color-orange-1: #fff0d5;
+  --color-orange-5: #fc8723;
+
+  /* Accent Colors - Yellow */
+  --color-yellow-1: #ffffbe;
+  --color-yellow-5: #ffdb11;
+
+  /* Accent Colors - Green */
+  --color-green-1: #e9ffeb;
+  --color-green-5: #64b48f;
+
+  /* Category Palettes - light / highlight pairs used by chat folder cards */
+  --color-seafoam-light: #b8e8e1;
+  --color-seafoam-highlight: #e6f5f3;
+
+  --color-pink-light: #fbdcf5;
+  --color-pink-highlight: #f7e9f4;
+
+  --color-indigo-light: #c4c8f2;
+  --color-indigo-highlight: #dce4f3;
+
+  --color-red-light: #f9cdcb;
+  --color-red-highlight: #fde8e7;
+
+  --color-yellow-light: #eddd99;
+  --color-yellow-highlight: #f5efd6;
+
+  --color-chartreuse-light: #d6da84;
+  --color-chartreuse-highlight: #eff3da;
+
+  --color-blue-light: #b4e1fa;
+  --color-blue-highlight: #e6f4fb;
+
+  --color-orange-light: #f8cdb1;
+  --color-orange-highlight: #fbeade;
+}

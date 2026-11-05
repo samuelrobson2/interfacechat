@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "VITE_DEMO_MODE=true vite build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/favicon.ico", "destination": "/app/favicon.ico" },
+    { "source": "/app/assets/:path*", "destination": "/assets/:path*" },
+    {
+      "source": "/app/attention-is-all-you-need.pdf",
+      "destination": "/attention-is-all-you-need.pdf"
+    },
+    {
+      "source": "/api/:action(chat-lab|chat-lab-icon|chat-lab-suggestions|chat-lab-title|interface-fill|visualize)",
+      "destination": "/api/ai/:action"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

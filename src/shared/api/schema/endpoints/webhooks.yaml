@@ -1,0 +1,21 @@
+# Webhooks endpoints - all schemas are imported from shared/schemas.yaml
+
+handleStripeWebhook:
+  operationId: StripeWebhookController_handleWebhook
+  tags:
+    - StripeWebhook
+  parameters:
+    - name: stripe-signature
+      in: header
+      required: true
+      schema:
+        type: string
+  responses:
+    '201':
+      description: 'Webhook handled successfully'
+    '400':
+      description: 'Invalid signature or payload'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

@@ -1,0 +1,17 @@
+/* Animated shimmer for GradientText.
+ * The gradient loops seamlessly, so moving the background position
+ * makes the highlight travel across the text. */
+
+.gradient-text-shimmer {
+  background-size: 200% 100%;
+  animation: orb-name-shimmer 6s linear infinite;
+}
+
+@keyframes orb-name-shimmer {
+  0% {
+    background-position: 0%;
+  }
+  100% {
+    background-position: 200%;
+  }
+}

@@ -1,0 +1,97 @@
+# Billing endpoints - all schemas are imported from shared/schemas.yaml
+
+getPlans:
+  operationId: BillingController_getPlans
+  tags:
+    - Billing
+  responses:
+    '200':
+      description: 'Plans retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/BillingPlansResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getPackages:
+  operationId: BillingController_getPackages
+  tags:
+    - Billing
+  responses:
+    '200':
+      description: 'Packages retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/BillingPackagesResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+start:
+  operationId: BillingController_start
+  tags:
+    - Billing
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/StartCheckoutDto'
+  responses:
+    '201':
+      description: 'Checkout session started successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CheckoutUrlResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+topUp:
+  operationId: BillingController_topUp
+  tags:
+    - Billing
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/TopUpDto'
+  responses:
+    '201':
+      description: 'Top-up initiated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CheckoutUrlResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

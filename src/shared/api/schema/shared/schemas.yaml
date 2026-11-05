@@ -1,0 +1,6107 @@
+# Common schemas used across multiple endpoints
+CheckEmailDto:
+  type: object
+  required:
+    - email
+  properties:
+    email:
+      type: string
+
+CheckEmailResponseDto:
+  type: object
+  required:
+    - isAvailable
+  properties:
+    isAvailable:
+      type: boolean
+
+# Organization schemas
+OrganizationInfoDto:
+  type: object
+  required:
+    - organization_id
+    - credit_balance
+    - credits_in_escrow
+  properties:
+    organization_id:
+      type: string
+    credit_balance:
+      type: number
+    credits_in_escrow:
+      type: number
+
+OrganizationCreditsDto:
+  type: object
+  required:
+    - available
+    - inEscrow
+    - total
+  properties:
+    available:
+      type: number
+      description: Available credits for use
+    inEscrow:
+      type: number
+      description: Credits currently in escrow
+    total:
+      type: number
+      description: Total credits (available + inEscrow)
+
+# Language and Country schemas
+BaseInternalizationEntityDto:
+  type: object
+  required:
+    - id
+    - name
+    - code
+    - createdAt
+  properties:
+    id:
+      type: number
+    name:
+      type: string
+    code:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+
+LanguageResponseDto:
+  allOf:
+    - $ref: "#/BaseInternalizationEntityDto"
+
+LanguagesResponseDto:
+  type: object
+  required:
+    - languages
+  properties:
+    languages:
+      type: array
+      items:
+        $ref: "#/LanguageResponseDto"
+
+CountryResponseDto:
+  allOf:
+    - $ref: "#/BaseInternalizationEntityDto"
+
+CountriesResponseDto:
+  type: object
+  required:
+    - countries
+  properties:
+    countries:
+      type: array
+      items:
+        $ref: "#/CountryResponseDto"
+
+LanguageCountryPairResponseDto:
+  type: object
+  required:
+    - pairKey
+    - countryId
+    - countryCode
+    - countryName
+    - languageId
+    - languageCode
+    - languageName
+    - createdAt
+  properties:
+    pairKey:
+      type: string
+    countryId:
+      type: number
+    countryCode:
+      type: string
+    countryName:
+      type: string
+    languageId:
+      type: number
+    languageCode:
+      type: string
+    languageName:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+
+LanguageCountryPairsResponseDto:
+  type: object
+  required:
+    - languageCountryPairs
+  properties:
+    languageCountryPairs:
+      type: array
+      items:
+        $ref: "#/LanguageCountryPairResponseDto"
+
+DomainResponseDto:
+  allOf:
+    - $ref: "#/BaseInternalizationEntityDto"
+
+DomainsResponseDto:
+  type: object
+  required:
+    - domains
+  properties:
+    domains:
+      type: array
+      items:
+        $ref: "#/DomainResponseDto"
+
+UserBadgeDto:
+  type: object
+  required:
+    - id
+    - badge_id
+    - code
+    - kind
+    - title
+    - unlocked_at
+    - domain
+  properties:
+    id:
+      type: string
+      format: uuid
+    badge_id:
+      type: string
+      format: uuid
+    code:
+      type: string
+    kind:
+      type: string
+      example: FIRST_DATASET_IN_DOMAIN
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    unlocked_at:
+      type: string
+      format: date-time
+    source_dataset_id:
+      type: string
+      nullable: true
+      format: uuid
+    domain:
+      $ref: "#/DomainResponseDto"
+
+UserBadgesResponseDto:
+  type: object
+  required:
+    - badges
+  properties:
+    badges:
+      type: array
+      items:
+        $ref: "#/UserBadgeDto"
+
+UserProfile:
+  type: object
+  properties:
+    user_id:
+      type: string
+    name:
+      type: string
+      nullable: true
+    homepage:
+      type: string
+      nullable: true
+    bio:
+      type: string
+      nullable: true
+    profile_photo:
+      type: string
+      nullable: true
+    linkedin_username:
+      type: string
+      nullable: true
+    github_username:
+      type: string
+      nullable: true
+    x_username:
+      type: string
+      nullable: true
+      example: johndoe
+    languages:
+      type: array
+      items:
+        $ref: "#/LanguageResponseDto"
+      nullable: true
+    countries:
+      type: array
+      items:
+        $ref: "#/CountryResponseDto"
+      nullable: true
+    domains:
+      type: array
+      items:
+        $ref: "#/DomainResponseDto"
+      nullable: true
+
+UserResponse:
+  type: object
+  required:
+    - user_id
+    - email
+    - phone_number
+    - full_name
+    - email_verified
+    - created_at
+    - organizations
+    - profile
+    - plan_id
+  properties:
+    user_id:
+      type: string
+    email:
+      type: string
+      nullable: true
+    phone_number:
+      type: string
+      nullable: true
+    full_name:
+      type: string
+      nullable: true
+    email_verified:
+      type: boolean
+    created_at:
+      type: string
+      format: date-time
+    organizations:
+      description: Organizations the user belongs to (with credit info)
+      type: array
+      items:
+        $ref: "#/OrganizationInfoDto"
+    profile:
+      nullable: true
+      example:
+        user_id: 550e8400-e29b-41d4-a716-446655440000
+        name: John Doe
+        homepage: https://example.com
+        bio: Software engineer passionate about AI and machine learning
+        profile_photo: https://example.com/profile.jpg
+        linkedin_username: johndoe
+        github_username: johndoe
+        x_username: johndoe
+        languages:
+          - id: 1
+            name: English
+            code: en
+            createdAt: "2026-01-15T15:12:50.456Z"
+        countries:
+          - id: 1
+            name: United States
+            code: US
+            createdAt: "2026-01-15T15:12:50.456Z"
+        domains:
+          - id: 0
+            name: string
+            code: string
+            createdAt: "2026-02-18T17:53:11.256Z"
+      allOf:
+        - $ref: "#/UserProfile"
+    plan_id:
+      type: string
+      example: free
+      description: Plan id (FK to Plan)
+      nullable: true
+
+RegisterDto:
+  type: object
+  required:
+    - email
+    - password
+  properties:
+    email:
+      type: string
+    password:
+      type: string
+
+RegisterResponseDto:
+  type: object
+  required:
+    - user_id
+    - message
+  properties:
+    user_id:
+      type: string
+    message:
+      type: string
+
+LoginDto:
+  type: object
+  required:
+    - email
+    - password
+  properties:
+    email:
+      type: string
+    password:
+      type: string
+
+LoginResponseDto:
+  type: object
+  required:
+    - access_token
+    - user
+  properties:
+    access_token:
+      type: string
+    user:
+      $ref: "#/UserResponse"
+
+# New schemas from updated API
+MessageResponseDto:
+  type: object
+  required:
+    - message
+  properties:
+    message:
+      type: string
+
+UserLoginResponeDto:
+  type: object
+  required:
+    - access_token
+    - user
+  properties:
+    access_token:
+      type: string
+    user:
+      $ref: "#/UserResponse"
+
+UserResponseDto:
+  type: object
+  required:
+    - user
+  properties:
+    user:
+      $ref: "#/UserResponse"
+
+# Profile update schemas
+UpdateProfileDto:
+  type: object
+  properties:
+    name:
+      type: string
+      nullable: true
+    homepage:
+      type: string
+      nullable: true
+    bio:
+      type: string
+      nullable: true
+    linkedin_username:
+      type: string
+      nullable: true
+    github_username:
+      type: string
+      nullable: true
+    x_username:
+      type: string
+      nullable: true
+    languages:
+      example:
+        - 1
+        - 2
+      type: array
+      nullable: true
+      items:
+        type: number
+    countries:
+      example:
+        - 1
+        - 2
+      type: array
+      nullable: true
+      items:
+        type: number
+    domains:
+      example:
+        - 1
+        - 2
+      type: array
+      nullable: true
+      items:
+        type: number
+
+UpdateProfileResponseDto:
+  type: object
+  required:
+    - name
+    - homepage
+    - bio
+    - linkedin_username
+    - github_username
+    - x_username
+    - languages
+    - countries
+    - domains
+  properties:
+    name:
+      type: string
+      nullable: true
+    homepage:
+      type: string
+      nullable: true
+    bio:
+      type: string
+      nullable: true
+    linkedin_username:
+      type: string
+      nullable: true
+    github_username:
+      type: string
+      nullable: true
+    x_username:
+      type: string
+      nullable: true
+    languages:
+      type: array
+      items:
+        $ref: "#/LanguageResponseDto"
+    countries:
+      type: array
+      items:
+        $ref: "#/CountryResponseDto"
+    domains:
+      type: array
+      items:
+        $ref: "#/DomainResponseDto"
+
+RefreshResponseDto:
+  type: object
+  required:
+    - access_token
+  properties:
+    access_token:
+      type: string
+
+VerifyResponseDto:
+  type: object
+  required:
+    - message
+  properties:
+    message:
+      type: string
+
+LogoutResponseDto:
+  type: object
+  required:
+    - message
+  properties:
+    message:
+      type: string
+
+UpdateUserApiKeysDto:
+  type: object
+  required:
+    - token
+    - provider
+  properties:
+    token:
+      type: string
+    provider:
+      type: string
+
+StoreProviderKeyDto:
+  type: object
+  required:
+    - provider
+    - api_key
+  properties:
+    provider:
+      type: string
+      enum:
+        - together_ai
+      description: Third-party inference provider
+    api_key:
+      type: string
+      minLength: 8
+      description: Plaintext API key; encrypted server-side before storage
+
+ProviderKeySummaryDto:
+  type: object
+  required:
+    - provider
+    - key_hint
+    - created_at
+    - updated_at
+  properties:
+    provider:
+      type: string
+    key_hint:
+      type: string
+      description: Last characters of the key for display (e.g. ...abcd)
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+ProviderKeyListDto:
+  type: object
+  required:
+    - keys
+  properties:
+    keys:
+      type: array
+      items:
+        $ref: "#/ProviderKeySummaryDto"
+
+ValidateProviderKeyDto:
+  type: object
+  description: >-
+    Optional plaintext key to validate (unsaved). Omit or send empty object to
+    validate the stored key for this provider.
+  properties:
+    api_key:
+      type: string
+      description: When set, validates this value without persisting it
+
+ValidateProviderKeyResponseDto:
+  type: object
+  required:
+    - valid
+  properties:
+    valid:
+      type: boolean
+
+GetUserSettingsResponseDto:
+  type: object
+  required:
+    - apiKeys
+  properties:
+    apiKeys:
+      type: array
+      items:
+        $ref: "#/ApiKeyExists"
+
+ApiKeyExists:
+  type: object
+  required:
+    - provider
+    - exists
+  properties:
+    provider:
+      type: string
+      enum:
+        - huggingface
+        - kaggle_oauth
+        - google_sheets
+    exists:
+      type: boolean
+
+CreateApiKeyDto:
+  type: object
+  required:
+    - name
+    - organizationId
+  properties:
+    name:
+      type: string
+      maxLength: 100
+      example: My production key
+    organizationId:
+      type: string
+      format: uuid
+      example: org-uuid-here
+
+CreateApiKeyResponseDto:
+  type: object
+  required:
+    - id
+    - keyPrefix
+    - name
+    - organizationId
+    - createdAt
+    - lastUsedAt
+    - expiresAt
+    - revokedAt
+    - rawKey
+  properties:
+    id:
+      type: string
+    keyPrefix:
+      type: string
+      example: pt_live_a1b2c3d4
+    name:
+      type: string
+    organizationId:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+    lastUsedAt:
+      type: string
+      format: date-time
+      nullable: true
+    expiresAt:
+      type: string
+      format: date-time
+      nullable: true
+    revokedAt:
+      type: string
+      format: date-time
+      nullable: true
+    rawKey:
+      type: string
+      description: Raw key shown once only
+      example: pt_live_a1b2c3d4...
+
+ApiKeyResponseDto:
+  type: object
+  required:
+    - id
+    - keyPrefix
+    - name
+    - organizationId
+    - createdAt
+    - lastUsedAt
+    - expiresAt
+    - revokedAt
+  properties:
+    id:
+      type: string
+    keyPrefix:
+      type: string
+      example: pt_live_a1b2c3d4
+    name:
+      type: string
+    organizationId:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+    lastUsedAt:
+      type: string
+      format: date-time
+      nullable: true
+    expiresAt:
+      type: string
+      format: date-time
+      nullable: true
+    revokedAt:
+      type: string
+      format: date-time
+      nullable: true
+
+# Phone authentication schemas
+LoginPhoneDto:
+  type: object
+  required:
+    - phone
+  properties:
+    phone:
+      type: string
+
+LoginPhoneVerifyDto:
+  type: object
+  required:
+    - phone
+    - otp
+  properties:
+    phone:
+      type: string
+    otp:
+      type: string
+
+# Password reset schemas
+PasswordResetRequestDto:
+  type: object
+  required:
+    - email
+  properties:
+    email:
+      type: string
+
+CheckCurrentPasswordDto:
+  type: object
+  required:
+    - currentPassword
+  properties:
+    currentPassword:
+      type: string
+
+PasswordResetTokenResponseDto:
+  type: object
+  required:
+    - token
+  properties:
+    token:
+      type: string
+
+PasswordResetDto:
+  type: object
+  required:
+    - password
+  properties:
+    password:
+      type: string
+
+PasswordResetWithTokenDto:
+  type: object
+  required:
+    - password
+    - token
+  properties:
+    password:
+      type: string
+    token:
+      type: string
+
+VerifyOtpResponseDto:
+  type: object
+  required:
+    - user
+    - access_token
+  properties:
+    user:
+      $ref: "#/UserResponse"
+    access_token:
+      type: string
+
+# Error schema
+ErrorResponse:
+  type: object
+  required:
+    - statusCode
+    - message
+  properties:
+    statusCode:
+      type: integer
+      description: HTTP status code
+    message:
+      type: string
+      description: Display message from Error base class (used for user-facing error display)
+    responseMessage:
+      type: string
+      description: Original message from server (converted from array to string if needed)
+    error:
+      type: string
+      description: Error type or additional error information
+    code:
+      type: string
+      description: Error code for specific error types (e.g. BETA_ACCESS_REQUIRED)
+
+# Dataset schemas
+FileFormatEnum:
+  type: string
+  enum:
+    - csv
+    - json
+    - jsonl
+    - parquet
+    - pdf
+    - docx
+    - pptx
+    - xlsx
+    - html
+    - zip
+    - txt
+
+InitiateDto:
+  type: object
+  required:
+    - name
+    - file_format
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: Human-readable name for the dataset
+    file_format:
+      description: >
+        Declared upload format. Document/tabular formats may also be inferred
+        from the file extension on the server.
+      allOf:
+        - $ref: "#/FileFormatEnum"
+
+InitiateResponseDto:
+  type: object
+  required:
+    - upload_url
+  properties:
+    upload_url:
+      type: string
+
+CompleteUploadDto:
+  type: object
+  required:
+    - s3_key
+    - name
+    - file_format
+    - file_size_bytes
+  properties:
+    s3_key:
+      type: string
+      description: S3 object key from the presigned upload URL
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+    file_format:
+      description: >
+        Declared format of the uploaded bytes; server may align with extension.
+      allOf:
+        - $ref: "#/FileFormatEnum"
+    file_size_bytes:
+      type: number
+      minimum: 0
+      maximum: 2147483648
+
+InitiateBatchFileDto:
+  type: object
+  required:
+    - file_name
+    - file_format
+    - file_size_bytes
+  properties:
+    file_name:
+      type: string
+      minLength: 1
+      maxLength: 512
+      description: Original file name
+    file_format:
+      allOf:
+        - $ref: "#/FileFormatEnum"
+    file_size_bytes:
+      type: number
+      minimum: 1
+      maximum: 104857600
+
+InitiateBatchDto:
+  type: object
+  required:
+    - name
+    - files
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+    files:
+      type: array
+      minItems: 1
+      maxItems: 1000
+      items:
+        $ref: "#/InitiateBatchFileDto"
+
+InitiateBatchUploadDto:
+  type: object
+  required:
+    - file_name
+    - upload_url
+    - s3_key
+  properties:
+    file_name:
+      type: string
+    upload_url:
+      type: string
+      description: Presigned S3 PUT URL
+    s3_key:
+      type: string
+
+InitiateBatchResponseDto:
+  type: object
+  required:
+    - dataset_id
+    - uploads
+  properties:
+    dataset_id:
+      type: string
+    uploads:
+      type: array
+      items:
+        $ref: "#/InitiateBatchUploadDto"
+
+CompleteBatchFileDto:
+  type: object
+  required:
+    - s3_key
+    - file_name
+    - file_format
+    - file_size_bytes
+  properties:
+    s3_key:
+      type: string
+    file_name:
+      type: string
+      minLength: 1
+      maxLength: 512
+    file_format:
+      allOf:
+        - $ref: "#/FileFormatEnum"
+    file_size_bytes:
+      type: number
+      minimum: 1
+      maximum: 104857600
+
+CompleteBatchDto:
+  type: object
+  required:
+    - dataset_id
+    - files
+  properties:
+    dataset_id:
+      type: string
+      format: uuid
+    files:
+      type: array
+      minItems: 1
+      maxItems: 1000
+      items:
+        $ref: "#/CompleteBatchFileDto"
+
+CompleteBatchResponseDto:
+  type: object
+  required:
+    - dataset_id
+    - status
+  properties:
+    dataset_id:
+      type: string
+    status:
+      type: string
+      description: Current dataset status after batch completion
+
+CompleteUploadResponseDto:
+  type: object
+  required:
+    - dataset_id
+  properties:
+    dataset_id:
+      type: string
+
+initiateProviderDownloadDto:
+  type: object
+  required:
+    - url
+    - files
+  properties:
+    url:
+      type: string
+    files:
+      type: array
+      items:
+        type: string
+
+# Legacy alias for backward compatibility
+initiateHuggingfaceDownloadDto:
+  type: object
+  required:
+    - url
+    - files
+  properties:
+    url:
+      type: string
+    files:
+      type: array
+      items:
+        type: string
+
+MessageResponse:
+  type: object
+  required:
+    - message
+  properties:
+    message:
+      type: string
+
+PublicDatasetProgressDto:
+  type: object
+  required:
+    - percent
+    - processed_rows
+    - total_rows
+  properties:
+    percent:
+      type: integer
+      nullable: true
+      description: Progress percentage (0-100)
+    processed_rows:
+      type: integer
+      nullable: true
+    total_rows:
+      type: integer
+      nullable: true
+
+PublicDatasetErrorDto:
+  type: object
+  required:
+    - message
+  properties:
+    message:
+      type: string
+      description: Error message when status is failed
+
+DatasetPublicErrorDataDto:
+  type: object
+  required:
+    - message
+    - code
+    - level
+  properties:
+    message:
+      type: string
+      nullable: true
+      description: User-visible error message
+    code:
+      type: string
+      nullable: true
+      description: Stable backend error code when available
+    level:
+      type: string
+      nullable: true
+      enum:
+        - error
+        - warning
+      description: Error severity when available
+
+PublicDatasetStatusResponseDto:
+  type: object
+  required:
+    - dataset_id
+    - status
+    - dataset_type
+    - row_count
+    - progress
+    - error_data
+    - error
+  properties:
+    dataset_id:
+      type: string
+      description: Dataset ID
+    dataset_type:
+      type: string
+      enum:
+        - tabular
+        - document
+      description: Dataset modality
+    status:
+      type: string
+      enum:
+        - pending
+        - running
+        - succeeded
+        - failed
+      description: Public lifecycle status for polling
+    row_count:
+      type: integer
+      nullable: true
+      description: Number of rows in the dataset
+    progress:
+      nullable: true
+      description: Processing progress; null when no run is active
+      allOf:
+        - $ref: "#/PublicDatasetProgressDto"
+    error_data:
+      nullable: true
+      description: Structured error payload when failed; null otherwise
+      allOf:
+        - $ref: "#/DatasetPublicErrorDataDto"
+    error:
+      nullable: true
+      description: Legacy alias for error payload when failed; null otherwise
+      allOf:
+        - $ref: "#/PublicDatasetErrorDto"
+
+Field:
+  type: object
+  required:
+    - id
+    - form_id
+    - key
+    - title
+    - input_type
+  properties:
+    id:
+      type: number
+    form_id:
+      type: number
+    key:
+      type: string
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    input_type:
+      type: string
+    order:
+      type: number
+      nullable: true
+    rate:
+      type: number
+      nullable: true
+    relation:
+      type: string
+      nullable: true
+      description: >
+        On a trigger field: `key` of the follow-up field that must be skipped when
+        the user selects the "no" option on this field. When the answer is not "no",
+        the follow-up is included in the questionnaire flow.
+    relation_type:
+      type: string
+      nullable: true
+      description: Optional qualifier for relation semantics (reserved / backend-specific).
+    options:
+      type: array
+      items:
+        type: object
+        required:
+          - id
+          - field_id
+          - key
+          - value
+          - title
+        properties:
+          id:
+            type: number
+          field_id:
+            type: number
+          key:
+            type: string
+          value:
+            type: string
+          title:
+            type: string
+          description:
+            type: string
+            nullable: true
+          info:
+            type: string
+            nullable: true
+            description: Optional short note shown under the option (e.g. preprocessing hints).
+          required_plans:
+            type: array
+            nullable: true
+            items:
+              type: object
+              required:
+                - plan_id
+                - plan_name
+              properties:
+                plan_id:
+                  type: string
+                plan_name:
+                  type: string
+    editable:
+      type: boolean
+      nullable: true
+    required_plans:
+      type: array
+      nullable: true
+      items:
+        type: object
+        required:
+          - plan_id
+          - plan_name
+        properties:
+          plan_id:
+            type: string
+          plan_name:
+            type: string
+    has_access:
+      type: boolean
+      nullable: true
+    enabled:
+      type: boolean
+      nullable: true
+    response_values:
+      type: array
+      items:
+        type: object
+        required:
+          - id
+          - field_id
+          - value
+          - dataset_id
+        properties:
+          id:
+            type: integer
+          field_id:
+            type: integer
+          value:
+            type: string
+          dataset_id:
+            type: string
+            format: uuid
+
+Step:
+  type: object
+  required:
+    - id
+    - key
+    - step_name
+    - title
+    - description
+    - order
+    - created_at
+    - completed
+    - fields
+  properties:
+    id:
+      type: number
+    key:
+      type: string
+    step_name:
+      type: string
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    order:
+      type: number
+    created_at:
+      type: string
+      format: date-time
+    completed:
+      type: boolean
+    fields:
+      type: object
+      additionalProperties:
+        $ref: "#/Field"
+
+DatasetStepsResponseDto:
+  type: object
+  required:
+    - steps
+  properties:
+    steps:
+      type: array
+      items:
+        $ref: "#/Step"
+
+DatasetStepResponseDto:
+  type: object
+  required:
+    - step
+  properties:
+    step:
+      $ref: "#/Step"
+
+DatasetBrandControlDto:
+  type: object
+  properties:
+    system_prompt:
+      type: string
+      nullable: true
+      description: Blueprint / brand system prompt (runtime shape on dataset detail).
+
+DatasetBaseNumiConfigDto:
+  type: object
+  properties:
+    brandControl:
+      nullable: true
+      allOf:
+        - $ref: "#/DatasetBrandControlDto"
+
+DatasetDto:
+  type: object
+  required:
+    - dataset_id
+    - name
+    - organization_id
+    - row_count
+    - samples_to_process
+    - status
+    - error_data
+    - error_message
+    - created_at
+    - updated_at
+    - columns
+    - samples
+    - metadata
+    - run_id
+    - job_id
+    - column_samples
+    - evaluation_grade_before
+    - evaluation_grade_after
+    - evaluation_run_id
+    - evaluation_job_id
+    - evaluation_status
+    - evaluation_output_path
+    - evaluation_results
+    - upload_job_id
+    - source
+    - source_link
+    - huggingface_export_link
+    - kaggle_export_link
+    - total_chunks
+    - completed_chunks
+    - failed_chunks
+    - chunking_status
+    - dataset_type
+    - kind
+    - sources
+  properties:
+    dataset_id:
+      type: string
+    name:
+      type: string
+      example: dataset name
+    organization_id:
+      type: string
+    row_count:
+      type: number
+      nullable: true
+    samples_to_process:
+      type: number
+      nullable: true
+      description: "Custom limit for pipeline: number of rows to process"
+    dataset_type:
+      type: string
+      enum:
+        - tabular
+        - document
+      description: Dataset modality (tabular rows vs document extraction)
+    kind:
+      $ref: "#/DatasetKind"
+    sources:
+      type: array
+      nullable: true
+      description: >-
+        Lineage for combined datasets — present when `kind === 'combined'`.
+        Ordered by `order_index`. A `dataset_id` of `null` indicates the source
+        dataset has been deleted.
+      items:
+        $ref: "#/DatasetSourceDto"
+    preprocessing_mode:
+      type: string
+      nullable: true
+      enum:
+        - per_document
+        - per_page
+      description: >-
+        Document datasets only — how preprocessing credits and assembly are
+        scoped (per file vs per page).
+    status:
+      type: string
+      enum:
+        - uploading
+        - awaiting_preprocessing
+        - extracting_documents
+        - processing
+        - awaiting_column_selection
+        - preprocessing_completed
+        - processing_metadata
+        - ready
+        - failed
+        - preprocessing_failed
+        - launching
+        - configuring
+    error_data:
+      nullable: true
+      description: Structured error payload when failed; null otherwise
+      allOf:
+        - $ref: "#/DatasetPublicErrorDataDto"
+    error_message:
+      type: string
+      description: Error message if dataset processing failed
+      nullable: true
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+    columns:
+      type: array
+      items:
+        type: string
+      nullable: true
+    samples:
+      type: object
+      nullable: true
+    metadata:
+      type: object
+      nullable: true
+    run_id:
+      type: string
+      nullable: true
+    job_id:
+      type: object
+      nullable: true
+    column_samples:
+      type: object
+      nullable: true
+      additionalProperties:
+        type: array
+        items:
+          type: string
+    evaluation_run_id:
+      type: string
+      nullable: true
+      description: run_name for SQS-based job discovery
+    evaluation_job_id:
+      type: string
+      nullable: true
+    evaluation_status:
+      type: string
+      nullable: true
+    evaluation_output_path:
+      type: string
+      nullable: true
+    evaluation_results:
+      type: object
+      nullable: true
+      properties:
+        gains:
+          type: object
+          properties:
+            overall_percentage_gain:
+              type: number
+            message_quality_absolute_gain:
+              type: number
+            message_quality_percentage_gain:
+              type: number
+            completion_quality_absolute_gain:
+              type: number
+            completion_quality_percentage_gain:
+              type: number
+        columns:
+          type: object
+          properties:
+            enhanced_prompt:
+              type: string
+            original_prompt:
+              type: string
+            enhanced_completion:
+              type: string
+            original_completion:
+              type: string
+        metrics:
+          type: object
+          properties:
+            timings:
+              type: object
+              properties:
+                data_loading:
+                  type: number
+                enhanced_quality:
+                  type: number
+                original_quality:
+                  type: number
+            timestamp:
+              type: string
+            row_counts:
+              type: object
+              properties:
+                input:
+                  type: number
+            config_source:
+              type: string
+            reference_lance_path:
+              type: string
+            quality_percentile_after:
+              type: object
+              properties:
+                quality_grade:
+                  type: string
+                quality_score:
+                  type: number
+                percentile_score:
+                  type: number
+                message_quality_percentile:
+                  type: number
+                dataset_avg_message_quality:
+                  type: number
+                completion_quality_percentile:
+                  type: number
+                dataset_avg_completion_quality:
+                  type: number
+                reference_mean_message_quality:
+                  type: number
+                reference_mean_completion_quality:
+                  type: number
+            quality_percentile_before:
+              type: object
+              properties:
+                quality_grade:
+                  type: string
+                quality_score:
+                  type: number
+                percentile_score:
+                  type: number
+                message_quality_percentile:
+                  type: number
+                dataset_avg_message_quality:
+                  type: number
+                completion_quality_percentile:
+                  type: number
+                dataset_avg_completion_quality:
+                  type: number
+                reference_mean_message_quality:
+                  type: number
+                reference_mean_completion_quality:
+                  type: number
+        summary:
+          type: object
+          properties:
+            message_quality:
+              type: object
+              properties:
+                after:
+                  type: number
+                before:
+                  type: number
+                gains_percentage:
+                  type: number
+                percentile_after:
+                  type: number
+                percentile_before:
+                  type: number
+            completion_quality:
+              type: object
+              properties:
+                after:
+                  type: number
+                before:
+                  type: number
+                gains_percentage:
+                  type: number
+                percentile_after:
+                  type: number
+                percentile_before:
+                  type: number
+        input_path:
+          type: string
+        quality_after:
+          type: object
+          properties:
+            max_message_quality:
+              type: number
+            min_message_quality:
+              type: number
+            std_message_quality:
+              type: number
+            max_completion_quality:
+              type: number
+            median_message_quality:
+              type: number
+            min_completion_quality:
+              type: number
+            std_completion_quality:
+              type: number
+            average_message_quality:
+              type: number
+            median_completion_quality:
+              type: number
+            average_completion_quality:
+              type: number
+        quality_before:
+          type: object
+          properties:
+            max_message_quality:
+              type: number
+            min_message_quality:
+              type: number
+            std_message_quality:
+              type: number
+            max_completion_quality:
+              type: number
+            median_message_quality:
+              type: number
+            min_completion_quality:
+              type: number
+            std_completion_quality:
+              type: number
+            average_message_quality:
+              type: number
+            median_completion_quality:
+              type: number
+            average_completion_quality:
+              type: number
+    evaluation_grade_before:
+      type: string
+      nullable: true
+      description: Letter grade (A-E) from preprocessing scores
+    evaluation_grade_after:
+      type: string
+      nullable: true
+      description: Letter grade (A-E) from evaluation results
+    upload_job_id:
+      type: string
+      nullable: true
+    source:
+      type: string
+      nullable: true
+    source_link:
+      type: string
+      nullable: true
+    huggingface_export_link:
+      type: string
+      nullable: true
+      description: URL on Hugging Face after dataset export is published; null until the backend sets it.
+    kaggle_export_link:
+      type: string
+      nullable: true
+      description: URL on Kaggle after dataset export is published; null until the backend sets it.
+    total_chunks:
+      type: number
+      nullable: true
+      description: Total number of chunks for chunked processing
+    completed_chunks:
+      type: number
+      nullable: true
+      description: Number of completed chunks
+    failed_chunks:
+      type: number
+      nullable: true
+      description: Number of failed chunks
+    chunking_status:
+      type: string
+      nullable: true
+      description: "Chunking status: pending, chunking, chunked, processing, completed, failed"
+    finetune_eligibility:
+      type: object
+      nullable: true
+      description: >-
+        Pre-computed fine-tune eligibility for this dataset. Null when readiness
+        has not been computed yet.
+      properties:
+        eligible:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+        actions_visible:
+          type: boolean
+          description: >-
+            When false, hide finetune CTAs on the dashboard (e.g. image context
+            restrictions).
+    latest_finetune:
+      type: object
+      nullable: true
+      properties:
+        finetune_job_id:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - preparing
+            - augmenting
+            - uploading
+            - running
+            - evaluating
+            - succeeded
+            - failed
+            - eval_failed
+            - cancelled
+        progress_percentage:
+          type: number
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+          description: "Reason a finetune job failed. Pass-through from the provider or internal pipeline. Null unless status === 'failed'."
+        training_experiment_id:
+          type: string
+    finetunes:
+      type: array
+      description: >-
+        Completed fine-tune runs for this dataset, newest first — drives the
+        trained-model dropdown on the dataset detail page. One entry per finished
+        run attempt. Empty when the dataset has no completed runs. Detail
+        endpoint only; not populated on the list endpoint.
+      items:
+        $ref: "#/DatasetFinetuneSummaryDto"
+    system_prompt:
+      type: string
+      nullable: true
+      description: >-
+        Blueprint system prompt from brand controls (brand_custom_settings).
+        Null if not configured.
+    base_numi_config:
+      nullable: true
+      description: >-
+        Saved pipeline / brand configuration blob. FE reads
+        brandControl.system_prompt for the dashboard blueprint display.
+      allOf:
+        - $ref: "#/DatasetBaseNumiConfigDto"
+    organization:
+      $ref: "#/Organization"
+
+DatasetExportLinksResponseDto:
+  type: object
+  properties:
+    huggingface:
+      type: string
+      nullable: true
+      description: URL of the dataset on Hugging Face, if a successful export exists
+    kaggle:
+      type: string
+      nullable: true
+      description: URL of the dataset on Kaggle, if a successful export exists
+    google_sheets:
+      type: string
+      nullable: true
+      description: URL of the Google Spreadsheet, if a successful export exists
+
+DatasetKind:
+  type: string
+  description: >-
+    Discriminator for how a dataset was produced. Derived in the service layer
+    from the presence of `DatasetSource` rows — `combined` iff one or more
+    sources exist, otherwise `uploaded`.
+  enum:
+    - uploaded
+    - combined
+
+DatasetFinetuneSummaryDto:
+  type: object
+  required:
+    - job_id
+  properties:
+    name:
+      type: string
+      nullable: true
+      description: >-
+        Trained model output label (e.g. adaption_my_dataset). Display name in
+        the trained-model dropdown.
+    job_id:
+      type: string
+      format: uuid
+      description: >-
+        Fine-tune job id for job-scoped endpoints (metrics, download, config).
+
+DatasetSourceDto:
+  type: object
+  required:
+    - dataset_id
+    - name
+    - order_index
+  properties:
+    dataset_id:
+      type: string
+      nullable: true
+      description: ID of the source dataset; null if the source has been deleted.
+    name:
+      type: string
+      nullable: true
+      description: >-
+        Display name of the source dataset at combine time. Null if the source
+        has been deleted and no snapshot was retained.
+    order_index:
+      type: number
+      description: Position in the original combine selection (0-indexed).
+
+CombineTrainingType:
+  type: string
+  description: >-
+    Training dataset type shared by all sources in a successful combine.
+    Mirrors the backend's `CombineTrainingType` discriminator.
+  enum:
+    - instruction_dataset
+    - preference_pairs
+
+CombineValidationError:
+  type: object
+  required:
+    - code
+    - message
+  description: >-
+    Structured validation failure returned by `POST /datasets/combine/validate`.
+    `message` is the preformed user-facing string (names / limits / columns
+    already interpolated); render it directly. `code` is for telemetry and
+    discrimination only. The backend additionally returns per-code structured
+    context fields (e.g. `count`, `limit`, `status`, `types`, `columns`) and a
+    `level` field; those are intentionally not modelled here because the
+    frontend does not consume them.
+  properties:
+    code:
+      type: string
+      enum:
+        - too_few_sources
+        - too_many_sources
+        - duplicate_source_ids
+        - dataset_not_found
+        - wrong_organization
+        - dataset_not_ready
+        - missing_run_id
+        - training_type_mismatch
+        - missing_generations_with_rank
+        - mixed_user_visible_columns
+        - incompatible_column_types
+    message:
+      type: string
+      description: User-facing display message produced by the backend.
+    dataset_id:
+      type: string
+      description: >-
+        Source dataset ID the error targets, when applicable (e.g.
+        `dataset_not_found`, `dataset_not_ready`, `missing_run_id`,
+        `missing_generations_with_rank`, `wrong_organization`).
+
+CombineValidateDto:
+  type: object
+  required:
+    - dataset_ids
+  properties:
+    dataset_ids:
+      type: array
+      items:
+        type: string
+      description: IDs of source datasets to validate for combination.
+
+ValidateCombineSuccessDto:
+  type: object
+  required:
+    - compatible
+    - training_type
+    - total_estimated_rows
+  description: Successful validation. Sources are compatible to combine.
+  properties:
+    compatible:
+      type: boolean
+      enum: [true]
+    training_type:
+      allOf:
+        - $ref: "#/CombineTrainingType"
+      description: Training type shared by every source; inherited by the merged Dataset.
+    total_estimated_rows:
+      type: number
+      description: Sum of processed_rows across all sources.
+
+ValidateCombineFailureDto:
+  type: object
+  required:
+    - compatible
+    - errors
+  description: >-
+    Failed validation. Render each `error.message` directly; the array is
+    guaranteed non-empty when `compatible === false`.
+  properties:
+    compatible:
+      type: boolean
+      enum: [false]
+    errors:
+      type: array
+      items:
+        $ref: "#/CombineValidationError"
+
+CombineValidateResponseDto:
+  oneOf:
+    - $ref: "#/ValidateCombineSuccessDto"
+    - $ref: "#/ValidateCombineFailureDto"
+  description: >-
+    Discriminated by `compatible`. On `true`, `training_type` and
+    `total_estimated_rows` are present. On `false`, `errors` lists the
+    structured failures.
+
+CombineDatasetsDto:
+  type: object
+  required:
+    - dataset_ids
+    - name
+  properties:
+    dataset_ids:
+      type: array
+      items:
+        type: string
+      description: IDs of source datasets to combine, ordered by selection.
+    name:
+      type: string
+      description: User-supplied name for the combined dataset.
+
+CombineDatasetsResponseDto:
+  type: object
+  required:
+    - dataset_id
+  properties:
+    dataset_id:
+      type: string
+      description: ID of the newly created combined Dataset row.
+
+FormResponseDto:
+  type: object
+  required:
+    - id
+    - field_id
+    - value
+    - dataset_id
+  properties:
+    id:
+      type: integer
+    field_id:
+      type: integer
+    value:
+      oneOf:
+        - type: string
+        - type: boolean
+        - type: number
+    dataset_id:
+      type: string
+      format: uuid
+
+DatasetMetadataDto:
+  type: object
+  nullable: true
+  properties:
+    tone:
+      type: array
+      items:
+        type: string
+    domain:
+      type: array
+      items:
+        type: string
+    language:
+      type: array
+      items:
+        type: string
+    raw_tone:
+      type: array
+      items:
+        type: string
+    raw_domain:
+      type: array
+      items:
+        type: string
+    raw_language:
+      type: array
+      items:
+        type: string
+    dataset_name:
+      type: string
+    dataset_grade:
+      type: string
+    quality_score:
+      type: number
+    dataset_quality:
+      type: string
+    percentile_score:
+      type: number
+    dataset_top_domain:
+      type: string
+    dataset_description:
+      type: string
+    average_prompt_length:
+      type: number
+    dataset_top_percentage:
+      type: number
+    average_completion_length:
+      type: number
+
+DatasetListItemDto:
+  type: object
+  required:
+    - dataset_id
+    - organization_id
+    - name
+    - row_count
+    - status
+    - error_data
+    - error_message
+    - columns
+    - metadata
+    - created_at
+    - form_responses
+    - run_id
+    - processed_rows
+    - samples_to_process
+    - progress_percentage
+    - dataset_type
+    - kind
+    - sources
+  properties:
+    dataset_id:
+      type: string
+    organization_id:
+      type: string
+    name:
+      type: string
+    row_count:
+      type: number
+      nullable: true
+    dataset_type:
+      type: string
+      enum:
+        - tabular
+        - document
+    kind:
+      $ref: "#/DatasetKind"
+    sources:
+      type: array
+      nullable: true
+      description: >-
+        Lineage for combined datasets — present when `kind === 'combined'`.
+        Ordered by `order_index`. A `dataset_id` of `null` indicates the source
+        dataset has been deleted.
+      items:
+        $ref: "#/DatasetSourceDto"
+    status:
+      type: string
+      enum:
+        - uploading
+        - awaiting_preprocessing
+        - extracting_documents
+        - preprocessing_completed
+        - processing
+        - awaiting_column_selection
+        - processing_metadata
+        - ready
+        - failed
+        - preprocessing_failed
+        - launching
+        - configuring
+    error_data:
+      nullable: true
+      description: Structured error payload when failed; null otherwise
+      allOf:
+        - $ref: "#/DatasetPublicErrorDataDto"
+    error_message:
+      type: string
+      nullable: true
+    columns:
+      type: array
+      items:
+        type: string
+      nullable: true
+    metadata:
+      nullable: true
+      allOf:
+        - $ref: "#/DatasetMetadataDto"
+    created_at:
+      type: string
+      format: date-time
+    form_responses:
+      type: array
+      items:
+        $ref: "#/FormResponseDto"
+    run_id:
+      type: string
+      nullable: true
+    processed_rows:
+      type: number
+      nullable: true
+    samples_to_process:
+      type: number
+      nullable: true
+    progress_percentage:
+      type: number
+      nullable: true
+    has_pinned_charts:
+      type: boolean
+      description: >-
+        True when at least one ready chart is pinned to the dataset info tab
+        (`show_on_dataset`), including pins created by other org members.
+    latest_finetune:
+      type: object
+      nullable: true
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - preparing
+            - augmenting
+            - uploading
+            - running
+            - evaluating
+            - succeeded
+            - failed
+            - eval_failed
+            - cancelled
+        progress_percentage:
+          type: number
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+          description: "Reason a finetune job failed. Pass-through from the provider or internal pipeline. Null unless status === 'failed'."
+        training_experiment_id:
+          type: string
+        win_rates:
+          nullable: true
+          description: >-
+            Compare-eval win rates for the resolved job. Null until evaluation
+            completes and the provider returned a parseable payload.
+          allOf:
+            - $ref: "#/ModelWinRatesDto"
+
+GetDatasetsResponseDto:
+  type: object
+  required:
+    - datasets
+    - total
+  properties:
+    datasets:
+      type: array
+      items:
+        $ref: "#/DatasetListItemDto"
+    total:
+      type: number
+
+GetDatasetsProgressDto:
+  type: object
+  required:
+    - dataset_ids
+  properties:
+    dataset_ids:
+      type: array
+      items:
+        type: string
+
+DatasetProgressItemDto:
+  type: object
+  required:
+    - dataset_id
+    - progress_percentage
+  properties:
+    dataset_id:
+      type: string
+    progress_percentage:
+      type: number
+      nullable: true
+
+GetDatasetsProgressResponseDto:
+  type: object
+  required:
+    - datasets
+  properties:
+    datasets:
+      type: array
+      items:
+        $ref: "#/DatasetProgressItemDto"
+
+SaveDatasetConfigDto:
+  type: object
+  additionalProperties:
+    type: object
+    additionalProperties:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: string
+
+InitiateHuggingfaceResponseDto:
+  type: array
+  items:
+    type: string
+
+# Organization schemas
+OrganizationUser:
+  type: object
+  required:
+    - user_id
+    - organization_id
+  properties:
+    user_id:
+      type: string
+    organization_id:
+      type: string
+
+Organization:
+  type: object
+  required:
+    - organization_id
+    - users
+  properties:
+    organization_id:
+      type: string
+    users:
+      type: array
+      items:
+        $ref: "#/OrganizationUser"
+
+# View response schema for dataset view endpoint
+ViewResponseDto:
+  type: object
+  required:
+    - rows
+    - total
+  properties:
+    rows:
+      type: array
+      description: Array of rows
+      items:
+        type: array
+    total:
+      type: number
+      description: Total number of rows available
+      example: 100
+
+FinetuneModelDto:
+  type: object
+  required:
+    - id
+    - display_name
+    - context_length
+  properties:
+    id:
+      type: string
+      description: Provider model id (e.g. Hugging Face style id)
+      example: meta-llama/Llama-3-8b
+    display_name:
+      type: string
+      example: Llama 3 (8B)
+    context_length:
+      type: number
+      example: 8192
+
+FinetuneModelsListDto:
+  type: object
+  required:
+    - models
+  properties:
+    models:
+      type: array
+      items:
+        $ref: "#/FinetuneModelDto"
+
+FinetuneTrainingMethod:
+  type: string
+  enum:
+    - sft
+    - dpo
+
+FinetuneStepDto:
+  type: object
+  required:
+    - id
+    - key
+    - step_name
+    - title
+    - description
+    - order
+    - applies_to
+    - completed
+  properties:
+    id:
+      type: number
+    key:
+      type: string
+    step_name:
+      type: string
+      nullable: true
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    order:
+      type: number
+    applies_to:
+      type: array
+      description: Dataset training types this step applies to.
+      items:
+        type: string
+    completed:
+      type: boolean
+
+FinetuneNewSessionResponseDto:
+  type: object
+  required:
+    - session_id
+  properties:
+    session_id:
+      type: string
+      format: uuid
+
+FinetuneStepsResponseDto:
+  type: object
+  required:
+    - steps
+  properties:
+    steps:
+      type: array
+      items:
+        $ref: "#/FinetuneStepDto"
+
+FinetuneFieldOptionDto:
+  type: object
+  required:
+    - key
+    - value
+    - title
+    - description
+    - order
+  properties:
+    key:
+      type: string
+    value:
+      type: string
+    title:
+      type: string
+      nullable: true
+    description:
+      type: string
+      nullable: true
+    order:
+      type: number
+      nullable: true
+
+FinetuneFieldDto:
+  type: object
+  required:
+    - id
+    - key
+    - title
+    - description
+    - input_type
+    - order
+    - editable
+    - options
+    - value
+  properties:
+    id:
+      type: number
+    key:
+      type: string
+    title:
+      type: string
+      nullable: true
+    description:
+      type: string
+      nullable: true
+    input_type:
+      type: string
+    order:
+      type: number
+    editable:
+      type: boolean
+    options:
+      type: array
+      items:
+        $ref: "#/FinetuneFieldOptionDto"
+    value:
+      nullable: true
+      description: Saved value for this field on this dataset.
+      oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        - type: array
+          items:
+            type: string
+        - type: object
+          additionalProperties: true
+
+FinetuneStepDetailDto:
+  type: object
+  required:
+    - id
+    - key
+    - step_name
+    - title
+    - description
+    - order
+    - applies_to
+    - fields
+    - inline_data
+  properties:
+    id:
+      type: number
+    key:
+      type: string
+    step_name:
+      type: string
+      nullable: true
+    title:
+      type: string
+    description:
+      type: string
+      nullable: true
+    order:
+      type: number
+    applies_to:
+      type: array
+      items:
+        type: string
+    fields:
+      type: array
+      items:
+        $ref: "#/FinetuneFieldDto"
+    inline_data:
+      type: object
+      nullable: true
+      additionalProperties: true
+
+FinetuneStepDetailResponseDto:
+  type: object
+  required:
+    - step
+  properties:
+    step:
+      $ref: "#/FinetuneStepDetailDto"
+
+FinetuneInsufficientCreditsDto:
+  type: object
+  required:
+    - creditsRequired
+    - creditsAvailable
+  properties:
+    creditsRequired:
+      type: number
+    creditsAvailable:
+      type: number
+
+FinetuneCalculateResponseDto:
+  type: object
+  required:
+    - availableCredits
+    - baseTrainingRows
+    - estimatedTrainingRows
+    - costBaseTraining
+    - costWithAugmentation
+    - costAugmentationDomain
+    - costAugmentationGeneral
+    - augmentationRowsPerCredit
+    - is_estimate_stub
+    - minTrainingRows
+    - meetsMinimumTrainingRows
+  properties:
+    availableCredits:
+      type: number
+      description: Current organization credit balance.
+    baseTrainingRows:
+      type: number
+      description: Base training rows before augmentation.
+    estimatedTrainingRows:
+      type: number
+      description: Estimated training rows after requested augmentation.
+    costBaseTraining:
+      type: number
+      description: Estimated credits for base (no augmentation) run.
+    costWithAugmentation:
+      type: number
+      description: Estimated credits including augmentation rows (= costBaseTraining + costAugmentationDomain + costAugmentationGeneral).
+    costAugmentationDomain:
+      type: number
+      description: Credit cost for the requested domain augmentation rows alone (1 credit per 100 rows).
+    costAugmentationGeneral:
+      type: number
+      description: Credit cost for the requested general augmentation rows alone (1 credit per 100 rows).
+    augmentationRowsPerCredit:
+      type: number
+      description: Number of augmentation rows that 1 credit buys. FE uses this for instant optimistic per-slider cost without round-tripping every tick.
+    is_estimate_stub:
+      type: boolean
+      description: True while backend uses a placeholder estimator for the base-training portion. Augmentation portion is locked at 1 credit per 100 rows.
+    minTrainingRows:
+      type: number
+      description: Minimum effective training rows (base + augmentation) required to launch a fine-tune. Threshold lives only on the BE; FE binds Continue to meetsMinimumTrainingRows.
+    meetsMinimumTrainingRows:
+      type: boolean
+      description: True when estimatedTrainingRows >= minTrainingRows. FE disables the augmentation Continue button when false.
+    belowMinimumMessage:
+      type: string
+      nullable: true
+      description: User-facing reason text when meetsMinimumTrainingRows is false. Null/absent when the dataset clears the floor.
+    insufficientCredits:
+      nullable: true
+      allOf:
+        - $ref: "#/FinetuneInsufficientCreditsDto"
+
+FinetuneSaveConfigDto:
+  type: object
+  additionalProperties:
+    type: object
+    additionalProperties:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          nullable: true
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties: true
+
+FinetuneHyperparamsRequestDto:
+  type: object
+  required:
+    - model
+    - training_method
+    - base_model_size
+  properties:
+    model:
+      type: string
+      example: meta-llama/Llama-3-8b
+    training_method:
+      $ref: "#/FinetuneTrainingMethod"
+    base_model_size:
+      type: string
+      pattern: "^\\d+[bBmM]$"
+      example: 8B
+      description: Model parameter count label, e.g. "8B", "70B", "130M"
+
+FinetuneSftHyperparamsDto:
+  type: object
+  description: >-
+    Together AI-compatible hyperparameter config from SFT suggestion.
+    Empty object when training_method is DPO (provider defaults).
+  additionalProperties: true
+  properties:
+    base_model_size:
+      type: string
+    n_epochs:
+      type: number
+    batch_size:
+      oneOf:
+        - type: string
+        - type: number
+    learning_rate:
+      type: number
+    lora:
+      type: boolean
+    lora_r:
+      type: number
+    lora_alpha:
+      type: number
+    lora_dropout:
+      type: number
+    lora_trainable_modules:
+      type: string
+    lr_scheduler_type:
+      type: string
+    min_lr_ratio:
+      type: number
+    scheduler_num_cycles:
+      type: number
+    warmup_ratio:
+      type: number
+    max_grad_norm:
+      type: number
+    weight_decay:
+      type: number
+    training_method:
+      type: string
+    train_on_inputs:
+      type: boolean
+
+FinetuneHyperparamsResponseDto:
+  type: object
+  required:
+    - hyperparams
+  properties:
+    hyperparams:
+      $ref: "#/FinetuneSftHyperparamsDto"
+
+FinetuneHyperparamsValidateResponseDto:
+  type: object
+  description: >-
+    Result of validating a hyperparameter draft against the same
+    class-validator pipeline that runs on /finetune/launch. Errors are
+    keyed by DTO property name (lora_r, lora_trainable_modules, etc.) so
+    the FE can map them straight to its draft state.
+  required:
+    - valid
+    - errors
+  properties:
+    valid:
+      type: boolean
+      description: True iff every supplied field passes validation.
+    errors:
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          type: string
+
+FinetuneLaunchTrainingType:
+  type: string
+  enum:
+    - lora
+    - full
+
+FinetuneDataFormat:
+  type: string
+  enum:
+    - chat
+    - instruction
+    - preference
+
+LaunchFinetuneJobDto:
+  type: object
+  required:
+    - model
+    - training_method
+    - training_type
+    - data_format
+  properties:
+    model:
+      type: string
+      example: meta-llama/Llama-3-8b
+    training_method:
+      $ref: "#/FinetuneTrainingMethod"
+    training_type:
+      $ref: "#/FinetuneLaunchTrainingType"
+    data_format:
+      $ref: "#/FinetuneDataFormat"
+    hyperparams:
+      type: object
+      additionalProperties: true
+      description: >-
+        Optional Together-style hyperparameter overrides. Omitted fields use
+        worker defaults.
+    idempotency_key:
+      type: string
+      description: >-
+        Client idempotency key for safe retries (duplicate key returns the same
+        job).
+
+BestFinetuneLaunchConfigResponseDto:
+  type: object
+  required:
+    - best_job_config
+  properties:
+    best_job_config:
+      nullable: true
+      description: >-
+        Launch-parity snapshot for the selected finetune run. Null when the job
+        does not exist or has no persisted launch config.
+      allOf:
+        - $ref: "#/FinetuneJobConfigDto"
+
+FinetuneJobConfigDto:
+  type: object
+  required:
+    - finetune_job_id
+  properties:
+    finetune_job_id:
+      type: string
+      format: uuid
+    training_experiment_id:
+      type: string
+      format: uuid
+      nullable: true
+    original_model_name:
+      type: string
+      nullable: true
+    trained_model_name:
+      type: string
+      nullable: true
+    training_method:
+      nullable: true
+      allOf:
+        - $ref: "#/FinetuneTrainingMethod"
+    training_type:
+      nullable: true
+      allOf:
+        - $ref: "#/FinetuneLaunchTrainingType"
+    data_format:
+      nullable: true
+      allOf:
+        - $ref: "#/FinetuneDataFormat"
+    hyperparams:
+      type: object
+      nullable: true
+      additionalProperties: true
+
+FinetuneJobDto:
+  type: object
+  required:
+    - finetune_job_id
+    - dataset_id
+    - provider
+    - status
+    - model
+    - provider_job_id
+    - model_output_name
+    - created_at
+    - launched_at
+    - completed_at
+    - error_message
+    - progress_steps
+    - progress_total_steps
+    - training_events
+    - evaluation_status
+    - evaluation_results
+  properties:
+    finetune_job_id:
+      type: string
+    dataset_id:
+      type: string
+    provider:
+      type: string
+    status:
+      type: string
+    model:
+      type: string
+      nullable: true
+    provider_job_id:
+      type: string
+      nullable: true
+    model_output_name:
+      type: string
+      nullable: true
+    created_at:
+      type: string
+      format: date-time
+    launched_at:
+      type: string
+      format: date-time
+      nullable: true
+    completed_at:
+      type: string
+      format: date-time
+      nullable: true
+    error_message:
+      type: string
+      nullable: true
+    progress_steps:
+      type: number
+      nullable: true
+    progress_total_steps:
+      type: number
+      nullable: true
+    training_events:
+      type: object
+      nullable: true
+      additionalProperties: true
+    evaluation_status:
+      type: string
+      nullable: true
+    evaluation_results:
+      type: object
+      nullable: true
+      additionalProperties: true
+
+FinetuneJobsListDto:
+  type: object
+  required:
+    - jobs
+  properties:
+    jobs:
+      type: array
+      items:
+        $ref: "#/FinetuneJobDto"
+
+ExperimentStatusDto:
+  type: object
+  required:
+    - training_experiment_id
+    - status
+    - progress_percentage
+    - started_at
+    - completed_at
+  properties:
+    training_experiment_id:
+      type: string
+    status:
+      type: string
+      description: "Experiment lifecycle status: pending, running, succeeded, completed, failed, cancelled"
+    progress_percentage:
+      type: number
+      description: "Progress as a percentage (0-100), derived from iteration progress"
+    started_at:
+      type: string
+      format: date-time
+      nullable: true
+    completed_at:
+      type: string
+      format: date-time
+      nullable: true
+
+# Dataset update schema
+PatchDatasetDto:
+  type: object
+  properties:
+    name:
+      type: string
+      description: New name for the dataset
+      maxLength: 255
+    description:
+      type: string
+      description: New description for the dataset
+
+# Credits calculation schemas
+InsufficientCreditsInfoDto:
+  type: object
+  required:
+    - creditsRequired
+    - creditsAvailable
+  properties:
+    creditsRequired:
+      type: number
+      description: Credits required to run the pipeline
+    creditsAvailable:
+      type: number
+      description: Credits currently available
+
+ExpansionInfoDto:
+  type: object
+  required:
+    - type
+    - sampleRate
+    - targetCount
+    - expansionFactor
+  properties:
+    type:
+      type: string
+      description: Type of expansion (translate or localize)
+      enum: [translate, localize]
+      nullable: true
+    sampleRate:
+      type: number
+      description: Sample rate for expansion (0-1)
+    targetCount:
+      type: number
+      description: Number of target languages or countries
+    expansionFactor:
+      type: number
+      description: Expansion factor applied to row count (1 + sampleRate * targetCount)
+
+CreditsCalculationResponseDto:
+  type: object
+  required:
+    - availableCredits
+    - costFullDataset
+    - costRequestedRows
+    - maxRowsProcessable
+  properties:
+    availableCredits:
+      type: number
+      description: User's total available credits (org balance)
+    costFullDataset:
+      type: number
+      description: Cost in credits for processing full dataset (dataset.row_count)
+    costRequestedRows:
+      type: number
+      description: Cost in credits for the requested/specified number of rows (samples_to_process or full)
+    maxRowsProcessable:
+      type: number
+      description: Max number of rows user can process with current credits (based on ROWS_PER_CREDIT)
+    estimatedOutputRows:
+      type: number
+      description: Estimated output rows after expansion (equals input rows if no expansion)
+    expansionConfig:
+      description: Expansion configuration (translation/localization) if enabled
+      allOf:
+        - $ref: "#/ExpansionInfoDto"
+    insufficientCredits:
+      description: Present when available credits are insufficient for the requested rows (same shape as launch 402)
+      nullable: true
+      allOf:
+        - $ref: "#/InsufficientCreditsInfoDto"
+
+PreprocessingCreditsResponseDto:
+  type: object
+  required:
+    - availableCredits
+    - extractionCost
+    - totalPages
+    - totalDocuments
+    - completedDocuments
+    - isFinal
+  properties:
+    availableCredits:
+      type: number
+      description: Organization credit balance
+    extractionCost:
+      type: number
+      description: Credits needed for document extraction / preprocessing
+    totalPages:
+      type: number
+      description: Total pages across documents (estimated until final)
+    totalDocuments:
+      type: number
+      description: Number of document files
+    completedDocuments:
+      type: number
+      description: Documents with finalized page counts
+    isFinal:
+      type: boolean
+      description: True when extraction cost is final
+    insufficientCredits:
+      description: Present when credits are insufficient for extraction cost
+      nullable: true
+      type: object
+      required:
+        - creditsRequired
+        - creditsAvailable
+      properties:
+        creditsRequired:
+          type: number
+        creditsAvailable:
+          type: number
+
+# Launch pipeline schema
+LaunchRecipesDto:
+  type: object
+  properties:
+    prompt_rephrase:
+      type: boolean
+      description: Rephrase prompts for variety and clarity
+      example: true
+    deduplication:
+      type: boolean
+      description: Remove near-duplicate rows
+      example: true
+    reasoning_traces:
+      type: boolean
+      description: Add reasoning traces to completions
+      example: false
+
+LaunchConfigDto:
+  type: object
+  properties:
+    prompt_column:
+      type: string
+      description: Column name to use as the prompt/instruction field
+      example: instruction
+    completion_column:
+      type: string
+      description: Column name to use as the completion/response field
+      example: response
+    chat_column:
+      type: string
+      description: Column name containing chat/conversation data (alternative to prompt+completion)
+      example: messages
+    context_columns:
+      type: array
+      items:
+        type: string
+      description: Column names to include as context
+      example:
+        - context
+    recipes:
+      description: Augmentation recipe toggles. Omitted recipes use backend defaults.
+      allOf:
+        - $ref: "#/LaunchRecipesDto"
+
+LaunchPipelineDto:
+  type: object
+  properties:
+    samples_to_process:
+      type: number
+      description: Custom number of rows to process. If omitted, all rows (or env default) are used.
+      minimum: 1
+    config:
+      description: Dataset configuration (column mapping, recipes). If omitted, uses previously saved config. Required if dataset is in awaiting_column_selection status.
+      allOf:
+        - $ref: "#/LaunchConfigDto"
+
+LaunchPreprocessingDto:
+  type: object
+  properties:
+    pages_to_process:
+      type: number
+      description: >-
+        Maximum number of pages to process. Documents are included until this
+        budget is reached. If omitted, all pages are processed (unless limited
+        by documents_to_process).
+      minimum: 1
+    documents_to_process:
+      type: number
+      description: >-
+        Maximum number of documents to process. If omitted, all documents are
+        processed.
+      minimum: 1
+
+LaunchPipelineResponseDto:
+  type: object
+  required:
+    - message
+    - estimatedMinutes
+    - estimatedCompletionAt
+  properties:
+    message:
+      type: string
+      description: Success message
+    estimatedMinutes:
+      type: number
+      description: Estimated processing time in minutes
+    estimatedCompletionAt:
+      type: string
+      format: date-time
+      description: Estimated completion timestamp
+
+# Subscription schemas
+SubscriptionOrganizationDto:
+  type: object
+  required:
+    - organizationId
+  properties:
+    organizationId:
+      type: string
+      example: 123e4567-e89b-12d3-a456-426614174000
+
+ChangePlanDto:
+  type: object
+  required:
+    - organizationId
+    - newPlanId
+  properties:
+    organizationId:
+      type: string
+      example: 123e4567-e89b-12d3-a456-426614174000
+    newPlanId:
+      type: string
+      example: pro
+      description: Target plan id (plus, pro). Use cancel endpoint for free.
+      enum:
+        - plus
+        - pro
+
+SetPaymentMethodDto:
+  type: object
+  required:
+    - subscriptionId
+    - paymentMethodId
+  properties:
+    subscriptionId:
+      type: string
+      example: 123e4567-e89b-12d3-a456-426614174000
+    paymentMethodId:
+      type: string
+      example: pm_1234567890
+      description: Stripe payment method id
+
+# Payment Method schemas (Stripe)
+
+# Simplified payment method returned by GET /payment-methods/default
+PaymentMethodDefaultDto:
+  type: object
+  required:
+    - id
+    - brand
+    - last4
+    - exp_month
+    - exp_year
+  properties:
+    id:
+      type: string
+      description: Stripe payment method ID
+      example: pm_1T5MyjGZ9AexqwIr1bSmtgEu
+    brand:
+      type: string
+      description: Card brand (visa, mastercard, amex, etc.)
+      example: visa
+    last4:
+      type: string
+      description: Last 4 digits of the card
+      example: "4242"
+    exp_month:
+      type: integer
+      description: Card expiration month
+      example: 12
+    exp_year:
+      type: integer
+      description: Card expiration year
+      example: 2033
+
+PaymentMethodAddressDto:
+  type: object
+  properties:
+    city:
+      type: string
+      nullable: true
+    country:
+      type: string
+      nullable: true
+    line1:
+      type: string
+      nullable: true
+    line2:
+      type: string
+      nullable: true
+    postal_code:
+      type: string
+      nullable: true
+    state:
+      type: string
+      nullable: true
+
+PaymentMethodBillingDetailsDto:
+  type: object
+  properties:
+    address:
+      $ref: "#/PaymentMethodAddressDto"
+    email:
+      type: string
+      nullable: true
+    name:
+      type: string
+      nullable: true
+    phone:
+      type: string
+      nullable: true
+    tax_id:
+      type: string
+      nullable: true
+
+PaymentMethodCardChecksDto:
+  type: object
+  properties:
+    address_line1_check:
+      type: string
+      nullable: true
+    address_postal_code_check:
+      type: string
+      nullable: true
+    cvc_check:
+      type: string
+      nullable: true
+
+PaymentMethodCardNetworksDto:
+  type: object
+  properties:
+    available:
+      type: array
+      items:
+        type: string
+    preferred:
+      type: string
+      nullable: true
+
+PaymentMethodThreeDSecureUsageDto:
+  type: object
+  properties:
+    supported:
+      type: boolean
+
+PaymentMethodCardDto:
+  type: object
+  properties:
+    brand:
+      type: string
+      description: Card brand (visa, mastercard, amex, etc.)
+    checks:
+      $ref: "#/PaymentMethodCardChecksDto"
+    country:
+      type: string
+      description: Two-letter ISO country code
+    display_brand:
+      type: string
+    exp_month:
+      type: integer
+      description: Card expiration month
+    exp_year:
+      type: integer
+      description: Card expiration year
+    fingerprint:
+      type: string
+      description: Unique identifier for the card
+    funding:
+      type: string
+      description: Card funding type (credit, debit, prepaid, unknown)
+    generated_from:
+      type: string
+      nullable: true
+    last4:
+      type: string
+      description: Last 4 digits of the card
+    networks:
+      $ref: "#/PaymentMethodCardNetworksDto"
+    regulated_status:
+      type: string
+      description: Regulation status (regulated, unregulated)
+    three_d_secure_usage:
+      $ref: "#/PaymentMethodThreeDSecureUsageDto"
+    wallet:
+      type: string
+      nullable: true
+
+PaymentMethodDto:
+  type: object
+  required:
+    - id
+    - object
+    - type
+    - created
+    - livemode
+  properties:
+    id:
+      type: string
+      description: Stripe payment method ID
+      example: pm_1T45s2GZ9AexqwIr4KZUfAzX
+    object:
+      type: string
+      description: Object type
+      example: payment_method
+    allow_redisplay:
+      type: string
+      description: Controls when this payment method can be shown again
+      example: limited
+    billing_details:
+      $ref: "#/PaymentMethodBillingDetailsDto"
+    card:
+      $ref: "#/PaymentMethodCardDto"
+    created:
+      type: integer
+      description: Unix timestamp of creation
+      example: 1771879006
+    customer:
+      type: string
+      description: Stripe customer ID
+      example: cus_U2ABFjPvZykEAM
+    customer_account:
+      type: string
+      nullable: true
+    livemode:
+      type: boolean
+      description: Whether this is a live mode payment method
+    metadata:
+      type: object
+      additionalProperties: true
+    type:
+      type: string
+      description: Payment method type
+      example: card
+
+PaymentMethodsListResponseDto:
+  type: array
+  items:
+    $ref: "#/PaymentMethodDto"
+
+# Billing schemas
+PlanSubfeatureDto:
+  type: object
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      description: Subfeature name
+
+PlanFeatureDto:
+  type: object
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      description: Feature name
+    subfeatures:
+      type: array
+      items:
+        $ref: "#/PlanSubfeatureDto"
+      description: Optional list of subfeatures
+      nullable: true
+
+BillingPlanDto:
+  type: object
+  required:
+    - id
+    - name
+    - description
+    - credits_per_cycle
+    - price_cents
+    - stripe_price_id_monthly
+    - stripe_price_id_annual
+    - sort_order
+    - is_popular
+    - max_rows_per_launch
+    - action
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      example: pro
+      description: Plan identifier
+    name:
+      type: string
+      example: Pro
+      description: Plan display name
+    product_id:
+      type: string
+      nullable: true
+      description: Stripe product ID
+    description:
+      type: object
+      required:
+        - features
+      properties:
+        features:
+          type: array
+          items:
+            $ref: "#/PlanFeatureDto"
+          description: List of plan features with optional subfeatures
+    credits_per_cycle:
+      type: number
+      example: 300
+      description: Credits allocated per billing cycle
+    price_cents:
+      type: number
+      nullable: true
+      example: 25000
+      description: Price in cents, null for enterprise plans
+    stripe_price_id_monthly:
+      type: string
+      nullable: true
+      example: price_1Szg5yGZ9AexqwIrsyXqMQIc
+      description: Stripe price ID for monthly billing
+    stripe_price_id_annual:
+      type: string
+      nullable: true
+      example: price_1Szg7BGZ9AexqwIrqQcsihwF
+      description: Stripe price ID for annual billing
+    sort_order:
+      type: number
+      example: 3
+      description: Display order for sorting plans
+    is_popular:
+      type: boolean
+      example: true
+      description: Whether this plan is marked as popular
+    max_rows_per_launch:
+      type: number
+      nullable: true
+      example: 50000
+      description: Maximum number of rows that can be processed per job, null for unlimited
+    action:
+      type: string
+      enum:
+        - none
+        - purchase
+        - contact
+      example: purchase
+      description: Action available for the current user on this plan
+    created_at:
+      type: string
+      format: date-time
+      description: Plan creation timestamp
+    updated_at:
+      type: string
+      format: date-time
+      description: Plan last update timestamp
+
+BillingPlansResponseDto:
+  type: array
+  items:
+    $ref: "#/BillingPlanDto"
+
+BillingPackageDto:
+  type: object
+  required:
+    - id
+    - name
+    - credits
+    - price_cents
+    - stripe_price_id
+    - sort_order
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      example: credits
+      description: Package identifier
+    name:
+      type: string
+      example: Credit
+      description: Package display name
+    product_id:
+      type: string
+      nullable: true
+      description: Stripe product ID
+    credits:
+      type: number
+      example: 1
+      description: Number of credits in package
+    price_cents:
+      type: number
+      example: 100
+      description: Price in cents
+    stripe_price_id:
+      type: string
+      example: price_1SyvvUGZ9AexqwIrRLT591Bl
+      description: Stripe price ID
+    sort_order:
+      type: number
+      example: 1
+      description: Display order for sorting packages
+    created_at:
+      type: string
+      format: date-time
+      description: Package creation timestamp
+    updated_at:
+      type: string
+      format: date-time
+      description: Package last update timestamp
+
+BillingPackagesResponseDto:
+  type: array
+  items:
+    $ref: "#/BillingPackageDto"
+
+StartCheckoutDto:
+  type: object
+  required:
+    - plan
+    - organizationId
+    - interval
+    - successUrl
+    - cancelUrl
+  properties:
+    plan:
+      type: string
+      example: pro
+      description: Plan id (e.g. plus, pro)
+    organizationId:
+      type: string
+      example: 123e4567-e89b-12d3-a456-426614174000
+    interval:
+      type: string
+      example: month
+      enum:
+        - month
+        - year
+      description: Billing interval
+    successUrl:
+      type: string
+      description: URL to redirect after successful checkout
+    cancelUrl:
+      type: string
+      description: URL to redirect if checkout is cancelled
+
+TopUpDto:
+  type: object
+  required:
+    - credits
+    - organizationId
+    - successUrl
+    - cancelUrl
+  properties:
+    credits:
+      type: number
+      example: 400
+      description: Number of credits to top up (uses 1-credit Stripe price × quantity).
+    organizationId:
+      type: string
+      example: 123e4567-e89b-12d3-a456-426614174000
+    successUrl:
+      type: string
+      description: URL to redirect after successful checkout
+    cancelUrl:
+      type: string
+      description: URL to redirect if checkout is cancelled
+
+CheckoutUrlResponseDto:
+  type: object
+  required:
+    - checkoutUrl
+  properties:
+    checkoutUrl:
+      type: string
+      example: https://checkout.stripe.com/c/pay/cs_test_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0
+      description: Stripe checkout session URL
+
+ChangePlanResponseDto:
+  type: object
+  required:
+    - downgraded
+    - currentPeriodEnd
+  properties:
+    downgraded:
+      type: boolean
+      description: Whether the plan change is a downgrade
+    currentPeriodEnd:
+      type: string
+      format: date-time
+      example: "2026-03-23T11:56:21.000Z"
+      description: Current billing period end date
+
+PlanDto:
+  type: object
+  required:
+    - id
+    - name
+  properties:
+    id:
+      type: string
+      example: plus
+      description: Plan identifier
+    name:
+      type: string
+      example: Plus
+      description: Plan display name
+
+SubscriptionDto:
+  type: object
+  required:
+    - id
+    - organization_id
+    - stripe_subscription_id
+    - plan_id
+    - status
+    - auto_renew
+    - current_period_end
+    - created_at
+    - plan
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: f545dcd4-eb5f-4993-b84b-54dfc441a371
+      description: Subscription ID
+    organization_id:
+      type: string
+      format: uuid
+      example: a42f5118-f9bb-451f-a7d6-5beba7c68e28
+      description: Organization ID
+    stripe_subscription_id:
+      type: string
+      example: sub_1T3xkPGZ9AexqwIrv3f31j0A
+      description: Stripe subscription ID
+    stripe_price_id:
+      type: string
+      example: price_1Szg5ZGZ9AexqwIrCHSQnU1D
+      description: Stripe price ID
+      nullable: true
+    plan_id:
+      type: string
+      example: plus
+      description: Current plan ID
+    pending_plan_id:
+      type: string
+      nullable: true
+      example: plus
+      description: Pending plan ID (for scheduled plan downgrades)
+    pending_upgrade_plan_id:
+      type: string
+      nullable: true
+      description: Pending upgrade plan ID (for scheduled plan upgrades)
+    status:
+      type: string
+      example: active
+      description: Subscription status
+    auto_renew:
+      type: boolean
+      example: true
+      description: Whether subscription auto-renews
+    current_period_end:
+      type: string
+      format: date-time
+      example: "2026-03-23T11:56:21.000Z"
+      description: Current billing period end date
+    created_at:
+      type: string
+      format: date-time
+      example: "2026-02-23T11:56:26.827Z"
+      description: Subscription creation timestamp
+    default_payment_method_id:
+      type: string
+      example: pm_1T3xkOGZ9AexqwIrGcprhuHZ
+      description: Default payment method ID
+      nullable: true
+    plan:
+      $ref: "#/PlanDto"
+
+SubscriptionListResponseDto:
+  type: array
+  items:
+    $ref: "#/SubscriptionDto"
+
+GenerateSystemPromptDto:
+  type: object
+  properties:
+    brand_guidelines:
+      type: string
+  required:
+    - brand_guidelines
+
+GenerateSystemPromptResponseDto:
+  type: object
+  properties:
+    system_prompt:
+      type: string
+
+ParseFileResponseDto:
+  type: object
+  required:
+    - content
+  properties:
+    content:
+      type: string
+      description: The parsed content of the file as a string
+
+BrandFileDto:
+  type: object
+  properties:
+    file_name:
+      type: string
+    file_extension:
+      type: string
+    content:
+      type: string
+      description: The parsed text content of the file
+
+GetBrandFilesResponseDto:
+  type: array
+  items:
+    $ref: "#/BrandFileDto"
+
+# Grants schemas
+ActiveGrantedPlanNestedPlanDto:
+  type: object
+  required:
+    - id
+    - name
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+
+ActiveGrantedPlanBodyDto:
+  type: object
+  required:
+    - id
+    - plan_id
+    - granted_until
+    - created_at
+    - plan
+  properties:
+    id:
+      type: string
+    plan_id:
+      type: string
+    granted_until:
+      type: string
+      format: date-time
+    created_at:
+      type: string
+      format: date-time
+    plan:
+      $ref: "#/ActiveGrantedPlanNestedPlanDto"
+
+ActiveGrantedPlanResponseDto:
+  type: object
+  properties:
+    granted_plan:
+      nullable: true
+      description: >-
+        Null when the user has no active (non-cancelled, non-expired) plan grant
+      allOf:
+        - $ref: "#/ActiveGrantedPlanBodyDto"
+
+# Chat response schemas
+
+ChatDirectoryRowDto:
+  type: object
+  required:
+    - title
+    - id
+    - slug
+    - session_count
+  properties:
+    title:
+      type: string
+    id:
+      type: string
+    slug:
+      type: string
+      nullable: true
+      description: >-
+        Classifier domain slug for system folders; null for custom folders
+        and virtual directories.
+    session_count:
+      type: number
+    created_by:
+      type: string
+      enum:
+        - system
+        - user
+
+ChatDomainGroupDto:
+  type: object
+  required:
+    - id
+    - title
+    - domain_slugs
+  properties:
+    id:
+      type: string
+      description: Short stable key for the group (client maps icons, colors, etc.).
+      example: health
+    title:
+      type: string
+      example: Health & Wellbeing
+    domain_slugs:
+      description: Classifier domain slugs in this group.
+      example:
+        - science
+        - medical
+        - fitness-sports
+        - personal-growth
+      type: array
+      items:
+        type: string
+
+ChatDomainGroupsResponseDto:
+  type: object
+  required:
+    - groups
+  properties:
+    groups:
+      type: array
+      items:
+        $ref: "#/ChatDomainGroupDto"
+
+ChatDirectoriesResponseDto:
+  type: object
+  required:
+    - directories
+    - next_cursor
+  properties:
+    directories:
+      type: array
+      items:
+        $ref: "#/ChatDirectoryRowDto"
+    next_cursor:
+      type: string
+      nullable: true
+      description: Last directory id in this page; pass as cursor for the next page.
+
+CreateChatFolderDto:
+  type: object
+  required:
+    - title
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+      example: Work projects
+
+CreateChatFolderResponseDto:
+  type: object
+  required:
+    - id
+    - title
+    - created_by
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    created_by:
+      type: string
+      enum:
+        - user
+
+ChatSessionDto:
+  type: object
+  required:
+    - session_id
+    - user_id
+    - title
+    - status
+    - is_favorite
+    - created_at
+    - updated_at
+  properties:
+    session_id:
+      type: string
+      format: uuid
+    user_id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    category:
+      type: string
+      nullable: true
+    category_confidence:
+      type: number
+      nullable: true
+    category_additional_domains:
+      type: array
+      items:
+        type: string
+    category_tagged_at:
+      type: string
+      format: date-time
+      nullable: true
+    category_model:
+      type: string
+      nullable: true
+    category_is_final:
+      type: boolean
+    folder_id:
+      type: string
+      format: uuid
+      nullable: true
+    is_favorite:
+      type: boolean
+    status:
+      type: string
+      enum:
+        - idle
+        - active
+        - archived
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+    deleted_at:
+      type: string
+      format: date-time
+      nullable: true
+
+ChatSessionWithMessagesDto:
+  allOf:
+    - $ref: "#/ChatSessionDto"
+    - type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/ChatMessageDto"
+
+ChatSessionsListDto:
+  type: object
+  required:
+    - sessions
+    - next_cursor
+  properties:
+    sessions:
+      type: array
+      items:
+        $ref: "#/ChatSessionDto"
+    next_cursor:
+      type: string
+      format: uuid
+      nullable: true
+
+ChatMessageDeployDto:
+  type: object
+  description: >-
+    Deployment snapshot for an interactive UI generated by the assistant
+    (present when the message has interactive_components response type).
+  properties:
+    branch:
+      type: string
+      description: Git branch name used for this generation run
+      example: generate/2026-04-17_14-10-52
+    status:
+      type: string
+      description: Deployment status (e.g. "deployed", "failed")
+      example: deployed
+    sandbox_id:
+      type: string
+      description: Sandbox identifier used for preview hosting
+      example: sb-pdhsY9UgIM2xYlSY0gbI1K
+    backend_url:
+      type: string
+      format: uri
+      description: Public URL of the generated app backend
+    frontend_url:
+      type: string
+      format: uri
+      description: Public URL of the generated app frontend (preview)
+
+ChatQuoteDto:
+  type: object
+  required:
+    - quote
+    - author
+  properties:
+    quote:
+      type: string
+      description: Inspirational/contextual quote shown alongside the assistant reply.
+    author:
+      type: string
+      description: Quote author or source attribution.
+
+ChatMessageMetadataDto:
+  type: object
+  properties:
+    sdk:
+      type: string
+    status:
+      type: string
+      description: Assistant reply status (e.g. "failed" when streaming fails)
+    provider:
+      type: string
+    modality:
+      type: string
+      description: Response modality (e.g. "image" for image generation)
+    warnings:
+      type: array
+      items:
+        type: string
+    latency_ms:
+      type: number
+    image_count:
+      type: number
+      description: Number of images generated (present when modality is "image")
+    response_types:
+      type: array
+      description: Response types produced by the assistant for this message
+      items:
+        type: string
+        enum:
+          - text
+          - requests_image
+          - interactive_components
+    deploy:
+      nullable: true
+      allOf:
+        - $ref: "#/ChatMessageDeployDto"
+    image_plan:
+      nullable: true
+      allOf:
+        - $ref: "#/ChatSseImagePlanEventDto"
+    quote:
+      nullable: true
+      allOf:
+        - $ref: "#/ChatQuoteDto"
+
+ChatAttachmentDto:
+  type: object
+  required:
+    - attachment_id
+    - message_id
+    - s3_key
+    - file_name
+    - file_size_bytes
+    - content_type
+    - processing_status
+    - created_at
+  properties:
+    attachment_id:
+      type: string
+      format: uuid
+    message_id:
+      type: string
+      format: uuid
+    s3_key:
+      type: string
+      example: chat-attachments/ec46f15d-612b-4831-b752-9baf2eed9368.jpeg
+    file_name:
+      type: string
+      example: generated_image_1.jpeg
+    file_size_bytes:
+      type: string
+      description: File size in bytes (returned as string by the API)
+    content_type:
+      type: string
+      example: image/jpeg
+    processing_status:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+    content_summary:
+      type: string
+      nullable: true
+    metadata:
+      type: object
+      nullable: true
+      additionalProperties: true
+      description: >-
+        Free-form attachment metadata. For comparison images sourced from the
+        web it contains the fields below (e.g. title, source_host, source_page_url).
+      properties:
+        title:
+          type: string
+          description: Human-friendly title shown for comparison images.
+          example: Solo Traveler Safety
+        source:
+          type: string
+          example: brave
+        source_host:
+          type: string
+          example: tripistia.com
+        source_page_url:
+          type: string
+          format: uri
+          example: https://tripistia.com/travel-tips/solo-travel-safety-tips
+    created_at:
+      type: string
+      format: date-time
+    superseded_at:
+      type: string
+      format: date-time
+      nullable: true
+      description: >-
+        Timestamp when this attachment was superseded (e.g. by a regenerated
+        image edit). Null for active attachments.
+    superseded_by_attachment_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: Id of the attachment that superseded this one, if any.
+
+ChatMessageDto:
+  type: object
+  required:
+    - message_id
+    - session_id
+    - role
+    - content
+    - created_at
+    - attachments
+  properties:
+    message_id:
+      type: string
+      format: uuid
+    session_id:
+      type: string
+      format: uuid
+    reply_to_message_id:
+      type: string
+      format: uuid
+      nullable: true
+    role:
+      type: string
+      enum:
+        - user
+        - assistant
+        - system
+      description: >-
+        `system` marks a reply the server wrote on its own rather than as an
+        answer to a prompt — e.g. the note left after a chart edit proposal is
+        settled. Render it like an assistant reply.
+    content:
+      type: string
+    token_count:
+      type: number
+      nullable: true
+    metadata:
+      nullable: true
+      allOf:
+        - $ref: "#/ChatMessageMetadataDto"
+    created_at:
+      type: string
+      format: date-time
+    superseded_at:
+      type: string
+      format: date-time
+      nullable: true
+      description: >-
+        Timestamp when this message was superseded (e.g. by a regenerated
+        assistant reply). Null for active messages.
+    superseded_by_message_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: Id of the message that superseded this one, if any.
+    input_source:
+      type: string
+      enum:
+        - user_text
+        - followup_suggestion
+        - starter_suggestion
+      nullable: true
+      description: >-
+        How the user composed the message. Null for assistant messages.
+    followup_suggestion_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Id of the follow-up suggestion used when input_source is
+        followup_suggestion.
+    starter_suggestion_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Id of the starter suggestion used when input_source is
+        starter_suggestion.
+    attachments:
+      type: array
+      items:
+        $ref: "#/ChatAttachmentDto"
+    api_preview_url:
+      type: string
+      format: uri
+      nullable: true
+      description: >-
+        Preview URL of the generated app (for assistant messages that
+        produced an interactive_components response). Null otherwise.
+    is_saved:
+      type: boolean
+      description: >-
+        Whether the generated interface for this message has already been
+        saved by the user.
+    is_app_summary:
+      type: boolean
+      description: >-
+        True when this assistant row is the app build/edit progress summary
+        rather than the final recap reply.
+    orchestrator_kind:
+      type: string
+      enum:
+        - chart
+        - edit
+        - discuss
+      nullable: true
+      description: >-
+        Chart sessions only — which orchestrator turn produced this assistant
+        reply. Null on user messages and on every non-chart session.
+    text_before:
+      type: string
+      nullable: true
+      description: Markdown rendered above the chart. Mirrors `content`.
+    text_after:
+      type: string
+      nullable: true
+      description: Markdown rendered below the chart.
+    summary:
+      type: string
+      nullable: true
+      description: Header / history text, not a body paragraph.
+    related:
+      type: boolean
+      nullable: true
+    chart:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartOrchestratorChartDto"
+    followups:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartFollowupSetDto"
+    pending_proposal:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartPendingProposalDto"
+      description: >-
+        Carried by the **user** message that asked for the edit, not by an
+        assistant message — while the choice is pending no assistant reply
+        exists yet, so the proposal hangs off the last (user) row of the
+        transcript.
+
+ChatMessagesListDto:
+  type: object
+  required:
+    - messages
+    - next_cursor
+  properties:
+    messages:
+      type: array
+      items:
+        $ref: "#/ChatMessageDto"
+    next_cursor:
+      type: string
+      format: uuid
+      nullable: true
+
+ChatSseTokenEventDto:
+  type: object
+  required:
+    - type
+    - text
+  properties:
+    type:
+      type: string
+      enum:
+        - token
+    text:
+      type: string
+
+ChatSseDoneEventDto:
+  type: object
+  required:
+    - type
+    - message_id
+  properties:
+    type:
+      type: string
+      enum:
+        - done
+    message_id:
+      type: string
+      format: uuid
+    content:
+      type: string
+      description: >-
+        Full merged assistant message content. Sent on highlight-regenerate
+        completion.
+    frontend_url:
+      type: string
+      format: uri
+      description: >-
+        URL of the generated interactive UI (sandbox preview). Sent when the
+        assistant produced an interactive_components response.
+    api_preview_url:
+      type: string
+      format: uri
+      description: >-
+        Preview URL exposed by the generated app (e.g. backend/API preview).
+        Sent alongside frontend_url for interactive_components responses.
+
+ChatSseDoneTextEventDto:
+  type: object
+  required:
+    - type
+    - message_id
+  properties:
+    type:
+      type: string
+      enum:
+        - done_text
+    message_id:
+      type: string
+      format: uuid
+    quote:
+      nullable: true
+      allOf:
+        - $ref: "#/ChatQuoteDto"
+
+ChatSseDoneImageEventDto:
+  type: object
+  required:
+    - type
+    - message_id
+  properties:
+    type:
+      type: string
+      enum:
+        - done_image
+    message_id:
+      type: string
+      format: uuid
+
+ChatSseDoneUiEventDto:
+  type: object
+  required:
+    - type
+    - message_id
+  properties:
+    type:
+      type: string
+      enum:
+        - done_ui
+    message_id:
+      type: string
+      format: uuid
+
+ChatSseTitleStartEventDto:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      enum:
+        - title_start
+
+ChatSseTitleTokenEventDto:
+  type: object
+  required:
+    - type
+    - text
+  properties:
+    type:
+      type: string
+      enum:
+        - title_token
+    text:
+      type: string
+
+ChatSseTitleCompleteEventDto:
+  type: object
+  required:
+    - type
+    - title
+    - session_id
+  properties:
+    type:
+      type: string
+      enum:
+        - title_complete
+    title:
+      type: string
+    session_id:
+      type: string
+      format: uuid
+
+ChatSseTitleErrorEventDto:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      enum:
+        - title_error
+    error:
+      type: string
+      nullable: true
+
+ChatSseCategoryAssignedEventDto:
+  type: object
+  required:
+    - type
+    - category
+  properties:
+    type:
+      type: string
+      enum:
+        - category_assigned
+    category:
+      type: string
+    confidence:
+      type: number
+    additional_domains:
+      type: array
+      items:
+        type: string
+    is_final:
+      type: boolean
+
+ChatSseErrorEventDto:
+  type: object
+  required:
+    - type
+    - message
+  properties:
+    type:
+      type: string
+      enum:
+        - error
+    message:
+      type: string
+
+ChatSseImageEventDto:
+  type: object
+  required:
+    - type
+    - attachmentId
+    - url
+    - s3Key
+    - mimeType
+  properties:
+    type:
+      type: string
+      enum:
+        - image
+    attachmentId:
+      type: string
+      format: uuid
+      description: Id of the attachment that stores the generated image
+      example: 6d317eb6-992a-408b-9743-eeb976bcc1d4
+    url:
+      type: string
+      format: uri
+      description: Presigned S3 URL for the generated image
+    s3Key:
+      type: string
+      description: S3 key of the generated image
+      example: chat-attachments/93aa5d06-142d-4f65-a256-19d5e7e5458f.jpeg
+    mimeType:
+      type: string
+      description: MIME type of the generated image
+      example: image/jpeg
+    index:
+      type: number
+      description: Zero-based position of the image within the generated set
+      example: 1
+    source:
+      type: string
+      description: Origin of the image (e.g. "generated")
+      example: generated
+
+ChatSseResponseTypesEventDto:
+  type: object
+  required:
+    - type
+    - response_types
+  properties:
+    type:
+      type: string
+      enum:
+        - response_types
+    response_types:
+      type: array
+      items:
+        type: string
+        enum:
+          - text
+          - requests_image
+          - interactive_components
+      description: List of response types the assistant will produce
+
+ChatSseHighlightRegenStartEventDto:
+  type: object
+  required:
+    - type
+    - message_id
+  properties:
+    type:
+      type: string
+      enum:
+        - highlight_regen_start
+    message_id:
+      type: string
+      format: uuid
+    range_start:
+      type: number
+      description: >-
+        UTF-16 start offset in the assistant message where the replacement
+        will be inserted.
+    range_end:
+      type: number
+      description: UTF-16 end offset (exclusive) for the replaced slice.
+
+ChatSseImageEditBboxDto:
+  type: object
+  required:
+    - x
+    - y
+    - width
+    - height
+  properties:
+    x:
+      type: number
+    y:
+      type: number
+    width:
+      type: number
+    height:
+      type: number
+
+ChatSseImageEditStartEventDto:
+  type: object
+  required:
+    - type
+    - message_id
+    - attachment_id
+  properties:
+    type:
+      type: string
+      enum:
+        - image_edit_start
+    message_id:
+      type: string
+      format: uuid
+    attachment_id:
+      type: string
+      format: uuid
+      description: Id of the source attachment being edited.
+    bbox:
+      nullable: true
+      allOf:
+        - $ref: "#/ChatSseImageEditBboxDto"
+
+ChatSseImageEditProgressEventDto:
+  type: object
+  required:
+    - type
+    - phase
+  properties:
+    type:
+      type: string
+      enum:
+        - image_edit_progress
+    phase:
+      type: string
+      enum:
+        - generating
+        - uploading
+      description: Current phase of the image edit pipeline.
+
+ChatSseImageEditDoneEventDto:
+  type: object
+  required:
+    - type
+    - message_id
+    - source_attachment_id
+    - new_attachment_id
+    - s3_key
+    - url
+    - mime_type
+  properties:
+    type:
+      type: string
+      enum:
+        - image_edit_done
+    message_id:
+      type: string
+      format: uuid
+    source_attachment_id:
+      type: string
+      format: uuid
+      description: Id of the source attachment that was superseded.
+    new_attachment_id:
+      type: string
+      format: uuid
+      description: Id of the new attachment containing the edited image.
+    s3_key:
+      type: string
+      description: S3 key of the edited image.
+    url:
+      type: string
+      format: uri
+      description: Presigned S3 URL for the edited image.
+    mime_type:
+      type: string
+      example: image/jpeg
+    size_bytes:
+      type: number
+      description: File size in bytes.
+
+ChatSseInteractiveRephraseStartEventDto:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      enum:
+        - interactive_rephrase_start
+
+ChatSseInteractiveRephraseCompleteEventDto:
+  type: object
+  required:
+    - type
+    - enriched_prompt
+  properties:
+    type:
+      type: string
+      enum:
+        - interactive_rephrase_complete
+    enriched_prompt:
+      type: string
+      description: >-
+        Rephrased/enriched user prompt used to drive the interactive UI
+        generation pipeline.
+
+ChatSseAppStatusEventDto:
+  type: object
+  required:
+    - type
+    - phase
+  properties:
+    type:
+      type: string
+      enum:
+        - app_status
+    phase:
+      type: string
+      description: >-
+        Current phase of the interactive app generation pipeline
+        (e.g. "generating").
+
+ChatSseImagePlanUnitSpecDto:
+  type: object
+  description: Layout/size parameters for the planned image unit.
+  properties:
+    aspect_ratio:
+      type: string
+      description: Desired image aspect ratio (e.g. "16:9", "1:1").
+      example: "16:9"
+    image_size:
+      type: string
+      description: Size hint for the image (e.g. "1K", "large", "medium", "small").
+      example: 1K
+    count:
+      type: number
+      description: Number of images expected in this unit.
+      example: 1
+
+ChatSseImagePlanEventDto:
+  type: object
+  required:
+    - type
+    - unit
+    - image_count
+  properties:
+    type:
+      type: string
+      enum:
+        - image_plan
+    unit:
+      type: string
+      enum:
+        - header
+        - checklist
+        - comparison
+        - cards
+        - gallery
+      description: Semantic layout unit the images will populate.
+    unit_spec:
+      nullable: true
+      allOf:
+        - $ref: "#/ChatSseImagePlanUnitSpecDto"
+    image_count:
+      type: number
+      description: Total number of images that will be generated for this plan.
+    text_anchor:
+      type: number
+      description: >-
+        0-based UTF-16 offset (JS string length) into the assistant content
+        marking where the image unit should be rendered inline. Optional/absent
+        for older messages, in which case the unit is rendered at the end.
+
+ChatSseImagePendingEventDto:
+  type: object
+  description: >-
+    Reserves an image placeholder at the given anchor so the client can show
+    that an image is coming before the (possibly delayed) image_plan arrives.
+  required:
+    - type
+    - text_anchor
+  properties:
+    type:
+      type: string
+      enum:
+        - image_pending
+    text_anchor:
+      type: number
+      description: >-
+        0-based UTF-16 offset (JS string length) into the assistant content
+        marking where the reserved placeholder should be rendered inline.
+
+ChatSseImagePendingCancelEventDto:
+  type: object
+  description: >-
+    Removes a previously reserved image placeholder (sent when the image plan
+    failed and no images will be delivered for that anchor).
+  required:
+    - type
+    - text_anchor
+  properties:
+    type:
+      type: string
+      enum:
+        - image_pending_cancel
+    text_anchor:
+      type: number
+      description: >-
+        0-based UTF-16 offset (JS string length) identifying the reserved
+        placeholder to remove.
+
+ChatSseEventDto:
+  oneOf:
+    - $ref: "#/ChatSseTokenEventDto"
+    - $ref: "#/ChatSseDoneEventDto"
+    - $ref: "#/ChatSseTitleStartEventDto"
+    - $ref: "#/ChatSseTitleTokenEventDto"
+    - $ref: "#/ChatSseTitleCompleteEventDto"
+    - $ref: "#/ChatSseTitleErrorEventDto"
+    - $ref: "#/ChatSseCategoryAssignedEventDto"
+    - $ref: "#/ChatSseErrorEventDto"
+    - $ref: "#/ChatSseImageEventDto"
+    - $ref: "#/ChatSseResponseTypesEventDto"
+    - $ref: "#/ChatSseHighlightRegenStartEventDto"
+    - $ref: "#/ChatSseImageEditStartEventDto"
+    - $ref: "#/ChatSseImageEditProgressEventDto"
+    - $ref: "#/ChatSseImageEditDoneEventDto"
+    - $ref: "#/ChatSseInteractiveRephraseStartEventDto"
+    - $ref: "#/ChatSseInteractiveRephraseCompleteEventDto"
+    - $ref: "#/ChatSseAppStatusEventDto"
+    - $ref: "#/ChatSseImagePlanEventDto"
+    - $ref: "#/ChatSseImagePendingEventDto"
+    - $ref: "#/ChatSseImagePendingCancelEventDto"
+    - $ref: "#/ChatSseDoneTextEventDto"
+    - $ref: "#/ChatSseDoneImageEventDto"
+    - $ref: "#/ChatSseDoneUiEventDto"
+  discriminator:
+    propertyName: type
+    mapping:
+      token: "#/ChatSseTokenEventDto"
+      done: "#/ChatSseDoneEventDto"
+      title_start: "#/ChatSseTitleStartEventDto"
+      title_token: "#/ChatSseTitleTokenEventDto"
+      title_complete: "#/ChatSseTitleCompleteEventDto"
+      title_error: "#/ChatSseTitleErrorEventDto"
+      category_assigned: "#/ChatSseCategoryAssignedEventDto"
+      error: "#/ChatSseErrorEventDto"
+      image: "#/ChatSseImageEventDto"
+      response_types: "#/ChatSseResponseTypesEventDto"
+      highlight_regen_start: "#/ChatSseHighlightRegenStartEventDto"
+      image_edit_start: "#/ChatSseImageEditStartEventDto"
+      image_edit_progress: "#/ChatSseImageEditProgressEventDto"
+      image_edit_done: "#/ChatSseImageEditDoneEventDto"
+      interactive_rephrase_start: "#/ChatSseInteractiveRephraseStartEventDto"
+      interactive_rephrase_complete: "#/ChatSseInteractiveRephraseCompleteEventDto"
+      app_status: "#/ChatSseAppStatusEventDto"
+      image_plan: "#/ChatSseImagePlanEventDto"
+      image_pending: "#/ChatSseImagePendingEventDto"
+      image_pending_cancel: "#/ChatSseImagePendingCancelEventDto"
+      done_text: "#/ChatSseDoneTextEventDto"
+      done_image: "#/ChatSseDoneImageEventDto"
+      done_ui: "#/ChatSseDoneUiEventDto"
+
+InitiateAttachmentResponseDto:
+  type: object
+  required:
+    - upload_url
+    - s3_key
+  properties:
+    upload_url:
+      type: string
+      description: Presigned S3 PUT URL for file upload
+    s3_key:
+      type: string
+      example: chat-attachments/7c6317f2-2f6a-49b2-a2dd-486987af6985.txt
+
+GetAttachmentDownloadUrlResponseDto:
+  type: object
+  required:
+    - download_url
+  properties:
+    download_url:
+      type: string
+      description: Presigned S3 GET URL for file download
+
+# Chat request schemas
+GenerateSuggestionsDto:
+  type: object
+  properties:
+    count:
+      type: number
+      minimum: 1
+      maximum: 10
+      default: 3
+      description: >-
+        How many starter suggestions to return. Clamped to the curated pool
+        size on the cold-start path.
+
+StarterSuggestionsResponseDto:
+  type: object
+  required:
+    - set_id
+    - source
+    - suggestions
+  properties:
+    set_id:
+      type: string
+      format: uuid
+      description: >-
+        Persisted suggestion set id; used internally for attribution
+        bookkeeping.
+    source:
+      type: string
+      enum:
+        - history
+        - cold_start
+      description: >-
+        How the suggestion set was produced. `history` means it was
+        LLM-generated from the user's recent conversations; `cold_start`
+        means a curated fallback was returned.
+    context_session_count:
+      type: number
+      description: >-
+        Number of recent conversations used to ground the suggestions (only
+        meaningful for the `history` source).
+    suggestions:
+      type: array
+      description: Starter suggestions to show on the home screen.
+      items:
+        $ref: "#/FollowupSuggestionDto"
+
+CreateSessionDto:
+  type: object
+  properties:
+    title:
+      type: string
+      maxLength: 500
+      description: Optional title; can be set later.
+    origin:
+      type: string
+      enum:
+        - chat
+        - app
+        - autoscientist
+        - chart
+      description: >-
+        Where the session originates and whether it appears in chat
+        dashboards. `chat` (default) is a normal, dashboard-visible
+        conversation. `app` / `autoscientist` / `chart` mark a dedicated
+        container that `GET /chat/sessions` and `GET /chat/directories` hide
+        by default. When `origin` is `chart`, `dataset_id` is required and the
+        session title defaults to the dataset name when `title` is omitted.
+      default: chat
+    dataset_id:
+      type: string
+      format: uuid
+      description: >-
+        Required when `origin` is `chart`. Dataset the chart session is bound
+        to. At most one active chart session per (user, dataset); a duplicate
+        create returns 409.
+    directory_id:
+      type: string
+      maxLength: 100
+      description: >-
+        Directory to place the chat in initially: folder UUID (from GET
+        /directories), or domain slug for backward compatibility. Omit for
+        uncategorized until classified. Not allowed when `origin` is `chart`.
+      example: aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa
+
+PatchSessionDto:
+  type: object
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 500
+    directory_id:
+      type: string
+      nullable: true
+      description: >-
+        Move chat to a directory (folder UUID; domain slug accepted for
+        backward compatibility). Pass null to uncategorize.
+    is_favorite:
+      type: boolean
+
+AppendInteractivePreviewDto:
+  type: object
+  required:
+    - preview_url
+  properties:
+    preview_url:
+      type: string
+      minLength: 1
+      maxLength: 50000
+      description: >-
+        New preview URL for the generated UI. Supersedes the active row for
+        the same preview_kind. Leading/trailing whitespace is stripped
+        before validation.
+      example: https://preview.example.com/run/abc
+    preview_kind:
+      type: string
+      enum:
+        - frontend
+        - ui
+      default: frontend
+      description: Logical slot; defaults to frontend (main UI preview).
+    deploy_snapshot:
+      type: object
+      description: >-
+        Optional deploy metadata snapshot (e.g. sandbox_id) for future
+        server-side refresh.
+
+InitiateAttachmentDto:
+  type: object
+  required:
+    - file_name
+    - content_type
+  properties:
+    file_name:
+      type: string
+      minLength: 1
+      maxLength: 512
+      example: notes.txt
+    content_type:
+      type: string
+      enum:
+        - text/plain
+        - application/pdf
+        - image/jpeg
+        - image/png
+        - image/gif
+        - image/webp
+      example: text/plain
+
+CreateUserMessageAttachmentDto:
+  type: object
+  required:
+    - s3_key
+    - file_name
+    - content_type
+  properties:
+    s3_key:
+      type: string
+      minLength: 1
+      maxLength: 1024
+      example: 550e8400-e29b-41d4-a716-446655440000.pdf
+    file_name:
+      type: string
+      minLength: 1
+      maxLength: 512
+      example: report.pdf
+    content_type:
+      type: string
+      enum:
+        - text/plain
+        - application/pdf
+        - image/jpeg
+        - image/png
+        - image/gif
+        - image/webp
+      example: application/pdf
+
+CreateUserMessageDto:
+  type: object
+  properties:
+    content:
+      type: string
+      maxLength: 200000
+      default: ""
+      description: >-
+        Message text. Empty string is allowed only when attachments are supplied.
+    attachments:
+      type: array
+      maxItems: 10
+      description: >-
+        Uploaded attachments to link to the newly created message. Each item
+        refers to a file already uploaded to S3 via initiate.
+      items:
+        $ref: "#/CreateUserMessageAttachmentDto"
+    input_source:
+      type: string
+      enum:
+        - user_text
+        - followup_suggestion
+        - starter_suggestion
+      description: >-
+        How the message was composed. Use followup_suggestion when the user
+        chose a stored follow-up chip, or starter_suggestion when the user
+        clicked a home-screen starter card.
+    followup_suggestion_id:
+      type: string
+      format: uuid
+      description: >-
+        When input_source is followup_suggestion, the suggestion id returned
+        from POST /chat/sessions/:id/followups. Message content is taken
+        from this suggestion.
+    starter_suggestion_id:
+      type: string
+      format: uuid
+      description: >-
+        When input_source is starter_suggestion, the suggestion id returned
+        from POST /chat/suggestions. Message content is taken from this
+        suggestion.
+
+CompletionMessageDto:
+  type: object
+  required:
+    - role
+    - content
+  properties:
+    role:
+      type: string
+      enum:
+        - system
+        - user
+        - assistant
+    content:
+      type: string
+      maxLength: 200000
+    image_urls:
+      description: Image URLs to include alongside the text content
+      type: array
+      items:
+        type: string
+        format: uri
+
+CreateCompletionDto:
+  type: object
+  required:
+    - messages
+  properties:
+    messages:
+      type: array
+      minItems: 1
+      items:
+        $ref: "#/CompletionMessageDto"
+    modality:
+      type: string
+      default: text
+      enum:
+        - text
+        - image
+    schema:
+      type: object
+      description: >-
+        JSON Schema describing the expected structured output (required for text modality)
+      example:
+        type: object
+        properties:
+          name:
+            type: string
+          age:
+            type: number
+        required:
+          - name
+          - age
+    schema_name:
+      type: string
+      maxLength: 200
+      description: Name for the schema / tool (used in the Anthropic tool_use call)
+      default: structured_output
+    schema_description:
+      type: string
+      maxLength: 2000
+      description: Description hint sent to the model alongside the schema
+    aspect_ratio:
+      type: string
+      enum:
+        - auto
+        - "1:1"
+        - "2:3"
+        - "3:2"
+        - "3:4"
+        - "4:3"
+        - "9:16"
+        - "16:9"
+        - "21:9"
+      description: >-
+        Aspect ratio for image generation (image modality only). Use `auto` or omit to let the model choose.
+    max_tokens:
+      type: number
+      minimum: 1
+      maximum: 16384
+      default: 4096
+
+CreateCompletionResponseDto:
+  type: object
+  description: Structured output (text modality) or generated image URL (image modality)
+  properties:
+    text:
+      type: string
+      nullable: true
+      description: Generated text output (text modality)
+    image_url:
+      type: string
+      nullable: true
+      description: Generated image URL (image modality)
+
+HighlightRegenerateActionDto:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      enum:
+        - regenerate
+        - followup
+        - prompt
+    value:
+      type: string
+      maxLength: 50000
+      description: >-
+        Required when type is followup (follow-up suggestion id) or prompt
+        (user instruction string). Omitted for type regenerate.
+
+HighlightRegenerateDto:
+  type: object
+  required:
+    - action
+  properties:
+    highlighted:
+      type: string
+      minLength: 1
+      maxLength: 200000
+      description: >-
+        Substring to find when highlight_range_start/end are omitted (first
+        match). Optional when both range fields are set; the server uses the
+        stored slice at those offsets.
+    highlight_range_start:
+      type: number
+      minimum: 0
+      maximum: 2000000
+      description: >-
+        Start offset in the assistant message (UTF-16 code unit index). Must
+        be sent together with highlight_range_end. Null is treated as
+        omitted.
+    highlight_range_end:
+      type: number
+      minimum: 0
+      maximum: 2000000
+      description: >-
+        End offset (exclusive), UTF-16 code unit index. When sent with
+        highlight_range_start, that slice is replaced (offsets are trusted).
+        Null is treated as omitted.
+    action:
+      $ref: "#/HighlightRegenerateActionDto"
+
+HighlightRegenerateImageActionDto:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      enum:
+        - regenerate
+        - prompt
+    value:
+      type: string
+      maxLength: 10000
+      description: >-
+        Required when type is prompt (user instruction string). Omitted for
+        type regenerate.
+
+HighlightImageBboxDto:
+  type: object
+  required:
+    - x
+    - y
+    - width
+    - height
+  properties:
+    x:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: >-
+        Left edge of the highlighted region as a fraction of the full image
+        width, in [0, 1].
+    y:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: >-
+        Top edge of the highlighted region as a fraction of the full image
+        height, in [0, 1].
+    width:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: >-
+        Width of the highlighted region as a fraction of the full image
+        width, in (0, 1]. x + width must be <= 1.
+    height:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: >-
+        Height of the highlighted region as a fraction of the full image
+        height, in (0, 1]. y + height must be <= 1.
+
+HighlightImageSuggestionsDto:
+  type: object
+  required:
+    - attachment_id
+    - bbox
+  properties:
+    attachment_id:
+      type: string
+      format: uuid
+      description: >-
+        UUID of the ChatAttachment the user highlighted. Must belong to the
+        latest non-superseded assistant message in the session and must
+        itself be non-superseded.
+    bbox:
+      description: >-
+        Highlighted region as normalized [0, 1] coordinates relative to the
+        full image (x, y, width, height).
+      allOf:
+        - $ref: "#/HighlightImageBboxDto"
+
+HighlightImageSuggestionItemDto:
+  type: object
+  required:
+    - id
+    - text
+  properties:
+    id:
+      type: string
+      description: >-
+        Stable client-side identifier for this suggestion. Not persisted;
+        safe to treat as ephemeral.
+    text:
+      type: string
+      description: Short, imperative edit instruction.
+
+HighlightImageSuggestionsResponseDto:
+  type: object
+  required:
+    - suggestions
+    - attachment_id
+  properties:
+    suggestions:
+      type: array
+      items:
+        $ref: "#/HighlightImageSuggestionItemDto"
+      description: >-
+        Edit suggestions for the highlighted region, conditioned on the
+        image content visible inside the bbox.
+    attachment_id:
+      type: string
+      format: uuid
+      description: Source ChatAttachment id the suggestions were generated for.
+
+HighlightRegenerateImageDto:
+  type: object
+  required:
+    - attachment_id
+    - bbox
+    - action
+  properties:
+    attachment_id:
+      type: string
+      format: uuid
+      description: >-
+        UUID of the source ChatAttachment to edit. Must belong to the latest
+        non-superseded assistant message in the session and must itself be
+        non-superseded.
+    bbox:
+      description: >-
+        Highlighted region as normalized [0, 1] coordinates relative to the
+        full image (x, y, width, height).
+      allOf:
+        - $ref: "#/HighlightImageBboxDto"
+    action:
+      $ref: "#/HighlightRegenerateImageActionDto"
+
+GenerateFollowupsDto:
+  type: object
+  required:
+    - context
+  properties:
+    context:
+      type: string
+      minLength: 1
+      maxLength: 200000
+      description: The conversation context to generate follow-up suggestions for
+    highlighted:
+      type: string
+      maxLength: 1024
+      description: >-
+        Highlighted text from the conversation. When present, suggestions
+        target the highlight instead of the full context.
+
+SessionFollowupsPostDto:
+  type: object
+  properties:
+    highlighted:
+      type: string
+      maxLength: 16384
+      description: >-
+        Highlighted text from the conversation. When present, suggestions
+        target the highlight. Required when `mode` is `edits`.
+    mode:
+      type: string
+      enum:
+        - edits
+      description: >-
+        When 'edits', generate imperative section-edit instructions
+        targeting the highlighted passage instead of follow-up questions.
+        Requires `highlighted`. Result `kind` is `section_edits`. When
+        omitted, behavior is unchanged (`context` or `app_edits`).
+
+FollowupSuggestionDto:
+  type: object
+  required:
+    - id
+    - text
+  properties:
+    id:
+      type: string
+      format: uuid
+    text:
+      type: string
+
+SessionFollowupsResponseDto:
+  type: object
+  required:
+    - suggestions
+  properties:
+    suggestions:
+      type: array
+      items:
+        $ref: "#/FollowupSuggestionDto"
+      nullable: true
+      description: Stored follow-up suggestions, or null if none exist
+    source:
+      type: string
+      enum:
+        - highlight
+        - context
+    message_id:
+      type: string
+      format: uuid
+    followup_set_id:
+      type: string
+      format: uuid
+    highlighted_text:
+      type: string
+      nullable: true
+    kind:
+      type: string
+      enum:
+        - context
+        - app_edits
+        - section_edits
+    status:
+      type: string
+      enum:
+        - ready
+        - pending
+        - failed
+      description: >-
+        Chart follow-ups may be generated asynchronously; `pending` while the
+        job is in flight.
+
+GenerateFollowupsResponseDto:
+  type: object
+  required:
+    - suggestions
+    - source
+  properties:
+    suggestions:
+      type: array
+      items:
+        $ref: "#/FollowupSuggestionDto"
+      description: Generated follow-up suggestions
+    source:
+      type: string
+      enum:
+        - highlight
+        - context
+      description: Source that triggered the suggestions
+
+# Public code snippets (GET /snippets, GET /snippets/{name})
+SnippetParamDto:
+  type: object
+  required:
+    - key
+    - placeholder
+  properties:
+    key:
+      type: string
+      description: Placeholder token, e.g. DATASET_ID
+    placeholder:
+      type: string
+      description: Fallback when not provided from context
+
+SnippetStringsDto:
+  type: object
+  required:
+    - curl
+    - python
+  properties:
+    curl:
+      type: string
+    python:
+      type: string
+
+SnippetCaseDto:
+  type: object
+  required:
+    - params
+    - snippets
+  properties:
+    params:
+      type: array
+      items:
+        $ref: "#/SnippetParamDto"
+    snippets:
+      $ref: "#/SnippetStringsDto"
+
+FinetuneStepMetricDto:
+  type: object
+  required:
+    - step
+    - train_loss
+    - val_loss
+    - learning_rate
+    - gradient_norm
+    - accuracy
+    - win_rate
+  properties:
+    step:
+      type: number
+    train_loss:
+      type: number
+    val_loss:
+      type: number
+      nullable: true
+    learning_rate:
+      type: number
+    gradient_norm:
+      type: number
+    accuracy:
+      type: number
+      nullable: true
+    win_rate:
+      type: number
+      nullable: true
+
+ModelWinRatesDto:
+  type: object
+  required:
+    - base_model_wins
+    - finetuned_model_wins
+    - ties
+    - base_model_win_rate_pct
+    - finetuned_model_win_rate_pct
+  properties:
+    base_model_wins:
+      type: number
+    finetuned_model_wins:
+      type: number
+    ties:
+      type: number
+    base_model_win_rate_pct:
+      type: number
+    finetuned_model_win_rate_pct:
+      type: number
+
+FinetuneJobMetricsDto:
+  type: object
+  required:
+    - job_id
+    - dataset_quality
+    - win_rates
+    - training_curves
+    - evaluation_status
+    - dataset_evaluation_status
+  properties:
+    job_id:
+      type: string
+    dataset_quality:
+      type: object
+      nullable: true
+      additionalProperties: true
+    win_rates:
+      nullable: true
+      allOf:
+        - $ref: "#/ModelWinRatesDto"
+    training_curves:
+      type: array
+      items:
+        $ref: "#/FinetuneStepMetricDto"
+    evaluation_status:
+      type: string
+      nullable: true
+    dataset_evaluation_status:
+      type: string
+      nullable: true
+
+SnippetsListResponseDto:
+  type: object
+  required:
+    - snippets
+  properties:
+    snippets:
+      type: object
+      additionalProperties:
+        $ref: "#/SnippetCaseDto"
+
+
+# --- Chart visualize (from Pharos feature/charts) ---
+
+ChartSessionConflictDto:
+  type: object
+  required:
+    - message
+    - session_id
+  properties:
+    message:
+      type: string
+    session_id:
+      type: string
+      format: uuid
+      description: Existing chart session to open instead of creating a new one.
+
+# Chart schemas (chart sessions, orchestrator jobs, dataset-info charts)
+ChartTargetDto:
+  type: object
+  required:
+    - role
+    - pointer
+    - current_values
+  properties:
+    role:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: 'Vega renderer role word: mark, axis-label, legend-symbol, etc.'
+    pointer:
+      type: string
+      minLength: 1
+      maxLength: 512
+      description: JSON Pointer into the authored spec (e.g. /encoding/x/axis).
+    mark_type:
+      type: string
+      maxLength: 64
+    channel:
+      type: string
+      maxLength: 64
+    field:
+      type: string
+      maxLength: 128
+    datum:
+      type: object
+      description: Datum for the selected mark, when applicable.
+      additionalProperties: true
+    current_values:
+      type: object
+      description: >-
+        Resolved painted values for the clicked element (ground truth for
+        relative edits).
+      additionalProperties: true
+
+ChartOrchestratorChartDto:
+  type: object
+  required:
+    - chart_id
+    - status
+    - spec
+  properties:
+    chart_id:
+      type: string
+      format: uuid
+    revision:
+      type: number
+      description: Bumped every time the chart is edited.
+    status:
+      type: string
+      description: Artifact status of the chart itself (e.g. ready).
+    spec:
+      type: object
+      additionalProperties: true
+      description: >-
+        Vega-Lite spec. It references its rows by dataset name
+        (`data: { name: "table" }`) instead of embedding them — the rows
+        arrive in `plot_data`.
+    plot_data:
+      type: array
+      description: Rows the named dataset in `spec` resolves to.
+      items:
+        type: object
+        additionalProperties: true
+    block:
+      type: object
+      nullable: true
+      additionalProperties: true
+      description: >-
+        Renderer-oriented duplicate of `spec` / `plot_data`. Clients read
+        `spec` and `plot_data` directly.
+    show_on_dataset:
+      type: boolean
+      description: >-
+        Whether this chart is pinned to the dataset info tab (saved by the
+        user).
+
+ChartTurnMessageDto:
+  type: object
+  properties:
+    text_before:
+      type: string
+      nullable: true
+      description: >-
+        Markdown rendered above the chart (lead-in). On a `discuss` turn this
+        is the whole reply, or the refusal.
+    text_after:
+      type: string
+      nullable: true
+      description: >-
+        Markdown rendered below the chart — how to read it, or what changed.
+        Empty on a `discuss` turn.
+    summary:
+      type: string
+      nullable: true
+      description: >-
+        Header / history / disambiguation text. Not a third body paragraph —
+        do not render it alongside `text_after`.
+    related:
+      type: boolean
+      nullable: true
+      description: >-
+        `discuss` turns only — false marks an off-topic refusal. Always true
+        for `generate` and `edit`.
+    chart:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartOrchestratorChartDto"
+
+ChartFollowupSetDto:
+  type: object
+  required:
+    - suggestions
+  properties:
+    followup_set_id:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      description: e.g. chart_followups
+    suggestions:
+      type: array
+      items:
+        $ref: "#/FollowupSuggestionDto"
+
+ChartPendingProposalDto:
+  type: object
+  required:
+    - proposal_id
+    - job_id
+  properties:
+    proposal_id:
+      type: string
+      format: uuid
+    job_id:
+      type: string
+      format: uuid
+    base_chart_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: The chart the edit started from — the "before" side of the choice.
+    proposed_chart_id:
+      type: string
+      format: uuid
+      nullable: true
+    text_before:
+      type: string
+      nullable: true
+    text_after:
+      type: string
+      nullable: true
+    summary:
+      type: string
+      nullable: true
+    chart:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartOrchestratorChartDto"
+
+ChartJobResultDto:
+  type: object
+  required:
+    - kind
+  properties:
+    kind:
+      type: string
+      enum:
+        - chart
+        - edit
+        - discuss
+      description: >-
+        What the turn produced: a new chart, an edit awaiting a choice, or a
+        text-only answer.
+    chart_id:
+      type: string
+      format: uuid
+      nullable: true
+    message:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartTurnMessageDto"
+    assistant_message_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Id of the persisted assistant reply. Null while an edit proposal is
+        still awaiting the user's choice.
+    followups:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartFollowupSetDto"
+    pending_proposal:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartPendingProposalDto"
+
+ChartActiveJobDto:
+  type: object
+  required:
+    - job_id
+    - status
+  properties:
+    job_id:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      enum:
+        - generate
+        - edit
+    status:
+      type: string
+      enum:
+        - queued
+        - running
+        - ready
+        - awaiting_choice
+        - failed
+    phase:
+      type: string
+      nullable: true
+    proposal_id:
+      type: string
+      format: uuid
+      nullable: true
+
+ChartSessionDatasetDto:
+  type: object
+  required:
+    - dataset_id
+  properties:
+    dataset_id:
+      type: string
+      format: uuid
+    name:
+      type: string
+
+ChartSessionDto:
+  type: object
+  required:
+    - session_id
+    - created_at
+    - updated_at
+  properties:
+    session_id:
+      type: string
+      format: uuid
+    title:
+      type: string
+      nullable: true
+    dataset:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartSessionDatasetDto"
+      description: Dataset the chart session is bound to, pinned at creation.
+    generation_status:
+      type: string
+      enum:
+        - idle
+        - generating
+        - failed
+    generation_kind:
+      type: string
+      nullable: true
+      description: e.g. chart_generate, chart_edit
+    active_job:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartActiveJobDto"
+      description: >-
+        The job to reconnect to after a page reload — null when nothing is in
+        flight. This is the only place a client can learn that a turn is still
+        running, because the transcript has no assistant row for it yet.
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+ChartSessionsListDto:
+  type: object
+  required:
+    - sessions
+    - next_cursor
+  properties:
+    sessions:
+      type: array
+      items:
+        $ref: "#/ChartSessionDto"
+    next_cursor:
+      type: string
+      format: uuid
+      nullable: true
+
+PatchChartSessionDto:
+  type: object
+  properties:
+    title:
+      type: string
+      nullable: true
+      maxLength: 200
+
+ChartQuickInsightSuggestionDto:
+  type: object
+  required:
+    - id
+    - set_id
+    - text
+    - goal
+    - tag
+    - columns
+    - dataset_id
+    - dataset_title
+  properties:
+    id:
+      type: string
+      format: uuid
+    set_id:
+      type: string
+      format: uuid
+    text:
+      type: string
+    goal:
+      type: string
+    tag:
+      type: string
+    columns:
+      type: array
+      items:
+        type: string
+    dataset_id:
+      type: string
+      format: uuid
+    dataset_title:
+      type: string
+
+ChartQuickInsightsResponseDto:
+  type: object
+  required:
+    - scope
+    - suggestions
+  properties:
+    scope:
+      type: string
+      enum:
+        - dataset
+        - latest_datasets
+    suggestions:
+      type: array
+      items:
+        $ref: "#/ChartQuickInsightSuggestionDto"
+
+ChartSessionGenerateDto:
+  type: object
+  properties:
+    instruction:
+      type: string
+      minLength: 1
+      description: >-
+        User instruction. Omit when `followup_suggestion_id` or
+        `quick_insight_suggestion_id` is set; the server resolves text from
+        the suggestion.
+    followup_suggestion_id:
+      type: string
+      format: uuid
+    quick_insight_suggestion_id:
+      type: string
+      format: uuid
+      description: >-
+        Pre-session quick-insight suggestion id from GET …/quick-insights.
+        Resolves instruction from the suggestion body and records selection
+        history on the user message.
+
+ChartSessionEditDto:
+  type: object
+  required:
+    - focus_chart_id
+  properties:
+    instruction:
+      type: string
+      minLength: 1
+      description: >-
+        User instruction. Omit when `followup_suggestion_id` is set; the server
+        resolves text from the suggestion.
+    focus_chart_id:
+      type: string
+      format: uuid
+    target:
+      $ref: "#/ChartTargetDto"
+    followup_suggestion_id:
+      type: string
+      format: uuid
+
+ChartSessionJobAcceptedDto:
+  type: object
+  required:
+    - job_id
+    - status
+  properties:
+    job_id:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum:
+        - queued
+
+ResolveChartEditProposalDto:
+  type: object
+  required:
+    - choice
+  properties:
+    choice:
+      type: string
+      enum:
+        - keep_new
+        - keep_old
+
+ChartJobResponseDto:
+  type: object
+  required:
+    - job_id
+    - kind
+    - status
+  properties:
+    job_id:
+      type: string
+      format: uuid
+    session_id:
+      type: string
+      format: uuid
+    chart_id:
+      type: string
+      nullable: true
+      format: uuid
+    kind:
+      type: string
+      enum:
+        - generate
+        - edit
+      description: Which endpoint started the job — `/generate` or `/edit`.
+    status:
+      type: string
+      enum:
+        - queued
+        - running
+        - ready
+        - awaiting_choice
+        - failed
+    phase:
+      type: string
+      nullable: true
+    error:
+      type: string
+      nullable: true
+    proposal_id:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Set when `status` is `awaiting_choice` — the proposal to resolve via
+        `POST /chart-sessions/{sessionId}/proposals/{proposalId}/resolve`.
+    result:
+      nullable: true
+      allOf:
+        - $ref: "#/ChartJobResultDto"
+      description: >-
+        When `status` is `ready` or `awaiting_choice`, includes the displayable
+        chart (`spec` / `plot_data` / `block`), message text fields,
+        `assistant_message_id`, and `followups` so clients can update the
+        transcript without refetching messages.
+    created_at:
+      type: string
+      format: date-time
+    started_at:
+      type: string
+      format: date-time
+      nullable: true
+    finished_at:
+      type: string
+      format: date-time
+      nullable: true
+
+ReorderDatasetChartsDto:
+  type: object
+  required:
+    - chart_ids
+  properties:
+    chart_ids:
+      type: array
+      minItems: 1
+      description: >-
+        Ordered chart_ids — must be exactly the set currently marked for
+        display.
+      items:
+        type: string
+        format: uuid
+
+DatasetDisplayedChartBlockDto:
+  type: object
+  required:
+    - id
+    - kind
+    - status
+    - grammar
+    - spec
+  properties:
+    id:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      description: Artifact kind, e.g. `chart`.
+    status:
+      type: string
+      description: Artifact status of the chart itself, e.g. `ready`.
+    grammar:
+      type: string
+      description: Grammar `spec` is written in, e.g. `vega-lite`.
+    spec:
+      type: object
+      additionalProperties: true
+      description: >-
+        Vega-Lite spec. It references its rows by dataset name
+        (`data: { name: "table" }`) instead of embedding them — the rows
+        arrive in `data`.
+    data:
+      type: array
+      description: Rows the named dataset in `spec` resolves to.
+      items:
+        type: object
+        additionalProperties: true
+    data_ref:
+      type: object
+      nullable: true
+      additionalProperties: true
+      description: Pointer to the rows when they are served separately.
+    meta:
+      type: object
+      nullable: true
+      additionalProperties: true
+      description: >-
+        Provenance the renderer ignores — version, edit patches, chart IR.
+    job_id:
+      type: string
+      format: uuid
+      nullable: true
+
+DatasetDisplayedChartDto:
+  type: object
+  required:
+    - chart_id
+    - session_id
+    - dataset_id
+  properties:
+    chart_id:
+      type: string
+      format: uuid
+    session_id:
+      type: string
+      format: uuid
+      description: >-
+        Chart session the chart was produced in — the link back to the
+        conversation that owns it.
+    dataset_id:
+      type: string
+      format: uuid
+    title:
+      type: string
+      nullable: true
+      description: Falls back to the title authored inside `block.spec`.
+    summary:
+      type: string
+      nullable: true
+      description: Markdown summary of what the chart shows.
+    show_on_dataset:
+      type: boolean
+    show_on_dataset_order:
+      type: number
+    current_version_id:
+      type: string
+      format: uuid
+      nullable: true
+    block:
+      nullable: true
+      allOf:
+        - $ref: "#/DatasetDisplayedChartBlockDto"
+      description: The renderable artifact — absent while the chart has no version.
+
+DatasetDisplayedChartsResponseDto:
+  type: object
+  required:
+    - charts
+  properties:
+    charts:
+      type: array
+      description: >-
+        Charts pinned to the dataset info tab, in `show_on_dataset_order`.
+      items:
+        $ref: "#/DatasetDisplayedChartDto"

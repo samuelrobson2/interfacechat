@@ -1,0 +1,91 @@
+list:
+  operationId: UserProviderKeyController_list
+  summary: List stored provider keys for the current user (hints only)
+  tags:
+    - user-provider-keys
+  responses:
+    "200":
+      description: At most one key per provider
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ProviderKeyListDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ProviderKeyListDto"
+
+store:
+  operationId: UserProviderKeyController_store
+  summary: Store or replace an encrypted API key for a provider
+  tags:
+    - user-provider-keys
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../shared/schemas.yaml#/StoreProviderKeyDto"
+  responses:
+    "201":
+      description: Key stored or replaced
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ProviderKeySummaryDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ProviderKeySummaryDto"
+
+delete:
+  operationId: UserProviderKeyController_delete
+  summary: Remove the stored API key for a provider
+  tags:
+    - user-provider-keys
+  parameters:
+    - name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Key removed
+    default:
+      description: Error response
+
+validate:
+  operationId: UserProviderKeyController_validate
+  summary: Validate a provider API key (body or stored)
+  tags:
+    - user-provider-keys
+  parameters:
+    - name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../shared/schemas.yaml#/ValidateProviderKeyDto"
+  responses:
+    "201":
+      description: Validation result
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ValidateProviderKeyResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ValidateProviderKeyResponseDto"

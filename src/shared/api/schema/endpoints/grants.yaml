@@ -1,0 +1,20 @@
+# Grants endpoints
+
+getActivePlan:
+  operationId: UserGrantsController_getActivePlan
+  tags:
+    - UserGrants
+  parameters: []
+  responses:
+    '200':
+      description: 'Active granted plan retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ActiveGrantedPlanResponseDto'
+    default:
+      description: ''
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ActiveGrantedPlanResponseDto'

@@ -1,0 +1,329 @@
+# Auth endpoints - all schemas are imported from shared/schemas.yaml
+
+checkEmail:
+  operationId: AuthController_checkEmail
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CheckEmailDto'
+  responses:
+    '200':
+      description: 'Email availability check result'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CheckEmailResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+register:
+  operationId: AuthController_register
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/RegisterDto'
+  responses:
+    '200':
+      description: 'User registered successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/RegisterResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '409':
+      description: 'Email already in use'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+login:
+  operationId: AuthController_login
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/LoginDto'
+  responses:
+    '200':
+      description: 'User logged in successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/UserLoginResponeDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized - invalid credentials'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '403':
+      description: 'Inactive user'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+refresh:
+  operationId: AuthController_refresh
+  tags:
+    - Auth
+  responses:
+    '200':
+      description: 'Token refreshed successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/RefreshResponseDto'
+    '400':
+      description: 'Missing refresh token'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+verify:
+  operationId: AuthController_verify
+  tags:
+    - Auth
+  parameters:
+    - name: verificationToken
+      required: true
+      in: query
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Email verified successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/UserLoginResponeDto'
+    '401':
+      description: 'Invalid token'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+loginGoogle:
+  operationId: AuthController_loginGoogle
+  tags:
+    - Auth
+  responses:
+    '200':
+      description: 'Redirect to Google OAuth'
+
+loginPhone:
+  operationId: AuthController_loginPhone
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/LoginPhoneDto'
+  responses:
+    '200':
+      description: 'OTP sent successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+verifyOtp:
+  operationId: AuthController_verifyOtp
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/LoginPhoneVerifyDto'
+  responses:
+    '200':
+      description: 'Phone verified successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/UserLoginResponeDto'
+    '400':
+      description: 'Invalid OTP'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+logout:
+  operationId: AuthController_logout
+  tags:
+    - Auth
+  responses:
+    '200':
+      description: 'User logged out successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '400':
+      description: 'Missing refresh token'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+resetPasswordRequest:
+  operationId: AuthController_resetPasswordRequest
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/PasswordResetRequestDto'
+  responses:
+    '201':
+      description: 'Password reset request sent successfully'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'User not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+checkPassword:
+  operationId: AuthController_checkPassword
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CheckCurrentPasswordDto'
+  responses:
+    '200':
+      description: 'Password check successful'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/PasswordResetTokenResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Invalid password'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+resetPassword:
+  operationId: AuthController_resetPassword
+  tags:
+    - Auth
+  parameters:
+    - name: token
+      required: true
+      in: query
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/PasswordResetDto'
+  responses:
+    '200':
+      description: 'Password reset successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/MessageResponse'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Invalid or expired token'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+resetPasswordInApp:
+  operationId: AuthController_resetPasswordInApp
+  tags:
+    - Auth
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/PasswordResetWithTokenDto'
+  responses:
+    '200':
+      description: 'Password reset successfully and user logged in'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/UserLoginResponeDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Invalid or expired token'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

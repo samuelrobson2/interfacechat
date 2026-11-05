@@ -1,0 +1,84 @@
+@keyframes chat-suggestion-skeleton-reveal {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes chat-suggestion-skeleton-pulse {
+  from {
+    opacity: 0.3;
+  }
+
+  to {
+    opacity: 0.7;
+  }
+}
+
+@keyframes chat-suggestions-crossfade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes chat-suggestions-crossfade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.chat-suggestion-skeleton-card {
+  opacity: 0;
+  animation: chat-suggestion-skeleton-reveal
+    var(--suggestion-reveal-duration) ease-out
+    var(--suggestion-card-delay) both;
+}
+
+.chat-suggestion-skeleton-line {
+  opacity: 0;
+  animation-name:
+    chat-suggestion-skeleton-reveal, chat-suggestion-skeleton-pulse;
+  animation-duration: var(--suggestion-reveal-duration), 800ms;
+  animation-timing-function: ease-out, linear;
+  animation-delay:
+    var(--suggestion-line-delay), var(--suggestion-pulse-delay);
+  animation-iteration-count: 1, infinite;
+  animation-direction: normal, alternate;
+  animation-fill-mode: both, none;
+}
+
+.chat-suggestions-crossfade-out {
+  animation: chat-suggestions-crossfade-out 500ms ease-out both;
+}
+
+.chat-suggestions-crossfade-in {
+  animation: chat-suggestions-crossfade-in 500ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-suggestion-skeleton-card,
+  .chat-suggestion-skeleton-line {
+    opacity: 0.7;
+    animation: none;
+  }
+
+  .chat-suggestions-crossfade-out {
+    display: none;
+    animation: none;
+  }
+
+  .chat-suggestions-crossfade-in {
+    animation: none;
+  }
+}

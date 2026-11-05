@@ -1,0 +1,972 @@
+# Chat endpoints
+
+generateStarterSuggestions:
+  operationId: ChatController_generateStarterSuggestions
+  summary: >-
+    Generate home-screen starter prompts for the authenticated user. Returns
+    curated cold-start suggestions when the user has no usable conversation
+    history, otherwise an LLM-generated set summarising themes from the
+    user's most recent conversations. The set is persisted so click-throughs
+    can be attributed via ChatMessage.starter_suggestion_id.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/GenerateSuggestionsDto'
+  responses:
+    '201':
+      description: 'Starter suggestions generated'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/StarterSuggestionsResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+createSession:
+  operationId: ChatController_createSession
+  summary: Create a chat session
+  tags:
+    - chat
+  security:
+    - bearer: []
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CreateSessionDto'
+  responses:
+    '201':
+      description: 'Session created successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSessionDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+listSessions:
+  operationId: ChatController_listSessions
+  summary: >-
+    List chat sessions (newest first, cursor pagination). Filter with
+    `directory_id` (favorites, uncategorized, folder UUID; domain slug
+    accepted for backward compatibility), search titles with `q`, and
+    restrict to sessions created on or after `created_after`.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: cursor
+      required: false
+      in: query
+      schema:
+        format: uuid
+        type: string
+    - name: limit
+      required: false
+      in: query
+      schema:
+        minimum: 1
+        maximum: 100
+        default: 20
+        type: number
+    - name: directory_id
+      required: false
+      in: query
+      description: >-
+        Filter by directory: favorites, uncategorized, folder UUID, or
+        domain slug (backward compatible).
+      schema:
+        maxLength: 100
+        example: aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa
+        type: string
+    - name: q
+      required: false
+      in: query
+      description: Case-insensitive search on session title.
+      schema:
+        maxLength: 200
+        example: budget
+        type: string
+    - name: created_after
+      required: false
+      in: query
+      description: Only return sessions created on or after this ISO-8601 timestamp.
+      schema:
+        example: '2026-01-15T00:00:00.000Z'
+        type: string
+  responses:
+    '200':
+      description: 'Sessions list retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSessionsListDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+listDomainGroups:
+  operationId: ChatController_listDomainGroups
+  summary: >-
+    List chat domain groups and their classifier domain slugs. Group `id` is
+    a short stable key for client-side icon/color mapping.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  responses:
+    '200':
+      description: 'Domain groups retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatDomainGroupsResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+listDirectories:
+  operationId: ChatController_listDirectories
+  summary: >-
+    List chat directories with session counts (favorites, uncategorized, and
+    folders with chats). Each folder row includes `id` (UUID) and `slug`
+    (system folders only). Paginated with cursor; favorites and
+    uncategorized are pinned to the first page. Use `domain_group` to filter
+    to system folders in a domain group (hides virtual directories).
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: category
+      required: false
+      in: query
+      description: >-
+        Filter to a single directory: folder UUID, favorites, uncategorized,
+        or domain slug (slug accepted for backward compatibility).
+      schema:
+        maxLength: 100
+        example: aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa
+        type: string
+    - name: domain_group
+      required: false
+      in: query
+      description: >-
+        Filter to system folders whose classifier domain slug belongs to
+        this domain group (e.g. health, tech). Hides favorites and
+        uncategorized.
+      schema:
+        maxLength: 32
+        example: health
+        type: string
+    - name: created_after
+      required: false
+      in: query
+      description: Only count sessions created on or after this ISO-8601 timestamp.
+      schema:
+        example: '2026-01-15T00:00:00.000Z'
+        type: string
+    - name: cursor
+      required: false
+      in: query
+      description: >-
+        Cursor from a previous page (last directory id in the prior response).
+      schema:
+        maxLength: 100
+        example: aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa
+        type: string
+    - name: limit
+      required: false
+      in: query
+      schema:
+        minimum: 1
+        maximum: 30
+        default: 20
+        type: number
+  responses:
+    '200':
+      description: 'Directories retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatDirectoriesResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+createFolder:
+  operationId: ChatController_createFolder
+  summary: Create a custom chat directory
+  tags:
+    - chat
+  security:
+    - bearer: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CreateChatFolderDto'
+  responses:
+    '201':
+      description: 'Folder created successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CreateChatFolderResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getSession:
+  operationId: ChatController_getSession
+  summary: Get session metadata
+  description: >-
+    Returns only the session row (including domain-tag metadata: `category`,
+    `category_is_final`, `category_confidence`, `category_additional_domains`,
+    `category_tagged_at`, `category_model`). Messages are NOT bundled in this
+    response — fetch them separately via `GET
+    /chat/sessions/{sessionId}/messages`. `category_is_final = false` indicates
+    a preliminary tag from the first user turn — it will be replaced by the
+    authoritative final tag once the session goes idle.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '200':
+      description: 'Session retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSessionDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+patchSession:
+  operationId: ChatController_patchSession
+  summary: Update session title, directory, and/or favorite flag
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/PatchSessionDto'
+  responses:
+    '200':
+      description: 'Session updated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSessionDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+deleteSession:
+  operationId: ChatController_deleteSession
+  summary: Soft-delete a chat session
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '204':
+      description: 'Session deleted successfully'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+listSessionMessages:
+  operationId: ChatController_listSessionMessages
+  summary: List messages with cursor pagination (load older history)
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+    - name: cursor
+      required: false
+      in: query
+      description: >-
+        Oldest message id you already have; returns older messages (load earlier history).
+      schema:
+        format: uuid
+        type: string
+    - name: limit
+      required: false
+      in: query
+      schema:
+        minimum: 1
+        maximum: 100
+        default: 20
+        type: number
+  responses:
+    '200':
+      description: 'Messages retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatMessagesListDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+createUserMessage:
+  operationId: ChatController_createUserMessage
+  summary: >-
+    Create a user message, link uploaded attachments, and stream assistant reply via SSE.
+    When the session has no title yet, the same stream may include title_start, title_token,
+    title_complete, or title_error before done.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CreateUserMessageDto'
+  responses:
+    '201':
+      description: 'SSE stream of assistant reply tokens'
+      content:
+        text/event-stream:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSseEventDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+appendInteractivePreview:
+  operationId: ChatController_appendInteractivePreview
+  summary: >-
+    Append a new generated UI preview URL for a message. Supersedes the
+    active preview for the same kind; prior rows are kept for history.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+    - name: messageId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/AppendInteractivePreviewDto'
+  responses:
+    '201':
+      description: 'Interactive preview appended'
+      content:
+        application/json:
+          schema:
+            type: object
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session or message not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getAttachmentDownloadUrl:
+  operationId: ChatController_getAttachmentDownloadUrl
+  summary: Presigned GET URL for a chat attachment (e.g. generated or uploaded images)
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+    - name: attachmentId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '200':
+      description: 'Presigned GET URL created successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GetAttachmentDownloadUrlResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session or attachment not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+initiateAttachment:
+  operationId: ChatController_initiateAttachment
+  summary: Presigned PUT URL for chat attachment upload
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/InitiateAttachmentDto'
+  responses:
+    '201':
+      description: 'Presigned URL created successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/InitiateAttachmentResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+stopActiveStream:
+  operationId: ChatController_stopActiveStream
+  summary: >-
+    Stop the active SSE chat stream for this session (text LLM or interactive
+    app generation). Emits `{ type: "cancelled" }` on the open stream when one
+    is in flight.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '204':
+      description: 'Stream cancelled'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'No active stream for this session'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+generateLatestFollowups:
+  operationId: ChatController_generateLatestFollowups
+  summary: >-
+    Generate follow-up suggestions for the latest visible assistant message
+    in the session. When `mode: "edits"` is passed (requires `highlighted`),
+    the response is `kind: "section_edits"` with imperative edit
+    instructions targeting only the highlighted passage; the user clicking
+    one calls highlight-regenerate with `action.type: "followup"` and the
+    body is applied as a user instruction. Otherwise: when the message is an
+    interactive-app turn (response_types includes interactive_components)
+    AND no highlight is supplied, the response is `kind: "app_edits"` with
+    edit-style suggestions for the existing app, grounded in the agents
+    internal stream + triggering user prompt. Otherwise the response is
+    `kind: "context"` with generic chat follow-ups grounded in the last 3
+    visible messages. Supersedes any prior stored set for that message.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/SessionFollowupsPostDto'
+  responses:
+    '201':
+      description: 'Follow-up suggestions generated'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/SessionFollowupsResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+regenerateLatestAssistant:
+  operationId: ChatController_regenerateLatestAssistant
+  summary: >-
+    Regenerate the latest assistant reply (SSE). The previous assistant
+    message is superseded; its attachments remain on the old message.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '201':
+      description: 'SSE stream of regenerated assistant reply tokens'
+      content:
+        text/event-stream:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSseEventDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+regenerateAssistantHighlight:
+  operationId: ChatController_regenerateAssistantHighlight
+  summary: >-
+    Stream SSE tokens for a replacement substring on the latest assistant
+    message only, then persist merged content. Send
+    highlight_range_start/end (UTF-16 offsets) without requiring highlighted
+    text to match; or omit range and send highlighted for first-match.
+    Events: highlight_regen_start, token, done (includes full content).
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/HighlightRegenerateDto'
+  responses:
+    '201':
+      description: 'SSE stream of highlight regeneration tokens'
+      content:
+        text/event-stream:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSseEventDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+generateHighlightImageSuggestions:
+  operationId: ChatController_generateHighlightImageSuggestions
+  summary: >-
+    Generate short, image-conditioned edit suggestions for a
+    user-highlighted rectangular region of an image attachment on the latest
+    assistant message. The LLM is shown the image (vision) plus the bbox
+    coordinates so suggestions reference content visible inside the
+    highlight (e.g. "Change the color of the hat to blue"). Suggestions are
+    ephemeral — clicking one should call /highlight-regenerate-image with
+    action.type "prompt" using the suggestion text as value.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/HighlightImageSuggestionsDto'
+  responses:
+    '201':
+      description: 'Highlight image suggestions generated'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/HighlightImageSuggestionsResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+regenerateAssistantHighlightImage:
+  operationId: ChatController_regenerateAssistantHighlightImage
+  summary: >-
+    Edit a user-highlighted rectangular region of an image attachment on the
+    latest assistant message (SSE). Pass attachment_id, normalized bbox
+    {x,y,width,height} in [0,1], and an action of either {type:"regenerate"}
+    or {type:"prompt", value:"..."}. The original attachment is superseded
+    by a new ChatAttachment row containing the edited image. Events:
+    image_edit_start, image_edit_progress, image_edit_done, done.
+  tags:
+    - chat
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/HighlightRegenerateImageDto'
+  responses:
+    '201':
+      description: 'SSE stream of image highlight regeneration events'
+      content:
+        text/event-stream:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatSseEventDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+createCompletion:
+  operationId: ChatCompletionsController_createCompletion
+  summary: >-
+    Send messages and receive structured output (text) or generated images
+    depending on modality
+  tags:
+    - chat
+  security:
+    - bearer: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/CreateCompletionDto'
+  responses:
+    '201':
+      description: 'Structured output or generated image'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/CreateCompletionResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+generateFollowups:
+  operationId: ChatCompletionsController_generateFollowups
+  summary: Generate follow-up questions for a given context
+  tags:
+    - chat
+  security:
+    - bearer: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/GenerateFollowupsDto'
+  responses:
+    '201':
+      description: 'Follow-up questions generated'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/GenerateFollowupsResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

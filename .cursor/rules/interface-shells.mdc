@@ -1,0 +1,40 @@
+---
+description: Structure of the mini interface shells (document, search, table)
+globs: src/features/interface-shells/**/*
+alwaysApply: false
+---
+
+# Interface shells
+
+Document, search, and table share one structure. Follow it when adding a shell or a field.
+
+## Sizes
+
+- **Small**: app icon only. White 3D glyph on a solid colour tile.
+- **Medium**: idle card. Same content, not yet editable.
+- **Medium plus**: the card while typing. Every value on it is editable. ⌘↵ starts the chat.
+- **Large**: the docked editor. Same fields, more room.
+
+The mark beside a title is the coloured glyph with no tile, on the same line as the title.
+
+## What is shown is editable
+
+A value on the shell is an input, not a label. That includes targets such as `~1,500 words` and a table’s expected row count. A target stays in the same type as the caption around it, with only a light dotted underline to show it can be changed. The parts list below the library stage edits the same fields.
+
+## Grey suggestions
+
+Each shell shows grey secondary text for the thing a person can add, in the same voice as search’s “Add a filter”.
+
+- Document: “Add additional context” when the document is empty. Clicking it starts a place to write.
+- Search: “Add a filter”, always, with suggestions. The query is the title. Show filters only — no extra search-query examples, and no separate intent or target field.
+- Table: “Add / remove columns” inside the table, and on the full table also “Add any additional rows you want”. Both sit inside the table, as rows, not underneath it.
+
+Empty previews use that same grey sentence instead of blank bars.
+
+## Library page
+
+Each interface is its own row, with the size and content controls for that shell. Under the shell, three columns:
+
+- Suggested parts, with fill with AI.
+- A description of when to choose it.
+- Queries: example prompts that should retrieve it. Retrieval matches a typed prompt against this list and the description.

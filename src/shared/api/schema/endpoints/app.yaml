@@ -1,0 +1,17 @@
+# App endpoints
+
+getHello:
+  operationId: AppController_getHello
+  tags:
+    - App
+  responses:
+    '200':
+      description: 'Hello message'
+
+getHealth:
+  operationId: AppController_getHealth
+  tags:
+    - App
+  responses:
+    '200':
+      description: 'Health check status'

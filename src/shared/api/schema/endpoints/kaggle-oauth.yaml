@@ -1,0 +1,92 @@
+connect:
+  summary: Connect Kaggle via OAuth
+  description: >-
+    Redirects to Kaggle OAuth (organization client; no PKCE). Requires JWT
+    (header, cookie, or ?token= on this path). Register redirect URI with
+    Kaggle: {FRONTEND_URL}/api/v1/oauth/kaggle/callback (FRONTEND_URL must
+    match env, no trailing slash). On success, the user is sent to
+    /app/settings?tab=api_keys.
+  operationId: KaggleOAuthController_connect
+  tags:
+    - Kaggle OAuth
+  parameters:
+    - name: datasetId
+      required: false
+      in: query
+      description: >-
+        Optional dataset context for post-OAuth redirect (same pattern as
+        Google Sheets connect).
+      schema:
+        type: string
+        format: uuid
+    - name: token
+      required: false
+      in: query
+      description: >-
+        JWT access token when cookies are not sent (e.g. Safari cross-site
+        redirect).
+      schema:
+        type: string
+    - name: access_token
+      required: false
+      in: query
+      description: Alias for token (JWT access token in query).
+      schema:
+        type: string
+  responses:
+    '200':
+      description: ''
+    '302':
+      description: Redirect to Kaggle
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+disconnect:
+  summary: Disconnect Kaggle OAuth
+  description: Removes stored Kaggle OAuth tokens for the current user.
+  operationId: KaggleOAuthController_disconnect
+  tags:
+    - Kaggle OAuth
+  responses:
+    '200':
+      description: ''
+      content:
+        application/json:
+          schema:
+            type: object
+
+callback:
+  summary: Kaggle OAuth callback
+  description: >-
+    Handles redirect from Kaggle after user consent. Exchanges code for
+    tokens (POST /api/v1/oauth2/token). Always redirects to
+    /app/settings?tab=api_keys (success: kaggle=connected; failure:
+    kaggle=error).
+  operationId: KaggleOAuthController_callback
+  tags:
+    - Kaggle OAuth
+  parameters:
+    - name: code
+      in: query
+      required: true
+      schema:
+        type: string
+    - name: state
+      in: query
+      required: true
+      schema:
+        type: string
+    - name: error
+      in: query
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: ''
+    '302':
+      description: Redirect to frontend

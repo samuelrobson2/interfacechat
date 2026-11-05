@@ -1,0 +1,505 @@
+/* Custom Fonts */
+@import "./styles/fonts.css";
+
+/* Tailwind */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Figma Color Palettes - Override Tailwind colors */
+@import "./styles/colors.css";
+
+/* Vega chart palette tokens (separate from app UI tokens) */
+@import "./styles/chart-colors.css";
+
+/* Auth animated gradient background */
+@import "./styles/auth-gradient.css";
+
+/* Hairline (cross-DPI sub-pixel border) utilities */
+@import "./styles/hairline.css";
+
+/* Gradient background utilities */
+@import "./styles/gradients.css";
+
+/* Animated gradient text (Dashboard welcome heading) */
+@import "./styles/gradient-text.css";
+
+/* Suggestion-card skeleton reveal (Chat Lab, from pharos) */
+@import "./styles/chat-suggestions-skeleton.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-bureau: "STK Bureau Sans", sans-serif;
+
+  /* Shadow Variables */
+  --shadow-inset-default:
+    inset 5px 5px 5px #eeeeee, inset -5px -5px 5px #ffffff;
+  --shadow-highlight-blue: 0px 0px 8px 0px rgba(70, 165, 216, 0.5);
+  --shadow-highlight-green: 0px 0px 8px 0px rgba(100, 180, 143, 0.4);
+  --shadow-highlight-rose: 0px 0px 8px 0px rgba(236, 168, 214, 0.5);
+  --shadow-highlight-orange: 0px 0px 8px 0px rgba(252, 183, 35, 0.4);
+  --shadow-inset-highlight:
+    inset 5px 5px 5px #eeeeee, inset -5px -5px 5px #ffffff,
+    0px 0px 8px 0px rgba(70, 165, 216, 0.5);
+  --shadow-elevated: 0px 4px 6px 0px #1a171826;
+  --shadow-elevated-hover: 0px 6px 10px 0px #1a171833;
+
+  /* Figma Design System Variables */
+  --color-typography-primary: var(--typography-primary);
+  --color-typography-secondary: var(--typography-secondary);
+  --color-typography-inverse: var(--typography-inverse);
+  --color-background-primary: var(--background-primary);
+  --color-background-primary-inverse: var(--background-primary-inverse);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-blue: var(--background-blue);
+
+  --color-background-secondary-inverse: var(--background-secondary-inverse);
+  --color-stroke-primary: var(--stroke-primary);
+  --color-stroke-secondary: var(--stroke-secondary);
+  --color-stroke-tertiary: var(--stroke-tertiary);
+  --color-icon-primary: var(--icon-primary);
+  --color-icon-secondary: var(--icon-secondary);
+  --color-icon-inverse: var(--icon-inverse);
+  --color-skeleton-primary: var(--skeleton-primary);
+
+  /* Shadcn UI Variables Mapped to Figma */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.25rem; /* 4px from Figma */
+  --chat-selection-highlight: #f2e5aa;
+  --chat-highlight-glow: var(--color-blue-2);
+
+  /* Shadow-as-border: a layered shadow that reads as a 1px ring plus subtle
+     lift + ambient depth. Prefer this over a solid border for element depth
+     (cards, containers, elevated buttons) so the edge adapts to any background
+     — NOT for dividers or layout separators, which stay real borders. */
+  --shadow-border:
+    0px 0px 0px 1px rgba(0, 0, 0, 0.06), 0px 1px 2px -1px rgba(0, 0, 0, 0.06),
+    0px 2px 4px 0px rgba(0, 0, 0, 0.04);
+  --shadow-border-hover:
+    0px 0px 0px 1px rgba(0, 0, 0, 0.08), 0px 1px 2px -1px rgba(0, 0, 0, 0.08),
+    0px 2px 4px 0px rgba(0, 0, 0, 0.06);
+
+  /* The left gutter pages reserve for the global rail (AppSidebar). The rail is
+     `fixed` at left-12 (48px) and animates between 48px and 172px wide, so its
+     right edge sits at 96px collapsed and 220px expanded — these are those two
+     edges plus the same 69px of breathing room. Consumed via the `sidebarGutter`
+     helper in shared/ui/child-page-layout, never as a literal. */
+  --sidebar-gutter: 165px;
+  --sidebar-gutter-expanded: 289px;
+
+  /* Figma Design System Colors - Using colors from colors.css */
+  --typography-primary: var(--color-gray-5);
+  --typography-secondary: var(--color-gray-3);
+  --typography-inverse: var(--color-gray-0);
+  --background-primary: var(--color-gray-1);
+  --background-primary-inverse: var(--color-gray-4);
+  --background-secondary: var(--color-gray-1);
+  --background-secondary-inverse: var(--color-gray-5);
+  --background-blue: var(--color-blue-1);
+  --stroke-primary: var(--color-gray-5);
+  --stroke-secondary: var(--color-gray-3);
+  --stroke-tertiary: var(--color-gray-2);
+  --icon-primary: var(--color-gray-5);
+  --icon-secondary: var(--color-gray-3);
+  --icon-inverse: var(--color-gray-1);
+  --skeleton-primary: #ececec;
+
+  /* Shadcn mapped to Figma colors */
+  --background: var(--background-primary);
+  --foreground: var(--typography-primary);
+  --card: var(--background-secondary);
+  --card-foreground: var(--typography-primary);
+  --popover: var(--background-secondary);
+  --popover-foreground: var(--typography-primary);
+  --primary: var(--color-blue-4);
+  --primary-foreground: var(--background-secondary);
+  --secondary: var(--background-secondary);
+  --secondary-foreground: var(--typography-primary);
+  --muted: var(--background-primary);
+  --muted-foreground: var(--typography-secondary);
+  --accent: var(--color-blue-4);
+  --accent-foreground: var(--background-secondary);
+  --destructive: var(--color-red-5);
+  --destructive-foreground: var(--background-secondary);
+  --border: var(--stroke-secondary);
+  --input: var(--stroke-secondary);
+  --ring: var(--stroke-primary);
+  --chart-1: var(--color-blue-4);
+  --chart-2: var(--color-blue-3);
+  --chart-3: var(--color-blue-5);
+  --chart-4: var(--color-blue-2);
+  --chart-5: var(--color-blue-6);
+  --sidebar: var(--background-primary);
+  --sidebar-foreground: var(--typography-secondary);
+  --sidebar-primary: var(--color-blue-4);
+  --sidebar-primary-foreground: var(--background-secondary);
+  --sidebar-accent: var(--color-gray-1);
+  --sidebar-accent-foreground: var(--typography-primary);
+  --sidebar-border: var(--stroke-secondary);
+  --sidebar-ring: var(--stroke-primary);
+}
+
+.dark {
+  /* Figma Design System Colors in Dark Mode - Using colors from colors.css */
+  --typography-primary: var(--color-gray-0);
+  --typography-secondary: var(--color-gray-2);
+  --typography-inverse: var(--color-gray-5);
+  --background-primary: var(--color-gray-4);
+  --background-primary-inverse: var(--color-gray-1);
+  --background-secondary: var(--color-gray-5);
+  --background-secondary-inverse: var(--color-gray-0);
+  --stroke-primary: var(--color-gray-0);
+  --stroke-secondary: var(--color-gray-2);
+  --stroke-tertiary: var(--color-gray-3);
+  --icon-primary: var(--color-gray-0);
+  --icon-secondary: var(--color-gray-2);
+  --icon-inverse: var(--color-gray-5);
+  --skeleton-primary: #2a2a2a;
+
+  /* Shadcn mapped to Figma colors in Dark Mode */
+  --background: var(--background-primary);
+  --foreground: var(--typography-primary);
+  --card: var(--background-secondary);
+  --card-foreground: var(--typography-primary);
+  --popover: var(--background-secondary);
+  --popover-foreground: var(--typography-primary);
+  --primary: var(--typography-primary);
+  --primary-foreground: var(--background-secondary);
+  --secondary: var(--background-secondary);
+  --secondary-foreground: var(--typography-primary);
+  --muted: var(--background-primary);
+  --muted-foreground: var(--typography-secondary);
+  --accent: var(--typography-primary);
+  --accent-foreground: var(--background-secondary);
+  --destructive: var(--color-red-5);
+  --destructive-foreground: var(--background-secondary);
+  --border: var(--stroke-secondary);
+  --input: var(--stroke-secondary);
+  --ring: var(--stroke-primary);
+  --chart-1: var(--color-blue-4);
+  --chart-2: var(--color-blue-3);
+  --chart-3: var(--color-blue-5);
+  --chart-4: var(--color-blue-2);
+  --chart-5: var(--color-blue-6);
+  --sidebar: var(--background-primary);
+  --sidebar-foreground: var(--typography-secondary);
+  --sidebar-primary: var(--typography-primary);
+  --sidebar-primary-foreground: var(--background-secondary);
+  --sidebar-accent: var(--color-gray-4);
+  --sidebar-accent-foreground: var(--typography-primary);
+  --sidebar-border: var(--stroke-secondary);
+  --sidebar-ring: var(--stroke-primary);
+}
+
+/* Local dark mode for specific components */
+.dark-region {
+  --typography-primary: var(--color-gray-0);
+  --typography-secondary: var(--color-gray-2);
+  --typography-inverse: var(--color-gray-5);
+  --background-primary: var(--color-gray-4);
+  --background-primary-inverse: var(--color-gray-1);
+  --background-secondary: var(--color-gray-5);
+  --background-secondary-inverse: var(--color-gray-0);
+  --stroke-primary: var(--color-gray-0);
+  --stroke-secondary: var(--color-gray-2);
+  --stroke-tertiary: var(--color-gray-3);
+  --icon-primary: var(--color-gray-0);
+  --icon-secondary: var(--color-gray-2);
+  --icon-inverse: var(--color-gray-5);
+  --skeleton-primary: #2a2a2a;
+
+  /* Shadcn mapped to Figma colors in Dark Mode */
+  --background: var(--background-primary);
+  --foreground: var(--typography-primary);
+  --card: var(--background-secondary);
+  --card-foreground: var(--typography-primary);
+  --popover: var(--background-secondary);
+  --popover-foreground: var(--typography-primary);
+  --primary: var(--typography-primary);
+  --primary-foreground: var(--background-secondary);
+  --secondary: var(--background-secondary);
+  --secondary-foreground: var(--typography-primary);
+  --muted: var(--background-primary);
+  --muted-foreground: var(--typography-secondary);
+  --accent: var(--typography-primary);
+  --accent-foreground: var(--background-secondary);
+  --destructive: var(--color-red-5);
+  --destructive-foreground: var(--background-secondary);
+  --border: var(--stroke-secondary);
+  --input: var(--stroke-secondary);
+  --ring: var(--stroke-primary);
+  --chart-1: var(--color-blue-4);
+  --chart-2: var(--color-blue-3);
+  --chart-3: var(--color-blue-5);
+  --chart-4: var(--color-blue-2);
+  --chart-5: var(--color-blue-6);
+  --sidebar: var(--background-secondary);
+  --sidebar-foreground: var(--typography-primary);
+  --sidebar-primary: var(--typography-primary);
+  --sidebar-primary-foreground: var(--background-secondary);
+  --sidebar-accent: var(--background-primary);
+  --sidebar-accent-foreground: var(--typography-primary);
+  --sidebar-border: var(--stroke-secondary);
+  --sidebar-ring: var(--stroke-primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    /* STK Bureau Sans is the brand face, so it's the document default rather than
+       something every component has to opt into. */
+    @apply bg-background font-bureau text-foreground;
+  }
+  /* Subtle tactile press feedback: buttons scale down slightly when active. */
+  button {
+    transition: transform 120ms ease;
+  }
+  button:active {
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+  button:active {
+    transform: none;
+  }
+}
+
+/* Chat highlight utils */
+::highlight(chat-selection) {
+  background-color: var(--chat-selection-highlight);
+}
+body.chat-native-selection-hidden [data-slot="chat-area"] ::selection {
+  background-color: transparent;
+}
+/* Editable fields inside the chat area (e.g. the highlight follow-up textarea)
+ * still need a visible selection, so restore native system selection colors. */
+body.chat-native-selection-hidden
+  [data-slot="chat-area"]
+  :is(
+    input,
+    textarea,
+    [contenteditable=""],
+    [contenteditable="true"]
+  )::selection {
+  background-color: Highlight;
+  color: HighlightText;
+}
+
+@utility no-scrollbar {
+  @apply [scrollbar-width:none] [&::-webkit-scrollbar]:hidden;
+}
+
+/* ---- Exploratory animations: orb wander + pointer-reactive shimmer border ---- */
+
+/* The orb drifts slowly around the whole viewport (fixed, pointer-events-none). */
+@keyframes orb-float {
+  0% {
+    transform: translate(58vw, 8vh);
+  }
+  20% {
+    transform: translate(12vw, 30vh);
+  }
+  40% {
+    transform: translate(70vw, 22vh);
+  }
+  55% {
+    transform: translate(40vw, 62vh);
+  }
+  72% {
+    transform: translate(78vw, 70vh);
+  }
+  88% {
+    transform: translate(8vw, 64vh);
+  }
+  100% {
+    transform: translate(58vw, 8vh);
+  }
+}
+.orb-float {
+  animation: orb-float 48s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Animated orb-colored gradient text (the welcome name). Panning by exactly one
+ * tile (200%) over a palindrome gradient loops seamlessly with no reset flicker. */
+@keyframes orb-name-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+.orb-name {
+  background-image: linear-gradient(
+    110deg,
+    #3e5466,
+    #6b86ad,
+    #bd8bad,
+    #e3b9d2,
+    #bd8bad,
+    #6b86ad,
+    #3e5466
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: orb-name-shimmer 6s linear infinite;
+}
+
+/* The still orb, used wherever the streamed clips aren't available. A slow bob
+ * plus a barely-there scale so it reads as alive rather than as a dropped
+ * image, without competing with the text beside it. */
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.02);
+  }
+}
+.orb-breathe {
+  animation: orb-breathe 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Chat-lab starter shells: the ring spins; each card counter-spins so the
+ * graphic stays upright. Pause when a typed match is active so it can be read. */
+@keyframes visual-orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.visual-orbit-ring {
+  animation: visual-orbit-spin 64s linear infinite;
+  will-change: transform;
+}
+.visual-orbit-counter {
+  animation: visual-orbit-spin 64s linear infinite reverse;
+  will-change: transform;
+}
+.visual-orbit-ring-paused,
+.visual-orbit-ring-paused .visual-orbit-counter {
+  animation-play-state: paused;
+}
+.visual-orbit-ring-static,
+.visual-orbit-ring-static .visual-orbit-counter {
+  animation: none;
+}
+
+/* A row of cards drifting sideways forever. The track holds the same list twice,
+ * so translating by exactly half its width lands on an identical frame — no
+ * visible jump at the loop point. */
+@keyframes vision-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.vision-marquee {
+  animation: vision-marquee var(--vision-marquee-duration, 46s) linear infinite;
+  will-change: transform;
+}
+/* Hovering stops the drift so a card can actually be read and clicked. */
+.vision-marquee:hover,
+.vision-marquee:focus-within {
+  animation-play-state: paused;
+}
+
+/* The pastel wash behind the Vision front door: three barely-there tints in the
+ * corners, so the page has weather without anything competing with the text. */
+.vision-wash {
+  background-image:
+    radial-gradient(
+      60% 50% at 8% 4%,
+      color-mix(in oklab, var(--gradient-ai-rose) 16%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      55% 45% at 96% 22%,
+      color-mix(in oklab, var(--gradient-ai-lavender) 20%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      70% 55% at 30% 100%,
+      color-mix(in oklab, #d9efe6 60%, transparent),
+      transparent 72%
+    );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb-float {
+    animation: none;
+  }
+  .orb-name {
+    animation: none;
+  }
+  .orb-breathe {
+    animation: none;
+  }
+  .visual-orbit-ring,
+  .visual-orbit-counter {
+    animation: none;
+  }
+  .vision-marquee {
+    animation: none;
+  }
+}
+
+/* Dark mode (class-based, see `.dark` above) — simplify the shadow-as-border
+   to a single white ring; layered depth shadows aren't visible on dark
+   backgrounds. */
+.dark {
+  --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
+}

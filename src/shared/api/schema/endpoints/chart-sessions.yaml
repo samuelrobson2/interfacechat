@@ -1,0 +1,435 @@
+# Chart session endpoints (orchestrator-backed charts, moved out of /chat).
+# Sessions themselves are created with POST /chat/sessions (`origin: chart`).
+
+listSessions:
+  operationId: ChartSessionsController_listSessions
+  summary: List chart sessions for the caller with dataset minima and active_job.
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: cursor
+      required: false
+      in: query
+      description: 'Last session id you already have; returns the next page.'
+      schema:
+        format: uuid
+        type: string
+    - name: limit
+      required: false
+      in: query
+      schema:
+        minimum: 1
+        maximum: 100
+        type: number
+  responses:
+    '200':
+      description: 'Chart sessions retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChartSessionsListDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+quickInsights:
+  operationId: ChartSessionsController_quickInsights
+  summary: Sync quick-insight follow-ups for the chart create picker.
+  description: >-
+    Without `dataset_id`, returns up to 3 cards (one top question from each
+    of the latest chartable datasets with rows that this user has not yet
+    opened in a chart session). With `dataset_id`, returns up to 3 questions
+    for that dataset. Uses a ~50-row sample cache and persists suggestion
+    sets so repeat calls skip agents; pass `id` as
+    `quick_insight_suggestion_id` on generate for selection history.
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: dataset_id
+      required: false
+      in: query
+      description: >-
+        When set, return up to 3 quick-insight questions for this dataset.
+        When omitted, return one top question from each of up to 3 latest
+        chartable datasets with row_count > 0 that this user has not opened
+        in a chart session yet.
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '200':
+      description: 'Quick-insight suggestions retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChartQuickInsightsResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getSession:
+  operationId: ChartSessionsController_getSession
+  summary: Get one chart session.
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '200':
+      description: 'Chart session retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChartSessionDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Chart session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+patchSession:
+  operationId: ChartSessionsController_patchSession
+  summary: Update chart session metadata (title).
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/PatchChartSessionDto'
+  responses:
+    '200':
+      description: 'Chart session updated successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChartSessionDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Chart session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+deleteSession:
+  operationId: ChartSessionsController_deleteSession
+  summary: Soft-delete a chart session.
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '204':
+      description: 'Chart session deleted successfully'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Chart session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+listMessages:
+  operationId: ChartSessionsController_listMessages
+  summary: >-
+    Paginated chart-session transcript with orchestrator fields and chart
+    blocks.
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+    - name: cursor
+      required: false
+      in: query
+      description: >-
+        Oldest message id you already have; returns older messages (load earlier history).
+      schema:
+        format: uuid
+        type: string
+    - name: limit
+      required: false
+      in: query
+      schema:
+        minimum: 1
+        maximum: 100
+        type: number
+  responses:
+    '200':
+      description: 'Messages retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChatMessagesListDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Chart session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+generate:
+  operationId: ChartSessionsController_generate
+  summary: 'Enqueue a chart generate turn via the orchestrator. Returns 202 { job_id }.'
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/ChartSessionGenerateDto'
+  responses:
+    '202':
+      description: 'Chart generate turn enqueued'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChartSessionJobAcceptedDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Chart session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+edit:
+  operationId: ChartSessionsController_edit
+  summary: >-
+    Enqueue a chart edit turn via the orchestrator (requires focus_chart_id).
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/ChartSessionEditDto'
+  responses:
+    '202':
+      description: 'Chart edit turn enqueued'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChartSessionJobAcceptedDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Chart session not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getJob:
+  operationId: ChartSessionsController_getJob
+  summary: Poll chart session job status.
+  description: >-
+    When `status` is `ready` or `awaiting_choice`, `result` includes the
+    displayable chart (`spec` / `plot_data` / `block`), message text fields,
+    `assistant_message_id`, and `followups` so clients can update the
+    transcript without refetching messages.
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+    - name: jobId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  responses:
+    '200':
+      description: 'Job status payload'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChartJobResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Job not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+resolveProposal:
+  operationId: ChartSessionsController_resolveProposal
+  summary: 'Resolve a pending orchestrator edit proposal (`keep_new` | `keep_old`).'
+  tags:
+    - chart-sessions
+  security:
+    - bearer: []
+  parameters:
+    - name: sessionId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+    - name: proposalId
+      required: true
+      in: path
+      schema:
+        format: uuid
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/ResolveChartEditProposalDto'
+  responses:
+    '200':
+      description: 'Proposal resolved successfully'
+      content:
+        application/json:
+          schema:
+            type: object
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Proposal not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

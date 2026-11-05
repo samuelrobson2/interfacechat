@@ -1,0 +1,451 @@
+listModels:
+  operationId: FinetuneController_listModels
+  summary: List fine-tunable models available for this dataset
+  description: >-
+    Returns models the user may choose for fine-tuning. Falls back to a curated
+    list when no Together AI key is stored.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Available models
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneModelsListDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneModelsListDto"
+
+getSteps:
+  operationId: FinetuneController_getSteps
+  summary: List finetune wizard steps with completion state
+  description: >-
+    Returns the ordered list of finetune steps for this dataset, filtered by
+    training type where applicable.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Finetune steps
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneStepsResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneStepsResponseDto"
+
+getStep:
+  operationId: FinetuneController_getStep
+  summary: Get a single finetune wizard step with saved values
+  description: >-
+    Returns one step definition with fields and currently saved values for the
+    dataset.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: key
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Finetune step detail
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneStepDetailResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneStepDetailResponseDto"
+
+saveConfig:
+  operationId: FinetuneController_saveConfig
+  summary: Save finetune wizard step values
+  description: >-
+    Generic write endpoint. Body shape: { [stepKey]: { [fieldKey]: { value } } }.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../shared/schemas.yaml#/FinetuneSaveConfigDto"
+  responses:
+    "201":
+      description: Finetune config saved
+    default:
+      description: Error response
+
+startNewSession:
+  operationId: FinetuneController_startNewSession
+  summary: Start a new wizard session ("run attempt") for this dataset
+  description: >-
+    Closes any currently-open FinetuneWizardSession for this dataset and opens
+    a fresh empty one. Called by the FE on explicit "start new run" entry points
+    so subsequent wizard reads/writes scope to a clean draft instead of
+    inheriting the previous attempt's values and completed-step marks.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "201":
+      description: New wizard session created
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneNewSessionResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneNewSessionResponseDto"
+
+calculate:
+  operationId: FinetuneController_calculate
+  summary: Estimate credit cost for a finetune run
+  description: >-
+    Returns available balance and estimated finetune cost with optional
+    augmentation rows. Use this to render credits UI before launch.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: augmentation_domain_rows
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+    - name: augmentation_general_rows
+      in: query
+      required: false
+      schema:
+        type: number
+        minimum: 0
+  responses:
+    "200":
+      description: Finetune cost estimate
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneCalculateResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneCalculateResponseDto"
+
+suggestHyperparams:
+  operationId: FinetuneController_getHyperparams
+  summary: Get suggested hyperparameters for a fine-tune job
+  description: >-
+    DPO returns an empty hyperparams object (provider defaults). SFT returns
+    LoRA-related hyperparameters computed from model size and dataset row count.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "201":
+      description: Suggested hyperparameters
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneHyperparamsResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneHyperparamsResponseDto"
+
+validateHyperparams:
+  operationId: FinetuneController_validateHyperparams
+  summary: Validate a hyperparameter draft without launching
+  description: >-
+    Runs the same class-validator pipeline as /finetune/launch on the supplied
+    draft and returns per-field error messages. Powers inline input validation
+    in the recipe editor and confirm-step JSON editor.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          additionalProperties: true
+  responses:
+    "201":
+      description: Validation result
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneHyperparamsValidateResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneHyperparamsValidateResponseDto"
+
+listFinetuneJobs:
+  operationId: FinetuneController_list
+  summary: List finetune jobs for a dataset
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Jobs listed
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneJobsListDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneJobsListDto"
+
+getFinetuneJob:
+  operationId: FinetuneController_get
+  summary: Fetch a single finetune job by id
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Job retrieved
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneJobDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneJobDto"
+
+getFinetuneJobMetrics:
+  operationId: FinetuneController_getJobMetrics
+  summary: Get training and evaluation metrics for a finetune job
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Job metrics
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneJobMetricsDto"
+
+getFinetuneJobConfig:
+  operationId: FinetuneController_getJobLaunchConfig
+  summary: Launch config for a specific fine-tune run
+  description: >-
+    Returns the persisted launch snapshot (model, output label, training
+    method/type, data format, hyperparams) for the run identified by `job_id`.
+    Identical response shape to GET …/finetune/best-launch-config — same
+    `best_job_config` payload — but resolves the caller-selected run instead of
+    the dataset's latest-experiment best.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Job launch config
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/BestFinetuneLaunchConfigResponseDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/BestFinetuneLaunchConfigResponseDto"
+
+downloadFinetuneJobArtifact:
+  operationId: FinetuneController_downloadArtifactByJobId
+  summary: Download a specific fine-tune run's artifact
+  description: >-
+    Streams the Together checkpoint for the finetune run identified by
+    `job_id`. The run must belong to this dataset, be succeeded, and carry the
+    same Together key context as launch.
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: File download stream
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+
+launchFinetune:
+  operationId: FinetuneController_launch
+  summary: Launch a finetune job for a dataset
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../shared/schemas.yaml#/LaunchFinetuneJobDto"
+  responses:
+    "201":
+      description: Job created or existing job returned
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneJobDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/FinetuneJobDto"
+
+getExperimentStatus:
+  operationId: FinetuneController_getExperimentStatus
+  summary: Get experiment-level status for an AutoScientist experiment
+  description: >-
+    Returns the lifecycle status and progress percentage for the latest
+    TrainingExperiment associated with this dataset. Returns 404 when no
+    experiment exists (standard one-shot launches).
+  tags:
+    - Finetune
+  parameters:
+    - name: dataset_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Experiment status
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ExperimentStatusDto"
+    default:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/ExperimentStatusDto"

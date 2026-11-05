@@ -1,0 +1,95 @@
+# PaymentMethods endpoints - all schemas are imported from shared/schemas.yaml
+
+list:
+  operationId: PaymentMethodsController_list
+  tags:
+    - PaymentMethods
+  responses:
+    '200':
+      description: 'Payment methods retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/PaymentMethodsListResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getDefault:
+  operationId: PaymentMethodsController_getDefault
+  tags:
+    - PaymentMethods
+  responses:
+    '200':
+      description: 'Default payment method retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/PaymentMethodDefaultDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Default payment method not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+setDefault:
+  operationId: PaymentMethodsController_setDefault
+  tags:
+    - PaymentMethods
+  parameters:
+    - name: paymentMethodId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '201':
+      description: 'Payment method set as default successfully'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Payment method not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+detach:
+  operationId: PaymentMethodsController_detach
+  tags:
+    - PaymentMethods
+  parameters:
+    - name: paymentMethodId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Payment method detached successfully'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Payment method not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

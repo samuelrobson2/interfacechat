@@ -1,0 +1,157 @@
+# Subscriptions endpoints - all schemas are imported from shared/schemas.yaml
+
+listActive:
+  operationId: SubscriptionsController_listActive
+  tags:
+    - Subscriptions
+  responses:
+    '200':
+      description: 'Active subscriptions retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/SubscriptionListResponseDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+getById:
+  operationId: SubscriptionsController_getById
+  tags:
+    - Subscriptions
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Subscription retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/SubscriptionDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Subscription not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+cancel:
+  operationId: SubscriptionsController_cancel
+  tags:
+    - Subscriptions
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/SubscriptionOrganizationDto'
+  responses:
+    '201':
+      description: 'Subscription cancelled successfully'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+resume:
+  operationId: SubscriptionsController_resume
+  tags:
+    - Subscriptions
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/SubscriptionOrganizationDto'
+  responses:
+    '201':
+      description: 'Subscription resumed successfully'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+changePlan:
+  operationId: SubscriptionsController_changePlan
+  tags:
+    - Subscriptions
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/ChangePlanDto'
+  responses:
+    '201':
+      description: 'Plan changed successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ChangePlanResponseDto'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+
+setPaymentMethod:
+  operationId: SubscriptionsController_setPaymentMethod
+  tags:
+    - Subscriptions
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../shared/schemas.yaml#/SetPaymentMethodDto'
+  responses:
+    '201':
+      description: 'Payment method set successfully'
+    '400':
+      description: 'Validation error'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

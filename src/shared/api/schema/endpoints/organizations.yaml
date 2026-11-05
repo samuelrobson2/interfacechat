@@ -1,0 +1,31 @@
+# Organizations endpoints - all schemas are imported from shared/schemas.yaml
+
+getCredits:
+  operationId: OrganizationsController_getCredits
+  tags:
+    - Organizations
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: 'Organization credits retrieved successfully'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/OrganizationCreditsDto'
+    '401':
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'
+    '404':
+      description: 'Organization not found'
+      content:
+        application/json:
+          schema:
+            $ref: '../shared/schemas.yaml#/ErrorResponse'

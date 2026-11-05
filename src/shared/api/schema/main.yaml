@@ -1,0 +1,584 @@
+openapi: 3.0.0
+info:
+  title: API service
+  description: API service
+  version: "1.0"
+  contact: {}
+servers:
+  - url: /api/v1
+    description: API v1
+tags: []
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: Bearer
+      description: "Please enter token in following format: Bearer <JWT>"
+      type: http
+paths:
+  /:
+    get:
+      $ref: "./endpoints/app.yaml#/getHello"
+
+  /health:
+    get:
+      $ref: "./endpoints/app.yaml#/getHealth"
+
+  /auth/check-email:
+    post:
+      $ref: "./endpoints/auth.yaml#/checkEmail"
+
+  /auth/register:
+    post:
+      $ref: "./endpoints/auth.yaml#/register"
+
+  /auth/login/google:
+    get:
+      $ref: "./endpoints/auth.yaml#/loginGoogle"
+
+  /auth/login/phone:
+    post:
+      $ref: "./endpoints/auth.yaml#/loginPhone"
+
+  /auth/login/phone/verify:
+    post:
+      $ref: "./endpoints/auth.yaml#/verifyOtp"
+
+  /auth/login:
+    post:
+      $ref: "./endpoints/auth.yaml#/login"
+
+  /auth/refresh:
+    post:
+      $ref: "./endpoints/auth.yaml#/refresh"
+
+  /auth/verify:
+    post:
+      $ref: "./endpoints/auth.yaml#/verify"
+
+  /auth/logout:
+    post:
+      $ref: "./endpoints/auth.yaml#/logout"
+
+  /auth/reset-password-request:
+    post:
+      $ref: "./endpoints/auth.yaml#/resetPasswordRequest"
+
+  /auth/check-password:
+    post:
+      $ref: "./endpoints/auth.yaml#/checkPassword"
+
+  /auth/reset-password:
+    post:
+      $ref: "./endpoints/auth.yaml#/resetPassword"
+
+  /auth/inapp-reset-password:
+    post:
+      $ref: "./endpoints/auth.yaml#/resetPasswordInApp"
+
+  /users/account:
+    delete:
+      $ref: "./endpoints/users.yaml#/deleteAccount"
+
+  /users/languages:
+    get:
+      $ref: "./endpoints/users.yaml#/getLanguages"
+
+  /users/countries:
+    get:
+      $ref: "./endpoints/users.yaml#/getCountries"
+
+  /users/language-country-pairs:
+    get:
+      $ref: "./endpoints/users.yaml#/getLanguageCountryPairs"
+
+  /users/domains:
+    get:
+      $ref: "./endpoints/users.yaml#/getDomains"
+
+  /users/{id}:
+    get:
+      $ref: "./endpoints/users.yaml#/getUser"
+
+  /users/{id}/badges:
+    get:
+      $ref: "./endpoints/users.yaml#/getUserBadges"
+
+  /users/{id}/profile:
+    patch:
+      $ref: "./endpoints/users.yaml#/updateProfile"
+
+  /users/{id}/profile-image:
+    post:
+      $ref: "./endpoints/users.yaml#/uploadProfileImage"
+
+  /users/{id}/settings/api-tokens:
+    post:
+      $ref: "./endpoints/users.yaml#/setAppKey"
+
+  /users/{id}/settings/api-tokens/{provider}:
+    delete:
+      $ref: "./endpoints/users.yaml#/deleteSettingsApiToken"
+
+  /users/{id}/settings:
+    get:
+      $ref: "./endpoints/users.yaml#/getSettings"
+
+  /users/provider-keys:
+    get:
+      $ref: "./endpoints/provider-keys.yaml#/list"
+    post:
+      $ref: "./endpoints/provider-keys.yaml#/store"
+
+  /users/provider-keys/{provider}:
+    delete:
+      $ref: "./endpoints/provider-keys.yaml#/delete"
+
+  /users/provider-keys/{provider}/validate:
+    post:
+      $ref: "./endpoints/provider-keys.yaml#/validate"
+
+  /api-keys:
+    post:
+      $ref: "./endpoints/api-keys.yaml#/create"
+    get:
+      $ref: "./endpoints/api-keys.yaml#/list"
+
+  /api-keys/{id}:
+    delete:
+      $ref: "./endpoints/api-keys.yaml#/revoke"
+
+  /grants/active-plan:
+    get:
+      $ref: "./endpoints/grants.yaml#/getActivePlan"
+
+  /organizations/{id}/credits:
+    get:
+      $ref: "./endpoints/organizations.yaml#/getCredits"
+
+  /datasets/upload/initiate:
+    post:
+      $ref: "./endpoints/datasets.yaml#/initiateUpload"
+
+  /datasets/upload/complete:
+    post:
+      $ref: "./endpoints/datasets.yaml#/completeUpload"
+
+  /datasets/upload/initiate-batch:
+    post:
+      $ref: "./endpoints/datasets.yaml#/initiateBatchUpload"
+
+  /datasets/upload/complete-batch:
+    post:
+      $ref: "./endpoints/datasets.yaml#/completeBatchUpload"
+
+  /datasets/{dataset_id}/status:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getDatasetStatus"
+
+  /datasets/kaggle/files:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getFilesFromKaggle"
+
+  /datasets/upload/kaggle:
+    post:
+      $ref: "./endpoints/datasets.yaml#/initiateKaggleUpload"
+
+  /datasets/huggingface/files:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getFilesFromHuggingface"
+
+  /datasets/upload/huggingface:
+    post:
+      $ref: "./endpoints/datasets.yaml#/initiateHuggingfaceUpload"
+
+  /datasets/{dataset_id}/upload/progress:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getUploadProgress"
+
+  /datasets/{dataset_id}/config/steps:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getSteps"
+
+  /datasets/{dataset_id}/config/steps/{key}:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getStep"
+
+  /datasets/{dataset_id}:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getDataset"
+    patch:
+      $ref: "./endpoints/datasets.yaml#/patchDataset"
+    delete:
+      $ref: "./endpoints/datasets.yaml#/deleteDataset"
+
+  /datasets:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getDatasets"
+
+  /datasets/progress:
+    post:
+      $ref: "./endpoints/datasets.yaml#/getDatasetsProgress"
+
+  /datasets/combine/validate:
+    post:
+      $ref: "./endpoints/datasets.yaml#/validateCombine"
+
+  /datasets/combine:
+    post:
+      $ref: "./endpoints/datasets.yaml#/combineDatasets"
+
+  /datasets/parse:
+    post:
+      $ref: "./endpoints/datasets.yaml#/parseFile"
+
+  /datasets/{dataset_id}/brand-files:
+    post:
+      $ref: "./endpoints/datasets.yaml#/uploadBrandFile"
+    get:
+      $ref: "./endpoints/datasets.yaml#/getBrandFiles"
+
+  /datasets/{dataset_id}/brand-files/{file_name}:
+    delete:
+      $ref: "./endpoints/datasets.yaml#/deleteBrandFile"
+
+  /datasets/{dataset_id}/generate-system-prompt:
+    post:
+      $ref: "./endpoints/datasets.yaml#/generateSystemPrompt"
+
+  /datasets/{dataset_id}/hide:
+    post:
+      $ref: "./endpoints/datasets.yaml#/markAsHidden"
+
+  /datasets/{dataset_id}/config:
+    post:
+      $ref: "./endpoints/datasets.yaml#/saveDatasetConfig"
+
+  /datasets/{dataset_id}/credits-calculation:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getCreditsCalculation"
+
+  /datasets/{dataset_id}/preprocessing-credits:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getPreprocessingCredits"
+
+  /datasets/{dataset_id}/download:
+    get:
+      $ref: "./endpoints/datasets.yaml#/export"
+
+  /datasets/{dataset_id}/launch:
+    post:
+      $ref: "./endpoints/datasets.yaml#/launchDataset"
+
+  /datasets/{dataset_id}/launch-preprocessing:
+    post:
+      $ref: "./endpoints/datasets.yaml#/launchPreprocessing"
+
+  /datasets/{dataset_id}/view:
+    get:
+      $ref: "./endpoints/datasets.yaml#/view"
+
+  /datasets/{dataset_id}/finetune/models:
+    get:
+      $ref: "./endpoints/finetune.yaml#/listModels"
+
+  /datasets/{dataset_id}/finetune/steps:
+    get:
+      $ref: "./endpoints/finetune.yaml#/getSteps"
+
+  /datasets/{dataset_id}/finetune/steps/{key}:
+    get:
+      $ref: "./endpoints/finetune.yaml#/getStep"
+
+  /datasets/{dataset_id}/finetune/config:
+    post:
+      $ref: "./endpoints/finetune.yaml#/saveConfig"
+
+  /datasets/{dataset_id}/finetune/sessions/new:
+    post:
+      $ref: "./endpoints/finetune.yaml#/startNewSession"
+
+  /datasets/{dataset_id}/finetune/calculate:
+    get:
+      $ref: "./endpoints/finetune.yaml#/calculate"
+
+  /datasets/{dataset_id}/finetune/hyperparams:
+    post:
+      $ref: "./endpoints/finetune.yaml#/suggestHyperparams"
+
+  /datasets/{dataset_id}/finetune/hyperparams/validate:
+    post:
+      $ref: "./endpoints/finetune.yaml#/validateHyperparams"
+
+  /datasets/{dataset_id}/finetune/launch:
+    post:
+      $ref: "./endpoints/finetune.yaml#/launchFinetune"
+
+  /datasets/{dataset_id}/finetune/jobs:
+    get:
+      $ref: "./endpoints/finetune.yaml#/listFinetuneJobs"
+
+  /datasets/{dataset_id}/finetune/jobs/{job_id}:
+    get:
+      $ref: "./endpoints/finetune.yaml#/getFinetuneJob"
+
+  /datasets/{dataset_id}/finetune/jobs/{job_id}/metrics:
+    get:
+      $ref: "./endpoints/finetune.yaml#/getFinetuneJobMetrics"
+
+  /datasets/{dataset_id}/finetune/jobs/{job_id}/config:
+    get:
+      $ref: "./endpoints/finetune.yaml#/getFinetuneJobConfig"
+
+  /datasets/{dataset_id}/finetune/jobs/{job_id}/download:
+    get:
+      $ref: "./endpoints/finetune.yaml#/downloadFinetuneJobArtifact"
+
+  /datasets/{dataset_id}/finetune/experiment-status:
+    get:
+      $ref: "./endpoints/finetune.yaml#/getExperimentStatus"
+
+  /datasets/{dataset_id}/charts:
+    get:
+      $ref: "./endpoints/datasets.yaml#/listReadyCharts"
+
+  /datasets/{dataset_id}/charts/displayed:
+    get:
+      $ref: "./endpoints/datasets.yaml#/listDisplayedCharts"
+
+  /datasets/{dataset_id}/charts/display-order:
+    patch:
+      $ref: "./endpoints/datasets.yaml#/reorderDisplayedCharts"
+
+  /datasets/{dataset_id}/charts/{chart_id}/display:
+    post:
+      $ref: "./endpoints/datasets.yaml#/markChartDisplayed"
+    delete:
+      $ref: "./endpoints/datasets.yaml#/unmarkChartDisplayed"
+
+  /datasets/{dataset_id}/export-links:
+    get:
+      $ref: "./endpoints/datasets.yaml#/getDatasetExportLinks"
+
+  /datasets/{dataset_id}/upload/huggingface:
+    post:
+      $ref: "./endpoints/datasets.yaml#/uploadToHuggingFace"
+
+  /datasets/{dataset_id}/upload/kaggle:
+    post:
+      $ref: "./endpoints/datasets.yaml#/uploadToKaggle"
+
+  /datasets/{dataset_id}/upload/google-sheets:
+    post:
+      $ref: "./endpoints/datasets.yaml#/uploadToGoogleSheets"
+
+  /webhooks/stripe:
+    post:
+      $ref: "./endpoints/webhooks.yaml#/handleStripeWebhook"
+
+  /subscription:
+    get:
+      $ref: "./endpoints/subscriptions.yaml#/listActive"
+
+  /subscription/{id}:
+    get:
+      $ref: "./endpoints/subscriptions.yaml#/getById"
+
+  /subscription/cancel:
+    post:
+      $ref: "./endpoints/subscriptions.yaml#/cancel"
+
+  /subscription/resume:
+    post:
+      $ref: "./endpoints/subscriptions.yaml#/resume"
+
+  /subscription/change-plan:
+    post:
+      $ref: "./endpoints/subscriptions.yaml#/changePlan"
+
+  /subscription/set-payment-method:
+    post:
+      $ref: "./endpoints/subscriptions.yaml#/setPaymentMethod"
+
+  /oauth/google/connect:
+    get:
+      $ref: "./endpoints/oauth.yaml#/connect"
+
+  /oauth/google/callback:
+    get:
+      $ref: "./endpoints/oauth.yaml#/callback"
+
+  /oauth/kaggle/connect:
+    get:
+      $ref: "./endpoints/kaggle-oauth.yaml#/connect"
+
+  /oauth/kaggle:
+    delete:
+      $ref: "./endpoints/kaggle-oauth.yaml#/disconnect"
+
+  /oauth/kaggle/callback:
+    get:
+      $ref: "./endpoints/kaggle-oauth.yaml#/callback"
+
+  /billing/plans:
+    get:
+      $ref: "./endpoints/billing.yaml#/getPlans"
+
+  /billing/packages:
+    get:
+      $ref: "./endpoints/billing.yaml#/getPackages"
+
+  /billing/start:
+    post:
+      $ref: "./endpoints/billing.yaml#/start"
+
+  /billing/topup:
+    post:
+      $ref: "./endpoints/billing.yaml#/topUp"
+
+  /payment-methods:
+    get:
+      $ref: "./endpoints/payment-methods.yaml#/list"
+
+  /payment-methods/default:
+    get:
+      $ref: "./endpoints/payment-methods.yaml#/getDefault"
+
+  /payment-methods/{paymentMethodId}/set-default:
+    post:
+      $ref: "./endpoints/payment-methods.yaml#/setDefault"
+
+  /payment-methods/{paymentMethodId}:
+    delete:
+      $ref: "./endpoints/payment-methods.yaml#/detach"
+
+  /chat/suggestions:
+    post:
+      $ref: "./endpoints/chat.yaml#/generateStarterSuggestions"
+
+  /chat/sessions:
+    post:
+      $ref: "./endpoints/chat.yaml#/createSession"
+    get:
+      $ref: "./endpoints/chat.yaml#/listSessions"
+
+  /chat/domain-groups:
+    get:
+      $ref: "./endpoints/chat.yaml#/listDomainGroups"
+
+  /chat/directories:
+    get:
+      $ref: "./endpoints/chat.yaml#/listDirectories"
+
+  /chat/folders:
+    post:
+      $ref: "./endpoints/chat.yaml#/createFolder"
+
+  /chat/sessions/{sessionId}:
+    get:
+      $ref: "./endpoints/chat.yaml#/getSession"
+    patch:
+      $ref: "./endpoints/chat.yaml#/patchSession"
+    delete:
+      $ref: "./endpoints/chat.yaml#/deleteSession"
+
+  /chat/sessions/{sessionId}/messages:
+    get:
+      $ref: "./endpoints/chat.yaml#/listSessionMessages"
+    post:
+      $ref: "./endpoints/chat.yaml#/createUserMessage"
+
+  /chat/sessions/{sessionId}/messages/{messageId}/interactive-preview:
+    post:
+      $ref: "./endpoints/chat.yaml#/appendInteractivePreview"
+
+  /chat/sessions/{sessionId}/attachments/initiate:
+    post:
+      $ref: "./endpoints/chat.yaml#/initiateAttachment"
+
+  /chat/sessions/{sessionId}/attachments/{attachmentId}/download-url:
+    get:
+      $ref: "./endpoints/chat.yaml#/getAttachmentDownloadUrl"
+
+  /chat/sessions/{sessionId}/stream/stop:
+    post:
+      $ref: "./endpoints/chat.yaml#/stopActiveStream"
+
+  /chat/sessions/{sessionId}/followups:
+    post:
+      $ref: "./endpoints/chat.yaml#/generateLatestFollowups"
+
+  /chat/sessions/{sessionId}/messages/regenerate:
+    post:
+      $ref: "./endpoints/chat.yaml#/regenerateLatestAssistant"
+
+  /chat/sessions/{sessionId}/messages/highlight-regenerate:
+    post:
+      $ref: "./endpoints/chat.yaml#/regenerateAssistantHighlight"
+
+  /chat/sessions/{sessionId}/messages/highlight-image-suggestions:
+    post:
+      $ref: "./endpoints/chat.yaml#/generateHighlightImageSuggestions"
+
+  /chat/sessions/{sessionId}/messages/highlight-regenerate-image:
+    post:
+      $ref: "./endpoints/chat.yaml#/regenerateAssistantHighlightImage"
+
+  /chat/completions:
+    post:
+      $ref: "./endpoints/chat.yaml#/createCompletion"
+
+  /chat/followups:
+    post:
+      $ref: "./endpoints/chat.yaml#/generateFollowups"
+
+  /chart-sessions:
+    get:
+      $ref: "./endpoints/chart-sessions.yaml#/listSessions"
+
+  /chart-sessions/quick-insights:
+    get:
+      $ref: "./endpoints/chart-sessions.yaml#/quickInsights"
+
+  /chart-sessions/{sessionId}:
+    get:
+      $ref: "./endpoints/chart-sessions.yaml#/getSession"
+    patch:
+      $ref: "./endpoints/chart-sessions.yaml#/patchSession"
+    delete:
+      $ref: "./endpoints/chart-sessions.yaml#/deleteSession"
+
+  /chart-sessions/{sessionId}/messages:
+    get:
+      $ref: "./endpoints/chart-sessions.yaml#/listMessages"
+
+  /chart-sessions/{sessionId}/generate:
+    post:
+      $ref: "./endpoints/chart-sessions.yaml#/generate"
+
+  /chart-sessions/{sessionId}/edit:
+    post:
+      $ref: "./endpoints/chart-sessions.yaml#/edit"
+
+  /chart-sessions/{sessionId}/jobs/{jobId}:
+    get:
+      $ref: "./endpoints/chart-sessions.yaml#/getJob"
+
+  /chart-sessions/{sessionId}/proposals/{proposalId}/resolve:
+    post:
+      $ref: "./endpoints/chart-sessions.yaml#/resolveProposal"
+
+  /snippets:
+    get:
+      $ref: "./endpoints/snippets.yaml#/getAll"
+
+  /snippets/dataset/{datasetId}:
+    get:
+      $ref: "./endpoints/snippets.yaml#/getForDataset"
+
+  /snippets/{name}:
+    get:
+      $ref: "./endpoints/snippets.yaml#/getByName"
+
+security:
+  - bearer: []

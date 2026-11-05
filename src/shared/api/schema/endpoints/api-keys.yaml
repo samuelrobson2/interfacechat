@@ -1,0 +1,62 @@
+create:
+  operationId: ApiKeysController_create
+  summary: Create a new API key
+  tags:
+    - ApiKeys
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../shared/schemas.yaml#/CreateApiKeyDto"
+  responses:
+    "201":
+      description: "API key created successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/CreateApiKeyResponseDto"
+    default:
+      description: "Error response"
+      content:
+        application/json:
+          schema:
+            $ref: "../shared/schemas.yaml#/CreateApiKeyResponseDto"
+
+list:
+  operationId: ApiKeysController_list
+  summary: List API keys for the authenticated user
+  tags:
+    - ApiKeys
+  responses:
+    "200":
+      description: "API keys retrieved successfully"
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../shared/schemas.yaml#/ApiKeyResponseDto"
+    default:
+      description: "Error response"
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../shared/schemas.yaml#/ApiKeyResponseDto"
+
+revoke:
+  operationId: ApiKeysController_revoke
+  summary: Revoke an API key
+  tags:
+    - ApiKeys
+  parameters:
+    - name: id
+      required: true
+      in: path
+      schema:
+        type: string
+  responses:
+    "200":
+      description: "API key revoked successfully"
