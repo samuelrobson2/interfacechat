@@ -16,6 +16,8 @@ import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const VIOLET = "#7c66f0";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+/** Days an empty month marks at medium, to show it holds events. */
+const GHOST_EVENT_DAYS = [4, 10, 11, 12, 17];
 
 function monthCells(month: string) {
   const [year, m] = month.split("-").map(Number) as [number, number];
@@ -94,12 +96,12 @@ function DayCell({
   const large = size === "large";
 
   if (size === "medium") {
+    // Shapes, not words: grey days, events in colour, and on an empty month a few
+    // darker days standing for events.
+    const ghostEvent = data.events.length === 0 && GHOST_EVENT_DAYS.includes(day);
     return (
       <span
-        className={cn(
-          "relative aspect-square rounded-[3px]",
-          events.length ? "" : "bg-white ring-1 ring-gray-3/15 ring-inset",
-        )}
+        className={cn("relative aspect-square rounded-[3px]", events.length ? "" : ghostEvent ? "bg-gray-3/35" : "bg-gray-6")}
         style={events.length ? { backgroundColor: VIOLET } : undefined}
       />
     );
@@ -220,6 +222,13 @@ function MonthGrid({
 
   return (
     <div className="flex min-w-0 flex-col gap-1">
+      {size === "medium" && (
+        <div aria-hidden className="grid grid-cols-7 gap-[3px]">
+          {WEEKDAYS.map((day) => (
+            <span key={day} className="mx-auto h-[3px] w-2/3 rounded-full bg-gray-3/35" />
+          ))}
+        </div>
+      )}
       {size !== "medium" && (
         <div className="grid grid-cols-7 gap-1">
           {WEEKDAYS.map((day) => (

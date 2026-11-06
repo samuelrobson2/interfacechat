@@ -178,6 +178,58 @@ function MindScene({
   );
 }
 
+/**
+ * Medium: a mind map drawn for the tile's size, in grey, with no words. A
+ * filled map tints its branches; an empty one is all grey.
+ */
+function MindPreview({ data }: { data: MindmapShellData }) {
+  const grey = "var(--color-gray-3)";
+  const branches = data.branches.length
+    ? data.branches.slice(0, 4).map((b, i) => ({ colour: b.colour ? canvasColour(b.colour) : BRANCH[i % BRANCH.length]!, leaves: Math.min(2, b.children.length) }))
+    : [0, 1, 2, 3].map(() => ({ colour: grey, leaves: 2 }));
+  // Pills are drawn on white first, so lines never show through them.
+  const pill = (key: string, x: number, y: number, w: number, h: number, colour: string, opacity: number) => (
+    <g key={key}>
+      <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={h / 2} fill="#fff" />
+      <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={h / 2} fill={colour} fillOpacity={opacity} />
+    </g>
+  );
+  const spots = [
+    { x: 46, y: 28, dx: -1 },
+    { x: 114, y: 28, dx: 1 },
+    { x: 46, y: 82, dx: -1 },
+    { x: 114, y: 82, dx: 1 },
+  ];
+  const leavesOf = (at: (typeof spots)[number], count: number) =>
+    [-9, 9].slice(0, count).map((offset) => ({ x: at.x + at.dx * 30, y: at.y + offset }));
+  return (
+    <svg viewBox="0 0 160 110" className="size-full" aria-hidden>
+      {/* Lines first, then every pill over them. */}
+      {branches.map((branch, i) => {
+        const at = spots[i]!;
+        return (
+          <g key={i} stroke={branch.colour} fill="none" strokeLinecap="round">
+            <path d={`M80 55 Q ${(80 + at.x) / 2} ${at.y} ${at.x} ${at.y}`} strokeOpacity={0.45} strokeWidth={2.5} />
+            {leavesOf(at, branch.leaves).map((leaf, j) => (
+              <path key={j} d={`M${at.x} ${at.y} Q ${(at.x + leaf.x) / 2} ${leaf.y} ${leaf.x} ${leaf.y}`} strokeOpacity={0.35} strokeWidth={1.2} />
+            ))}
+          </g>
+        );
+      })}
+      {branches.map((branch, i) => {
+        const at = spots[i]!;
+        return (
+          <g key={i}>
+            {leavesOf(at, branch.leaves).map((leaf, j) => pill(`l${j}`, leaf.x, leaf.y, 20, 7, branch.colour, 0.18))}
+            {pill("b", at.x, at.y, 28, 11, branch.colour, 0.32)}
+          </g>
+        );
+      })}
+      {pill("c", 80, 55, 42, 17, data.branches.length ? PURPLE : grey, data.branches.length ? 0.85 : 0.5)}
+    </svg>
+  );
+}
+
 /** Find a node anywhere in the tree and change it. */
 function mapTree(branches: MindmapNode[], id: string, change: (node: MindmapNode) => MindmapNode | null): MindmapNode[] {
   return branches.flatMap((branch) => {
@@ -207,10 +259,8 @@ export function MindmapShell({
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="mindmap" title={data.title} />
-        <PreviewBody>
-          <FitBox width={W} height={H} className="size-full">
-            <MindScene data={data} ghost={ghost} labels={false} />
-          </FitBox>
+        <PreviewBody className="items-center justify-center">
+          <MindPreview data={data} />
         </PreviewBody>
       </ShellSurface>
     );

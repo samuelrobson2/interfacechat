@@ -88,6 +88,11 @@ export const STATE_META: Record<ShellState, { label: string }> = {
 /** Only medium plus shows the empty / suggestion / history states; medium is always the blank interface. */
 export const STATEFUL_SIZES: ShellSize[] = ["medium-plus"];
 
+/** Sizes an interface doesn't come in. Chat has no large: sent, it opens the chat itself. */
+const MISSING_SIZES: Partial<Record<ShellKind, ShellSize[]>> = { chat: ["large"] };
+
+export const hasSize = (kind: ShellKind, size: ShellSize) => !MISSING_SIZES[kind]?.includes(size);
+
 /** Which content a size shows: small and medium are blank, large is the docked chat. */
 export function contentFor(size: ShellSize, state: ShellState): ShellState {
   if (STATEFUL_SIZES.includes(size)) return state;

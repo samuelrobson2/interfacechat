@@ -70,30 +70,35 @@ export function TimelineShell({
   const ghost = events.length === 0;
 
   if (size === "medium") {
-    const shown = ghost ? [] : events.slice(0, 5);
+    const shown = ghost ? [] : events.slice(0, 4);
     const at = positions(shown);
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="timeline" title={data.title} />
+        {/* Shapes, not words: a line with stops, and small event cards above and below it. */}
         <PreviewBody className="justify-center">
-          <div className="relative mx-1 h-12">
-            <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-gray-3/30" />
-            {ghost
-              ? GHOST_STOPS.map((_, i) => (
-                  <span key={i} className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1 flex-col items-center gap-1" style={{ left: `${12 + i * 38}%` }}>
-                    <Dot size="xs" ghost />
-                  </span>
-                ))
-              : shown.map((event, i) => (
+          <div className="relative mx-1 h-[78px]">
+            <span className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-gray-3/30" />
+            {(ghost ? [0.06, 0.36, 0.64, 0.94] : at).map((x, i) => {
+              const above = i % 2 === 0;
+              return (
+                <span
+                  key={i}
+                  className={cn("absolute flex w-[30%] -translate-x-1/2 flex-col items-center", above ? "bottom-1/2 translate-y-[5px] flex-col-reverse" : "top-1/2 -translate-y-[5px]")}
+                  style={{ left: `${6 + x * 88}%` }}
+                >
                   <span
-                    key={event.id}
-                    className={cn("absolute flex -translate-x-1/2 flex-col items-center gap-0.5", i % 2 ? "top-1/2 -translate-y-1" : "bottom-1/2 translate-y-1 flex-col-reverse")}
-                    style={{ left: `${6 + at[i]! * 88}%` }}
-                  >
-                    <Dot size="xs" />
-                    <Bar width={14} className="h-1" />
+                    className="size-2.5 shrink-0 rounded-full ring-2 ring-white"
+                    style={{ backgroundColor: ghost ? "color-mix(in srgb, var(--color-gray-3) 50%, transparent)" : LIME }}
+                  />
+                  <span className="h-1.5 w-px bg-gray-3/40" />
+                  <span className="flex w-full flex-col gap-[3px] rounded-[4px] bg-gray-6 px-1.5 py-1.5">
+                    <Bar width="70%" className="h-1 bg-gray-3/35" />
+                    <Bar width="100%" className="h-1" />
                   </span>
-                ))}
+                </span>
+              );
+            })}
           </div>
         </PreviewBody>
       </ShellSurface>

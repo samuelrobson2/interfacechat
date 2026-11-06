@@ -159,7 +159,8 @@ export function HomeField({
   const { card } = field;
   const leader = card?.leader ?? null;
   const leaderTile = leader ? field.tiles.find((tile) => tile.id === leader.tileId) : undefined;
-  const focusKind = leaderTile?.type === "blank" ? leaderTile.kind : null;
+  // A dismissed card gives the middle back to the headline.
+  const focusKind = leaderTile?.type === "blank" && !field.dismissed ? leaderTile.kind : null;
   const opened = Boolean(focusKind && leader && leader.phase !== "hinted");
   // Recognised at all, the card comes to the middle in the headline's place, so
   // it's clear the prompt is being captured into it.
@@ -182,15 +183,19 @@ export function HomeField({
     };
   }, [focusKind, reduce, dragX, dragY]);
 
-  // Esc dismisses the open card, wherever focus is.
+  // Esc, wherever focus is, dismisses the open card and goes back to the middle,
+  // undoing any drag.
   useEffect(() => {
-    if (!card) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") field.dismiss();
+      if (event.key !== "Escape") return;
+      if (card) field.dismiss();
+      const options = reduce ? { duration: 0 } : PAN;
+      animate(dragX, 0, options);
+      animate(dragY, 0, options);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [card, field]);
+  }, [card, field, reduce, dragX, dragY]);
 
   const blanks = field.tiles.filter((tile): tile is Extract<HomeTile, { type: "blank" }> => tile.type === "blank");
 

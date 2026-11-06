@@ -141,17 +141,30 @@ export function GuideShell({
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="guide" title={data.title} />
-        <PreviewBody className="gap-1.5 pt-1">
-          {/* Medium shows shapes, not words: a bar per step. */}
-          {(ghostSteps ? ghostLabels("Step") : data.steps.slice(0, 4)).map((step, i) => {
-            const s = typeof step === "string" ? null : step;
-            return (
-              <span key={s?.id ?? (step as string)} className="flex min-w-0 items-center gap-1.5">
-                <Tick done={s?.done ?? false} size="xs" label="" />
-                <Bar width={`${[78, 64, 70, 56][i % 4]}%`} className={cn("h-1.5", s?.done ? "bg-gray-3/15" : "bg-gray-3/25")} />
-              </span>
-            );
-          })}
+        {/* Shapes, not words: facts as pills, then numbered steps of a line or two. */}
+        <PreviewBody className="gap-2 pt-2.5">
+          <span className="flex shrink-0 gap-1">
+            {[30, 24].map((width) => (
+              <span key={width} className="h-3 rounded-full bg-gray-6" style={{ width }} />
+            ))}
+          </span>
+          <ol className="relative flex flex-col gap-1.5">
+            <span aria-hidden className="absolute top-2 bottom-2 left-[5px] w-px bg-gray-3/25" />
+            {(ghostSteps ? [false, false, false] : data.steps.slice(0, 3).map((step) => step.done)).map((done, i) => (
+              <li key={i} className="relative flex gap-1.5">
+                <span
+                  className={cn(
+                    "size-[11px] shrink-0 rounded-full ring-2 ring-white",
+                    done ? "bg-gray-3/45" : "bg-gray-3/25",
+                  )}
+                />
+                <span className="flex flex-1 flex-col gap-[3px] pt-[3px]">
+                  <Bar width="94%" className="h-1" />
+                  <Bar width={`${[58, 70, 46][i]}%`} className="h-1" />
+                </span>
+              </li>
+            ))}
+          </ol>
         </PreviewBody>
       </ShellSurface>
     );

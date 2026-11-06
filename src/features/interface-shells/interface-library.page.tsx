@@ -7,7 +7,7 @@ import { Text } from "@/shared/ui/kit/text";
 import { DescriptionCell, PartsCell, QueriesCell } from "./compose/shell-library-columns";
 import { InterfaceShell, type InterfaceShellProps } from "./interface-shell";
 import { SHELL_FIXTURES } from "./model/shell-fixtures";
-import { contentFor, SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES } from "./model/shell-meta";
+import { contentFor, hasSize, SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES } from "./model/shell-meta";
 import { shellParts } from "./model/shell-parts";
 import {
   copyShellRetrieval,
@@ -165,7 +165,7 @@ function ShellRow({
 
   const openNext = () => {
     const next = NEXT_SIZE[size];
-    if (!next) return;
+    if (!next || !hasSize(kind, next)) return;
     if (next === "large" && kind === "search") {
       const search = shellData as SearchShellData;
       if (search.query.trim() && search.results.length === 0) runSearch(search);
@@ -224,6 +224,11 @@ function ShellRow({
         animate={{ height: STAGE_HEIGHT[size] }}
         transition={reduced ? { duration: 0 } : SHELL_MORPH_SPRING}
       >
+        {!hasSize(kind, size) ? (
+          <span className="px-6 text-center font-bureau text-[13px] font-light text-typography-secondary">
+            No {SIZE_META[size].label.toLowerCase()} size. Sent, {SHELL_META[kind].label} opens the chat itself.
+          </span>
+        ) : (
         <ShellMorph
           kind={kind}
           size={size}
@@ -237,6 +242,7 @@ function ShellRow({
         >
           <InterfaceShell {...shellProps} />
         </ShellMorph>
+        )}
         {size === "small" && (
           <span className="pointer-events-none absolute top-1/2 left-1/2 mt-10 -translate-x-1/2 font-bureau text-[12px] whitespace-nowrap text-typography-primary">
             {SHELL_META[kind].label}

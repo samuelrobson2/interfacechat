@@ -44,6 +44,14 @@ function Tick({ done, size, onToggle }: { done: boolean; size: "xs" | "sm" | "md
   );
 }
 
+/** Up to two groups of up to two rows, as done flags; ghost rows when empty. */
+function groupShapes(items: TrackerItem[]): boolean[][] {
+  if (items.length === 0) return [[false, false], [false]];
+  const groups = new Map<string, boolean[]>();
+  for (const item of items) groups.set(item.group ?? "", [...(groups.get(item.group ?? "") ?? []), item.done]);
+  return [...groups.values()].slice(0, 2).map((rows) => rows.slice(0, 2));
+}
+
 function Progress({ items, className }: { items: TrackerItem[]; className?: string }) {
   const done = items.filter((item) => item.done).length;
   return (
@@ -206,18 +214,23 @@ export function TrackerShell({
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="tracker" title={data.title} />
-        <PreviewBody className="gap-[5px] pt-1">
-          {/* Medium shows shapes, not words: a bar per item. */}
-          {(ghost ? ghostLabels("Item") : data.items.slice(0, 5)).map((row, i) => {
-            const item = typeof row === "string" ? null : row;
-            return (
-              <span key={item?.id ?? (row as string)} className="flex min-w-0 items-center gap-1.5">
-                <Tick done={item?.done ?? false} size="xs" />
-                <Bar width={`${[72, 58, 66, 50, 62][i % 5]}%`} className={cn("h-1.5", item?.done ? "bg-gray-3/15" : "bg-gray-3/25")} />
+        {/* Shapes, not words: groups of checklist rows under a coloured head, and progress. */}
+        <PreviewBody className="gap-1 pt-2.5">
+          {groupShapes(data.items).map((group, g) => (
+            <div key={g} className="flex flex-col gap-1">
+              <span className="flex items-center gap-1.5">
+                <span className={cn("size-1.5 shrink-0 rounded-full", accentOf(g).solid)} />
+                <Bar width="34%" className="h-1 bg-gray-3/35" />
               </span>
-            );
-          })}
-          {!ghost && <Progress items={data.items} className="mt-auto" />}
+              {group.map((done, i) => (
+                <span key={i} className="flex min-w-0 items-center gap-1.5 pl-3">
+                  <Tick done={done} size="xs" />
+                  <Bar width={`${[66, 52, 60][i % 3]}%`} className={cn("h-1", done ? "bg-gray-3/15" : "bg-gray-3/25")} />
+                </span>
+              ))}
+            </div>
+          ))}
+          <Progress items={ghost ? [] : data.items} className="mt-auto" />
         </PreviewBody>
       </ShellSurface>
     );

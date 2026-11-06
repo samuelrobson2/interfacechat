@@ -3,7 +3,7 @@ import { cn } from "@/shared/lib/css";
 import { EditOverlay } from "./compose/edit-overlay";
 import { InterfaceShell, type InterfaceShellProps } from "./interface-shell";
 import { SHELL_FIXTURES } from "./model/shell-fixtures";
-import { contentFor, SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES } from "./model/shell-meta";
+import { contentFor, hasSize, SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES } from "./model/shell-meta";
 import {
   SHELL_DIMENSIONS,
   SHELL_KINDS,
@@ -69,6 +69,8 @@ const DOTS = {
 };
 
 function Stage({ kind, column }: { kind: ShellKind; column: Column }) {
+  // A size the interface doesn't come in leaves its cell empty, so the columns still line up.
+  if (!hasSize(kind, column.size)) return <div aria-hidden />;
   const { width, height: shellHeight } = SHELL_DIMENSIONS[column.size];
   const props = {
     kind,
