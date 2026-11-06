@@ -11,9 +11,9 @@ import {
   ShellDetail,
   ShellTitle,
 } from "../ui/shell-kit";
-import { ghostLabels } from "../ui/shell-accents";
+import { accentOf, ghostLabels } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { Bar, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const CORAL = "#f0525c";
 
@@ -142,18 +142,50 @@ function ItemRow({
   );
 }
 
-function GhostRows({ large }: { large: boolean }) {
+function GroupHeading({ name, index, large }: { name: string; index: number; large: boolean }) {
   return (
-    <ul className="flex flex-col">
-      {ghostLabels("Item").map((label) => (
-        <li key={label} className={cn("flex items-center", large ? "gap-3 py-1.5" : "gap-2 py-[3px]")}>
-          <Tick done={false} size={large ? "md" : "sm"} />
-          <span className={cn("px-1 font-bureau font-light text-typography-secondary", large ? "text-[14px]" : "text-[12px]")}>
-            {label}
-          </span>
-        </li>
+    <h3
+      className={cn(
+        "flex items-center gap-1.5 font-bureau text-typography-secondary",
+        large ? "mb-0.5 text-[12px]" : "mb-px text-[11px]",
+      )}
+    >
+      <span className={cn("size-1.5 shrink-0 rounded-full", accentOf(index).solid)} />
+      {name}
+    </h3>
+  );
+}
+
+/** Empty state: two placeholder groups, the first item ticked, so the shape reads at a glance. */
+function GhostRows({ large }: { large: boolean }) {
+  const groups = [ghostLabels("Item", 2), ghostLabels("Item", 3).slice(2)];
+  return (
+    <div className={cn("flex flex-col", large ? "gap-5" : "gap-2")}>
+      {groups.map((labels, g) => (
+        <section key={g} className="flex flex-col">
+          <GroupHeading name={`Group ${g + 1}`} index={g} large={large} />
+          <ul className="flex flex-col">
+            {labels.map((label, i) => {
+              const done = g === 0 && i === 0;
+              return (
+                <li key={label} className={cn("flex items-center", large ? "gap-3 py-1.5" : "gap-2 py-[3px]")}>
+                  <Tick done={done} size={large ? "md" : "sm"} />
+                  <span
+                    className={cn(
+                      "px-1 font-bureau font-light text-typography-secondary",
+                      large ? "text-[14px]" : "text-[12px]",
+                      done && "line-through",
+                    )}
+                  >
+                    {label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -175,19 +207,13 @@ export function TrackerShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="tracker" title={data.title} />
         <PreviewBody className="gap-[5px] pt-1">
-          {(ghost ? ghostLabels("Item") : data.items.slice(0, 5)).map((row) => {
+          {/* Medium shows shapes, not words: a bar per item. */}
+          {(ghost ? ghostLabels("Item") : data.items.slice(0, 5)).map((row, i) => {
             const item = typeof row === "string" ? null : row;
             return (
               <span key={item?.id ?? (row as string)} className="flex min-w-0 items-center gap-1.5">
                 <Tick done={item?.done ?? false} size="xs" />
-                <span
-                  className={cn(
-                    "truncate font-bureau text-[10px] leading-tight",
-                    !item ? "font-light text-typography-secondary" : item.done ? "text-typography-secondary line-through" : "text-typography-primary",
-                  )}
-                >
-                  {item ? item.label : (row as string)}
-                </span>
+                <Bar width={`${[72, 58, 66, 50, 62][i % 5]}%`} className={cn("h-1.5", item?.done ? "bg-gray-3/15" : "bg-gray-3/25")} />
               </span>
             );
           })}
@@ -210,12 +236,10 @@ export function TrackerShell({
   const done = data.items.filter((item) => item.done).length;
   const visible = (items: TrackerItem[]) => (hideDone ? items.filter((item) => !item.done) : items);
   const ungrouped = data.items.filter((item) => !item.group || !data.groups.includes(item.group));
-  const sections: { group?: string; items: TrackerItem[] }[] = large
-    ? [
-        ...data.groups.map((group) => ({ group, items: data.items.filter((item) => item.group === group) })),
-        ...(ungrouped.length || data.groups.length === 0 ? [{ items: ungrouped }] : []),
-      ]
-    : [{ items: data.items }];
+  const sections: { group?: string; items: TrackerItem[] }[] = [
+    ...data.groups.map((group) => ({ group, items: data.items.filter((item) => item.group === group) })),
+    ...(ungrouped.length || data.groups.length === 0 ? [{ items: ungrouped }] : []),
+  ].filter((section) => large || section.items.length > 0);
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
@@ -248,13 +272,13 @@ export function TrackerShell({
           ) : undefined
         }
       />
-      <ShellBody size={size} className={large ? "gap-5" : "gap-1"}>
+      <ShellBody size={size} className={large ? "gap-5" : "gap-2"}>
         {large && data.items.length > 0 && <Progress items={data.items} />}
         {data.items.length === 0 && <GhostRows large={large} />}
         {data.items.length > 0 &&
           sections.map(({ group, items }) => (
             <section key={group ?? "ungrouped"} className="flex flex-col">
-              {large && group && <h3 className="mb-0.5 font-bureau text-[12px] text-typography-secondary">{group}</h3>}
+              {group && <GroupHeading name={group} index={data.groups.indexOf(group)} large={large} />}
               <ul className={cn("flex flex-col", large && "divide-y divide-gray-3/10")}>
                 {visible(items).map((item) => (
                   <ItemRow

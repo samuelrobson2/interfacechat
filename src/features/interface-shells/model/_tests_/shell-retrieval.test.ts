@@ -51,7 +51,7 @@ describe("shell retrieval", () => {
   it.each([
     ["Build a three-day shoot schedule from this shot list, allowing for setups, travel, breaks and cast availability", "schedule"],
     ["Create a checklist of everything we need to arrange before the shoot, with owners and deadlines", "tracker"],
-    ["Find three shoot dates when our cast, crew and location are all available", "calendar"],
+    ["Put the recce, the three shoot days and the rough cut review on a December calendar", "calendar"],
     ["Review this location agreement and highlight the fees, filming restrictions, cancellation terms and our responsibilities", "reader"],
     ["Show me cafés near our main location so I can shortlist options for the second scene", "map"],
     ["Create a moodboard for the film with muted colours, natural window light and intimate handheld framing", "moodboard"],
@@ -62,7 +62,7 @@ describe("shell retrieval", () => {
   it.each([
     ["Plan the photo walk hour by hour, with travel and breaks", "schedule"],
     ["Make a packing list for the trip with who brings what", "tracker"],
-    ["Which dates is the team available for an offsite in May?", "calendar"],
+    ["Add the team offsite to the calendar on the 12th of May", "calendar"],
     ["Read this lease and highlight the break clauses", "reader"],
     ["Find the nearest pharmacies near the hotel", "map"],
     ["Put together an inspiration board with a warm autumn palette", "moodboard"],

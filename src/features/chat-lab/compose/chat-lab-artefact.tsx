@@ -180,6 +180,7 @@ type PanelProps = {
 /** Any other library interface, at its large size, with edits kept on the artefact. */
 function LibraryPanel({ sessionId, artefact, actions }: PanelProps) {
   const updateArtefact = useChatLabStore((state) => state.updateArtefact);
+  const { sendText, isGenerating } = useChatLabSession();
   if (!artefact.shell) return null;
   const shell = artefact.shell;
   return (
@@ -193,6 +194,10 @@ function LibraryPanel({ sessionId, artefact, actions }: PanelProps) {
           data: shell.data,
           onChange: (data: unknown) =>
             updateArtefact(sessionId, { shell: { kind: shell.kind, data } as ChatLabArtefact["shell"] }, artefact.id),
+          // Questions asked in an interface (Reader) are answered in the thread.
+          onAsk: (text: string) => {
+            if (!isGenerating) void sendText(text);
+          },
         } as Parameters<typeof InterfaceShell>[0])}
       />
     </div>

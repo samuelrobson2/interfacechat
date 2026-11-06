@@ -2,6 +2,9 @@ import { useLayoutEffect, useRef } from "react";
 import { cn } from "@/shared/lib/css";
 import type { ShellSize } from "../model/shell-types";
 
+/** The warm grey behind a card's white content panel. */
+export const CARD_BACKGROUND = "bg-[#f7f6f5]";
+
 const SURFACE: Record<ShellSize, string> = {
   small: "rounded-[15px] shadow-[0_1px_3px_rgba(26,23,24,0.18)]",
   medium: "rounded-[18px] shadow-[0_2px_10px_rgba(26,23,24,0.08)]",
@@ -28,7 +31,8 @@ export function ShellSurface({
     <div
       className={cn(
         "relative flex size-full min-h-0 flex-col overflow-hidden font-bureau",
-        surface && ["bg-background-primary", SURFACE[size]],
+        // Cards are grey so their content panel reads clearly; large is the working surface.
+        surface && [size === "large" ? "bg-background-primary" : CARD_BACKGROUND, SURFACE[size]],
         className,
       )}
     >

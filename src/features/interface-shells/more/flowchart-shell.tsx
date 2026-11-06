@@ -1,7 +1,17 @@
+import { ArrowDown, Diamond, Square } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
-import { shellId, type FlowEdge, type FlowNode, type FlowchartShellData, type ShellProps } from "../model/shell-types";
-import { FitBox, PreviewBody, PreviewHead, ShellDetail, ShellTitle } from "../ui/shell-kit";
+import {
+  shellId,
+  type FlowEdge,
+  type FlowNode,
+  type FlowNodeKind,
+  type FlowchartShellData,
+  type ShellColour,
+  type ShellProps,
+} from "../model/shell-types";
+import { CanvasBoard, canvasColour, SelectionBar, tint } from "../ui/canvas-board";
+import { CONTENT_PANEL, FitBox, PreviewBody, PreviewHead, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
@@ -14,6 +24,21 @@ const ROW = 96;
 const PAD = 24;
 
 type Placed = FlowNode & { x: number; y: number; w: number; h: number };
+
+/** Start and end are pills; lucide has no pill outline. */
+function PillIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={className} aria-hidden>
+      <rect x="2.5" y="7" width="19" height="10" rx="5" />
+    </svg>
+  );
+}
+
+const SHAPES: { kind: FlowNodeKind; icon: typeof Square | typeof PillIcon; label: string }[] = [
+  { kind: "step", icon: Square, label: "Step" },
+  { kind: "decision", icon: Diamond, label: "Decision" },
+  { kind: "end", icon: PillIcon, label: "Start or end" },
+];
 
 /**
  * Lay the chart out top to bottom: each node one row below the deepest node
@@ -84,11 +109,21 @@ const GHOST: FlowchartShellData = {
   ],
 };
 
-function Chart({
+/** The chart fitted into a card, for medium and medium plus. */
+function Chart({ data, ghost, labels }: { data: FlowchartShellData; ghost: boolean; labels: boolean }) {
+  const { width, height } = layout(data.nodes, data.edges);
+  return (
+    <FitBox width={width} height={height} className="size-full">
+      <FlowScene data={data} ghost={ghost} labels={labels} />
+    </FitBox>
+  );
+}
+
+/** The chart at its own size. */
+function FlowScene({
   data,
   ghost,
   labels,
-  fit = "both",
   selected,
   onSelect,
   onRename,
@@ -96,7 +131,6 @@ function Chart({
   data: FlowchartShellData;
   ghost: boolean;
   labels: boolean;
-  fit?: "both" | "width";
   selected?: string | null;
   onSelect?: (id: string | null) => void;
   onRename?: (id: string, label: string) => void;
@@ -104,7 +138,7 @@ function Chart({
   const { placed, width, height } = layout(data.nodes, data.edges);
   const byId = new Map(placed.map((p) => [p.id, p]));
   return (
-    <FitBox width={width} height={height} fit={fit} className="size-full">
+    <>
       <svg width={width} height={height} className="absolute inset-0" aria-hidden>
         <defs>
           <marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -133,7 +167,11 @@ function Chart({
       </svg>
       {placed.map((node) => {
         const isSel = selected === node.id;
-        const base = "absolute flex items-center justify-center text-center font-bureau text-[12px] leading-tight";
+        const colour = node.colour ? canvasColour(node.colour) : undefined;
+        const base = cn(
+          "absolute flex items-center justify-center text-center font-bureau text-[12px] leading-tight",
+          onSelect && "cursor-pointer",
+        );
         const style = { left: node.x - node.w / 2, top: node.y - node.h / 2, width: node.w, height: node.h };
         const label = onRename ? (
           <input
@@ -152,10 +190,11 @@ function Chart({
         const ring = isSel ? "ring-2 ring-offset-2 ring-[#17a9cf]" : "";
         if (node.kind === "decision") {
           return (
-            <div key={node.id} className={base} style={style} onClick={(e) => { stopFieldEvent(e); onSelect?.(node.id); }}>
+            <div key={node.id} data-canvas-item className={base} style={style} onClick={(e) => { stopFieldEvent(e); onSelect?.(node.id); }}>
               <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 size-full overflow-visible" aria-hidden>
                 <polygon
                   points="50,2 98,50 50,98 2,50"
+                  style={colour && !ghost ? { fill: tint(colour, 14), stroke: isSel ? colour : tint(colour, 60) } : undefined}
                   fill={ghost ? "#fff" : "#e6f6fb"}
                   stroke={isSel ? CYAN : ghost ? "#d6d2cd" : "#8fd3e6"}
                   strokeWidth={isSel ? 3 : 2}
@@ -172,20 +211,25 @@ function Chart({
         return (
           <div
             key={node.id}
+            data-canvas-item
             className={cn(
               base,
               terminal ? "rounded-full" : "rounded-[10px]",
               ghost ? "border-2 border-dashed border-gray-3/50 bg-white" : terminal ? "text-white" : "bg-white shadow-[0_1px_3px_rgba(26,23,24,0.12)] ring-1 ring-gray-3/20",
               ring,
             )}
-            style={{ ...style, backgroundColor: !ghost && terminal ? CYAN : undefined }}
+            style={{
+              ...style,
+              backgroundColor: ghost ? undefined : terminal ? (colour ?? CYAN) : colour ? tint(colour, 12) : undefined,
+              ...(colour && !ghost && !terminal ? { ["--tw-ring-color" as string]: tint(colour, 50) } : {}),
+            }}
             onClick={(e) => { stopFieldEvent(e); onSelect?.(node.id); }}
           >
             {label}
           </div>
         );
       })}
-    </FitBox>
+    </>
   );
 }
 
@@ -209,7 +253,7 @@ export function FlowchartShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="flowchart" title={data.title} />
         <PreviewBody>
-          <Chart data={shown} ghost={ghost} labels={ghost} />
+          <Chart data={shown} ghost={ghost} labels={false} />
         </PreviewBody>
       </ShellSurface>
     );
@@ -220,7 +264,7 @@ export function FlowchartShell({
   const rename = update && ((id: string, label: string) => update({ nodes: data.nodes.map((n) => (n.id === id ? { ...n, label } : n)) }));
 
   // Insert after the selected node, taking over its outgoing paths.
-  const addAfter = (kind: "step" | "decision") => {
+  const addAfter = (kind: FlowNodeKind) => {
     if (!update) return;
     if (data.nodes.length === 0) {
       const start = { id: shellId("n"), kind: "start" as const, label: "Start" };
@@ -229,11 +273,19 @@ export function FlowchartShell({
       return;
     }
     const from = selected ?? data.nodes.at(-1)!.id;
-    const node: FlowNode = { id: shellId("n"), kind, label: kind === "decision" ? "Decision?" : "New step" };
+    const node: FlowNode = {
+      id: shellId("n"),
+      kind,
+      label: kind === "decision" ? "Decision?" : kind === "end" ? "Done" : "New step",
+    };
     const outgoing = data.edges.filter((e) => e.from === from);
     const kept = data.edges.filter((e) => e.from !== from);
     const nodes = [...data.nodes, node];
-    const edges = [...kept, { from, to: node.id }, ...outgoing.map((e) => ({ ...e, from: node.id, label: kind === "decision" ? "Yes" : e.label }))];
+    // An end has nothing after it, so it doesn't take over the paths.
+    const edges =
+      kind === "end"
+        ? [...data.edges, { from, to: node.id }]
+        : [...kept, { from, to: node.id }, ...outgoing.map((e) => ({ ...e, from: node.id, label: kind === "decision" ? "Yes" : e.label }))];
     if (kind === "decision") {
       const no: FlowNode = { id: shellId("n"), kind: "end", label: "Otherwise" };
       nodes.push(no);
@@ -259,44 +311,93 @@ export function FlowchartShell({
     });
     setSelected(null);
   };
+  const change = (patch: Partial<FlowNode>) =>
+    selected && update?.({ nodes: data.nodes.map((n) => (n.id === selected ? { ...n, ...patch } : n)) });
 
-  const action = (label: string, onPress: () => void, disabled = false) => (
-    <button
-      type="button"
-      disabled={disabled}
-      {...fieldEvents}
-      onClick={(event) => {
-        stopFieldEvent(event);
-        onPress();
-      }}
-      className={cn("rounded-full bg-gray-6 font-bureau text-typography-primary transition-colors hover:bg-gray-5/60 disabled:opacity-40", large ? "px-3 py-1 text-[12px]" : "px-2 py-0.5 text-[10px]")}
-    >
-      {label}
-    </button>
+  if (!large) {
+    const action = (label: string, onPress: () => void, disabled = false) => (
+      <button
+        type="button"
+        disabled={disabled}
+        {...fieldEvents}
+        onClick={(event) => {
+          stopFieldEvent(event);
+          onPress();
+        }}
+        className="rounded-full bg-gray-6 px-2 py-0.5 font-bureau text-[10px] text-typography-primary transition-colors hover:bg-gray-5/60 disabled:opacity-40"
+      >
+        {label}
+      </button>
+    );
+    return (
+      <ShellSurface size={size} surface={surface} className={className}>
+        <ShellTitle kind="flowchart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+        {update && (
+          <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2">
+            {action(ghost ? "Start" : "Add a step", () => addAfter("step"))}
+            {!ghost && action("Add a decision", () => addAfter("decision"))}
+          </div>
+        )}
+        <div className={cn("mx-2.5 mt-2 mb-2.5 min-h-0 flex-1 p-1.5", CONTENT_PANEL)}>
+          <Chart data={shown} ghost={ghost} labels />
+        </div>
+      </ShellSurface>
+    );
+  }
+
+  const { placed, width, height } = layout(shown.nodes, shown.edges);
+  const node = selected ? placed.find((p) => p.id === selected) : undefined;
+  const shape = (kind: FlowNodeKind) => (kind === "start" ? "end" : kind);
+  const bar = node && (
+    <SelectionBar>
+      {SHAPES.map((option) => (
+        <SelectionBar.Button
+          key={option.kind}
+          icon={option.icon}
+          label={option.label}
+          active={shape(node.kind) === option.kind}
+          onClick={() =>
+            change({
+              // A pill at the top of the chart is a start; anywhere else, an end.
+              kind: option.kind === "end" && !data.edges.some((e) => e.to === node.id) ? "start" : option.kind,
+            })
+          }
+        />
+      ))}
+      <SelectionBar.Divider />
+      <SelectionBar.Colours value={node.colour} onChange={(colour: ShellColour) => change({ colour })} />
+      <SelectionBar.Divider />
+      <SelectionBar.Button icon={ArrowDown} label="Add a step after" onClick={() => addAfter("step")} />
+      <SelectionBar.Delete onClick={remove} />
+    </SelectionBar>
   );
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle kind="flowchart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
-      {update && (
-        <div className={cn("flex flex-wrap items-center gap-1.5", large ? "px-6 pt-3" : "px-4 pt-2")}>
-          {action(ghost ? "Start" : "Add a step", () => addAfter("step"))}
-          {!ghost && action("Add a decision", () => addAfter("decision"))}
-          {!ghost && action("Remove", remove, !selected)}
-          {large && !ghost && (
-            <span className="font-bureau text-[11px] text-typography-secondary">
-              {selected ? "Adds after the selected step." : "Click a step to select it."}
-            </span>
-          )}
-        </div>
-      )}
-      <div
-        className={cn("min-h-0 flex-1", large ? "px-6 pt-2 pb-6" : "px-3 pt-1 pb-1")}
-        onClick={() => setSelected(null)}
+      <CanvasBoard
+        width={width}
+        height={height}
+        editable={Boolean(update)}
+        className="mx-4 mt-2 mb-4 rounded-[14px]"
+        tools={[
+          { id: "step", icon: Square, label: ghost ? "Start the chart" : "Add a step", onClick: () => addAfter("step") },
+          { id: "decision", icon: Diamond, label: "Add a decision", onClick: () => addAfter("decision"), disabled: ghost },
+          { id: "end", icon: PillIcon, label: "Add an end", onClick: () => addAfter("end"), disabled: ghost },
+        ]}
+        selection={node && !ghost ? { x: node.x, y: node.y - node.h / 2, bar } : null}
+        onClearSelection={() => setSelected(null)}
+        onDelete={remove}
       >
-        <Chart data={shown} ghost={ghost} labels fit={large ? "width" : "both"} selected={selected} onSelect={setSelected} onRename={!ghost ? rename : undefined} />
-      </div>
-      {!large && <ShellDetail>{data.nodes.length ? `${data.nodes.length} steps` : null}</ShellDetail>}
+        <FlowScene
+          data={shown}
+          ghost={ghost}
+          labels
+          selected={selected}
+          onSelect={update && !ghost ? setSelected : undefined}
+          onRename={update && !ghost ? rename : undefined}
+        />
+      </CanvasBoard>
     </ShellSurface>
   );
 }

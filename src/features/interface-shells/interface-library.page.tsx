@@ -7,7 +7,7 @@ import { Text } from "@/shared/ui/kit/text";
 import { DescriptionCell, PartsCell, QueriesCell } from "./compose/shell-library-columns";
 import { InterfaceShell, type InterfaceShellProps } from "./interface-shell";
 import { SHELL_FIXTURES } from "./model/shell-fixtures";
-import { SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES } from "./model/shell-meta";
+import { contentFor, SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES } from "./model/shell-meta";
 import { shellParts } from "./model/shell-parts";
 import {
   copyShellRetrieval,
@@ -59,12 +59,6 @@ const initialData = (): ShellLibraryData =>
   Object.fromEntries(
     SHELL_KINDS.map((kind) => [kind, { ...SHELL_FIXTURES[kind].states }]),
   ) as ShellLibraryData;
-
-/** Which content a size shows: small and medium are blank, large is the docked chat. */
-function contentFor(size: ShellSize, state: ShellState): ShellState {
-  if (STATEFUL_SIZES.includes(size)) return state;
-  return size === "large" ? "history" : "empty";
-}
 
 /** Clicking a medium card opens it; ⌘↵ on medium plus docks it. */
 const NEXT_SIZE: Partial<Record<ShellSize, ShellSize>> = {
@@ -344,7 +338,7 @@ function InterfaceLibraryPage() {
       <div className="mx-auto flex w-full max-w-[1480px] flex-col px-6 pb-10 md:pr-10 md:pb-14 md:pl-24">
         <header className="pt-10 pb-6 md:pt-14">
           <Text variant="h1" as="h1" className="max-md:text-[32px]">
-            Interface library
+            Interface Library
           </Text>
         </header>
 

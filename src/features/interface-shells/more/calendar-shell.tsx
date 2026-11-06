@@ -40,10 +40,6 @@ const monthName = (month: string, short = false) =>
 const shortDate = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
-function busyOn(data: CalendarShellData, date: string) {
-  return data.busy.filter((entry) => entry.date === date && data.people.includes(entry.who));
-}
-
 function MonthNav({ data, size, update }: { data: CalendarShellData; size: ShellSize; update?: (patch: Partial<CalendarShellData>) => void }) {
   const large = size === "large";
   const nav = (delta: number) =>
@@ -70,7 +66,7 @@ function MonthNav({ data, size, update }: { data: CalendarShellData; size: Shell
   );
 }
 
-/** One day: its number, its events, and on large who can't make it. */
+/** One day: its number and its events. */
 function DayCell({
   date,
   data,
@@ -94,8 +90,6 @@ function DayCell({
 }) {
   const [draft, setDraft] = useState("");
   const events = data.events.filter((event) => event.date === date);
-  const busy = busyOn(data, date);
-  const free = data.people.length > 0 && busy.length === 0;
   const day = Number(date.slice(-2));
   const large = size === "large";
 
@@ -104,7 +98,7 @@ function DayCell({
       <span
         className={cn(
           "relative aspect-square rounded-[3px]",
-          events.length ? "" : busy.length ? "bg-gray-6" : free ? "bg-green-1" : "bg-white ring-1 ring-gray-3/15 ring-inset",
+          events.length ? "" : "bg-white ring-1 ring-gray-3/15 ring-inset",
         )}
         style={events.length ? { backgroundColor: VIOLET } : undefined}
       />
@@ -134,7 +128,7 @@ function DayCell({
       className={cn(
         "group relative flex min-w-0 flex-col overflow-hidden rounded-[8px] text-left transition-colors",
         large ? "h-[74px] gap-0.5 p-1.5" : "h-[30px] items-center justify-center",
-        free ? "bg-green-1" : busy.length ? "bg-gray-6" : "bg-white ring-1 ring-gray-3/15 ring-inset",
+        large && events.length ? "bg-gray-6" : "bg-white ring-1 ring-gray-3/15 ring-inset",
         onStartAdd && "cursor-pointer hover:ring-2 hover:ring-[#7c66f0]/40",
         !large && events.length > 0 && "text-white",
       )}
@@ -200,19 +194,7 @@ function DayCell({
               className="min-w-0 rounded-[4px] bg-white px-1 py-px font-bureau text-[10px] text-typography-primary outline-none ring-1 ring-[#7c66f0]"
             />
           )}
-          {!events.length && !editing && busy.length > 0 && (
-            <span className="mt-auto truncate font-bureau text-[9px] leading-tight text-typography-secondary">
-              {busy.map((entry) => entry.who).join(", ")} busy
-            </span>
-          )}
         </>
-      )}
-      {!large && events.length === 0 && busy.length > 0 && (
-        <span className="absolute bottom-[3px] flex gap-px">
-          {busy.slice(0, 3).map((entry) => (
-            <span key={entry.who} className="size-[3px] rounded-full bg-gray-3/70" />
-          ))}
-        </span>
       )}
     </div>
   );
@@ -361,6 +343,7 @@ export function CalendarShell({
   const large = size === "large";
   const update = onChange ? (patch: Partial<CalendarShellData>) => onChange({ ...data, ...patch }) : undefined;
   const monthEvents = data.events.filter((event) => event.date.startsWith(data.month)).length;
+  const monthTitles = [...new Set(data.events.filter((e) => e.date.startsWith(data.month)).map((e) => e.title))];
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
@@ -374,30 +357,35 @@ export function CalendarShell({
       />
       <ShellBody size={size}>
         <div className="flex flex-wrap items-center gap-1.5">
-          {large && <span className="font-bureau text-[12px] text-typography-secondary">Availability for</span>}
+          {large && <span className="font-bureau text-[12px] text-typography-secondary">Events</span>}
+          {/* The chips are this month's events: adding one puts it on the 1st, removing
+              one takes every event with that title off the month. */}
           <ChipList
             size={size}
-            items={data.people}
-            addLabel="Add people"
-            onChange={update && ((people) => update({ people }))}
+            items={monthTitles}
+            addLabel="Add event"
+            onChange={
+              update &&
+              ((titles) =>
+                update({
+                  events: [
+                    ...data.events.filter((e) => !e.date.startsWith(data.month) || titles.includes(e.title)),
+                    ...titles
+                      .filter((title) => !monthTitles.includes(title))
+                      .map((title) => ({ id: shellId("event"), date: `${data.month}-01`, title })),
+                  ],
+                }))
+            }
           />
         </div>
         <div className={cn("flex min-w-0", large ? "gap-6" : "flex-col gap-3")}>
           <div className="min-w-0 flex-1">
             <MonthGrid data={data} size={size} update={update} />
-            {large && data.people.length > 0 && (
-              <p className="mt-2 flex items-center gap-1.5 font-bureau text-[11px] text-typography-secondary">
-                <span className="size-2.5 rounded-[3px] bg-green-1 ring-1 ring-green-5/40" />
-                Everyone free
-                <span className="ml-2 size-2.5 rounded-[3px] bg-gray-6" />
-                Someone busy
-              </p>
-            )}
           </div>
           {large && (
             <aside className="flex w-72 shrink-0 flex-col gap-2">
               <span className="font-bureau text-[12px] text-typography-secondary">
-                {data.count ? `${monthEvents} events · looking for ${data.count} dates` : `${monthEvents} events`}
+                {monthEvents === 1 ? "1 event" : `${monthEvents} events`}
               </span>
               <EventList data={data} size={size} update={update} />
             </aside>
@@ -405,7 +393,7 @@ export function CalendarShell({
           {!large && <EventList data={data} size={size} update={update} />}
         </div>
       </ShellBody>
-      {!large && <ShellDetail>{monthEvents ? `${monthEvents} events` : null}</ShellDetail>}
+      {!large && <ShellDetail>{monthEvents ? (monthEvents === 1 ? "1 event" : `${monthEvents} events`) : null}</ShellDetail>}
     </ShellSurface>
   );
 }

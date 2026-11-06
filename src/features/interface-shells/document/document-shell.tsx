@@ -83,9 +83,7 @@ function DocumentPreview({ data }: { data: DocumentShellData }) {
       >
         <div className="flex flex-col gap-1">
           {!data.body.trim() ? (
-            <p className="font-bureau text-[11px] leading-[1.35] font-light text-typography-secondary">
-              Add additional context
-            </p>
+            EMPTY_LINES.map((width, i) => <Bar key={i} width={width} />)
           ) : outline
             ? outline.map((line, i) => {
                 if (line.kind === "gap") return <span key={i} className="h-0.5" />;
@@ -124,7 +122,7 @@ export function DocumentShell({
 
   if (size === "medium") {
     return (
-      <ShellSurface size={size} surface={surface} className={cn("bg-[#f7f6f5]", className)}>
+      <ShellSurface size={size} surface={surface} className={className}>
         <DocumentPreview data={data} />
       </ShellSurface>
     );
@@ -132,7 +130,7 @@ export function DocumentShell({
 
   if (size === "medium-plus") {
     return (
-      <ShellSurface size={size} surface={surface} className={cn("bg-[#f7f6f5]", className)}>
+      <ShellSurface size={size} surface={surface} className={className}>
         <DocumentEditor
           density="compact"
           titleMark={<ShellGlyph kind="document" className="size-4" />}

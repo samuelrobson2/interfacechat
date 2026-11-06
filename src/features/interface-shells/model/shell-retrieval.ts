@@ -94,7 +94,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
     description:
       "Plan tasks across hours and days as a Gantt: durations, overlaps and order, with setups, travel and breaks. Choose this when the person needs to know what happens when, and for how long, over a day or a few.",
     notFor:
-      "Choosing dates around people's availability (use Calendar), or a list of to-dos without times (use Tracker).",
+      "Events on dates across a month (use Calendar), or a list of to-dos without times (use Tracker).",
     queries: [
       "Build a three-day shoot schedule from this shot list, allowing for setups, travel, breaks and cast availability",
       "Plan the launch week hour by hour",
@@ -102,7 +102,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Make a call sheet for Saturday's shoot",
     ],
     avoidQueries: [
-      "Find three dates when everyone is free",
+      "Put the shoot days and the review on a calendar",
       "Create a checklist of what to book before the shoot",
       "What time does the ferry leave?",
     ],
@@ -128,25 +128,25 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
   },
   calendar: {
     description:
-      "Arrange commitments on dates, see who is free and spot clashes, across a month. Choose this when the person wants to find, hold or add dates around other people's availability.",
+      "Events on dates across a month: what's on, when, and at what time. Choose this when the person wants to add, move or see events, such as a shoot, a review, a deadline or a trip, on a calendar.",
     notFor:
-      "Planning what happens hour by hour within a day (use Schedule), or tasks with deadlines (use Tracker).",
+      "Planning what happens hour by hour within a day (use Schedule), tasks with owners (use Tracker), or what already happened (use Timeline).",
     queries: [
-      "Find three shoot dates when our cast, crew and location are all available",
-      "When is everyone free next month for a workshop?",
-      "Hold two dates in December for the client review",
+      "Put the recce, the three shoot days and the rough cut review on a December calendar",
       "Add the rough cut review to the calendar on the 17th",
+      "What's on next month?",
+      "Make a calendar of the festival screenings in May",
     ],
     avoidQueries: [
       "Plan Saturday's shoot hour by hour",
       "Create a checklist with owners and deadlines",
       "What day of the week is Christmas?",
     ],
-    triggers: ["calendar", "available", "availability", "free on", "dates", "which days", "hold a date", "clash"],
+    triggers: ["calendar", "event", "events", "on the calendar", "what's on", "dates", "save the date", "appointment", "this month", "next month"],
   },
   reader: {
     description:
-      "Open a document the person already has, a PDF, paper, contract or report, to understand it or find things in it: explain it, answer questions about it, pull out details, with the passages highlighted in the original. Choose this when the document exists and the job is reading it, not writing it.",
+      "Open a document the person already has, a PDF, paper, contract or report, to search it, ask questions about it and find things in it. Answers come in the chat, with the passages they rely on marked in the original. Choose this when the document exists and the job is reading it, not writing it.",
     notFor:
       "Writing a new document (use Document), or finding material online (use Search).",
     queries: [
@@ -185,7 +185,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
     description:
       "Lay out events in time order, to show what happened when and how one thing led to another. Choose this for history, the story of a project, or a sequence of past changes.",
     notFor:
-      "Planning future tasks with times (use Schedule), or choosing dates (use Calendar).",
+      "Planning future tasks with times (use Schedule), or upcoming events on dates (use Calendar).",
     queries: [
       "Give me a timeline of the Harbour Pier ferry",
       "What happened on the project so far, in order?",
@@ -194,7 +194,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
     ],
     avoidQueries: [
       "Build a three-day shoot schedule",
-      "Find three dates when everyone is free",
+      "Put next month's screenings on a calendar",
       "Write a history essay on the pier",
     ],
     triggers: ["timeline", "history of", "chronology", "chronological", "in order of events", "what happened", "over the years", "since"],

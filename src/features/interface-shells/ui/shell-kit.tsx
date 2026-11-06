@@ -34,9 +34,17 @@ export function PreviewHead({
 }
 
 /** Medium: the body under the head. */
+/**
+ * The clear area for an interface's content on medium and medium plus: a white
+ * panel on the card's grey, as Document draws it.
+ */
+export const CONTENT_PANEL = "rounded-[10px] bg-white shadow-[0_1px_2px_rgba(26,23,24,0.06)]";
+
 export function PreviewBody({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <div className={cn("mx-2.5 mt-1.5 mb-2.5 flex min-h-0 flex-1 flex-col overflow-hidden", className)}>{children}</div>
+    <div className={cn("mx-2 mt-1.5 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-1.5", CONTENT_PANEL, className)}>
+      {children}
+    </div>
   );
 }
 
@@ -156,7 +164,7 @@ export function ShellBody({
     <div
       className={cn(
         "no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto",
-        size === "large" ? "gap-4 px-6 pt-4 pb-6" : "gap-3 px-4 pt-3 pb-3",
+        size === "large" ? "gap-4 px-6 pt-4 pb-6" : ["mx-2.5 mt-1.5 mb-2.5 gap-3 px-3 py-2.5", CONTENT_PANEL],
         className,
       )}
     >

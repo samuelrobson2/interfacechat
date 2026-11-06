@@ -128,47 +128,38 @@ const trackerFixture: Fixture<"tracker"> = {
 export const emptyCalendar: CalendarShellData = {
   title: "",
   month: "2026-12",
-  people: [],
-  busy: [],
   events: [],
 };
 
-const busy = (who: string, ...days: number[]) =>
-  days.map((day) => ({ who, date: `2026-12-${String(day).padStart(2, "0")}` }));
-
-const calendarBusy = [
-  ...busy("Mara", 1, 2, 3, 7, 14, 15, 16, 21),
-  ...busy("Jonah", 4, 8, 9, 17, 18, 22),
-  ...busy("Crew", 5, 6, 13, 19, 20),
-  ...busy("Pier", 1, 7, 8, 14, 15, 21, 22),
-];
-
 const calendarFixture: Fixture<"calendar"> = {
   suggestionPrompt:
-    "Find three shoot dates when our cast, crew and location are all available.",
-  history: { chatTitle: "Shoot dates", when: "Last week" },
+    "Put the recce, the three shoot days and the rough cut review on a December calendar.",
+  history: { chatTitle: "December shoot", when: "Last week" },
   states: {
     empty: emptyCalendar,
     suggestion: {
-      title: "Shoot dates",
+      title: "December shoot",
       month: "2026-12",
-      people: ["Mara", "Jonah", "Crew", "Pier"],
-      busy: calendarBusy,
-      events: [{ id: "e0", date: "2026-12-04", title: "Recce", time: "10am" }],
-      count: 3,
-    },
-    history: {
-      title: "Shoot dates",
-      month: "2026-12",
-      people: ["Mara", "Jonah", "Crew", "Pier"],
-      busy: calendarBusy,
-      count: 3,
       events: [
         { id: "e0", date: "2026-12-04", title: "Recce", time: "10am" },
+        { id: "e1", date: "2026-12-10", title: "Shoot day 1" },
+        { id: "e2", date: "2026-12-11", title: "Shoot day 2" },
+        { id: "e3", date: "2026-12-12", title: "Shoot day 3" },
+        { id: "e4", date: "2026-12-17", title: "Rough cut review" },
+      ],
+    },
+    history: {
+      title: "December shoot",
+      month: "2026-12",
+      events: [
+        { id: "e0", date: "2026-12-04", title: "Recce", time: "10am" },
+        { id: "e5", date: "2026-12-07", title: "Costume fitting", time: "2pm" },
         { id: "e1", date: "2026-12-10", title: "Shoot day 1: pier", time: "7am" },
         { id: "e2", date: "2026-12-11", title: "Shoot day 2: ferry", time: "7:30am" },
         { id: "e3", date: "2026-12-12", title: "Shoot day 3: gangway", time: "8am" },
-        { id: "e4", date: "2026-12-17", title: "Rough cut review" },
+        { id: "e6", date: "2026-12-14", title: "Wrap drinks", time: "6pm" },
+        { id: "e4", date: "2026-12-17", title: "Rough cut review", time: "11am" },
+        { id: "e7", date: "2026-12-21", title: "Sound mix" },
       ],
     },
   },
@@ -179,7 +170,7 @@ const calendarFixture: Fixture<"calendar"> = {
 export const emptyReader: ReaderShellData = {
   title: "",
   source: "",
-  categories: [],
+  query: "",
   passages: [],
   highlights: [],
 };
@@ -194,16 +185,15 @@ const agreement = [
 ];
 
 const readerFixture: Fixture<"reader"> = {
-  suggestionPrompt:
-    "Review this location agreement and highlight the fees, filming restrictions, cancellation terms and our responsibilities.",
-  history: { chatTitle: "Harbour Pier agreement review", when: "3 days ago" },
+  suggestionPrompt: "What happens if we cancel the Harbour Pier booking late?",
+  history: { chatTitle: "Harbour Pier agreement", when: "3 days ago" },
   states: {
     empty: emptyReader,
     suggestion: {
       title: "Harbour Pier location agreement",
       source: "harbour-pier-agreement.pdf",
       pages: 6,
-      categories: ["Fees", "Restrictions", "Cancellation", "Our responsibilities"],
+      query: "cancel",
       passages: agreement,
       highlights: [],
     },
@@ -211,16 +201,12 @@ const readerFixture: Fixture<"reader"> = {
       title: "Harbour Pier location agreement",
       source: "harbour-pier-agreement.pdf",
       pages: 6,
-      categories: ["Fees", "Restrictions", "Cancellation", "Our responsibilities"],
+      query: "What happens if we cancel late?",
       passages: agreement,
       highlights: [
-        { id: "r1", category: "Fees", quote: "a location fee of £1,800 per filming day", note: "£5,400 for three days" },
-        { id: "r2", category: "Fees", quote: "a refundable damage deposit of £2,500, due seven days before the first filming day", note: "Due Thu 3 Dec" },
-        { id: "r3", category: "Restrictions", quote: "must not obstruct public access to the ferry between 12:00 and 14:00", note: "Clashes with 1B at 10:30–13:00" },
-        { id: "r4", category: "Restrictions", quote: "No drones may be flown over the water without the harbour master's written permission" },
-        { id: "r5", category: "Cancellation", quote: "Cancellation within fourteen days forfeits 50% of the location fee", note: "After Thu 26 Nov" },
-        { id: "r6", category: "Our responsibilities", quote: "removing all equipment by 20:00 each day" },
-        { id: "r7", category: "Our responsibilities", quote: "public liability insurance of at least £5 million", note: "On the checklist, not yet done" },
+        { id: "r1", quote: "If the Producer cancels more than fourteen days before the first filming day, the deposit is returned in full." },
+        { id: "r2", quote: "Cancellation within fourteen days forfeits 50% of the location fee", note: "After Thu 26 Nov" },
+        { id: "r3", quote: "within 48 hours, the full fee is payable" },
       ],
     },
   },

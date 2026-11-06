@@ -46,7 +46,7 @@ export const PROMPT_SEED: Record<ChatShellKind, string> = {
   table: "Make a table of ",
   schedule: "Build a schedule for ",
   tracker: "Make a checklist for ",
-  calendar: "Find dates for ",
+  calendar: "Put on a calendar: ",
   reader: "Explain this document: ",
   map: "Show me places near ",
   moodboard: "Make a moodboard for ",

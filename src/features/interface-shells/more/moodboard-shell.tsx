@@ -7,7 +7,6 @@ import {
   PreviewBody,
   PreviewHead,
   ShellBody,
-  ShellDetail,
   ShellTitle,
 } from "../ui/shell-kit";
 import { ghostLabels } from "../ui/shell-accents";
@@ -26,7 +25,8 @@ function inkOn(hex: string) {
 
 /**
  * The palette. On medium it's a strip. On medium plus and large every colour is
- * its own swatch: click it to change it, × to remove it, + to add one.
+ * its own swatch: click it to change it, hover for × to remove it. Blank swatches
+ * fill the row up to a few; clicking one adds a colour. Once they're used, + adds more.
  */
 function Palette({
   colours,
@@ -52,6 +52,7 @@ function Palette({
   }
 
   const large = size === "large";
+  const blanks = Math.max(0, (large ? 5 : 3) - colours.length);
   const pick = (index: number, current: string) => {
     setEditing(index);
     if (!picker.current) return;
@@ -61,18 +62,6 @@ function Palette({
 
   return (
     <div className={cn("flex shrink-0 items-stretch", large ? "gap-2" : "gap-1.5")}>
-      {colours.length === 0 &&
-        ghostLabels("Colour", large ? 5 : 3).map((label) => (
-          <span
-            key={label}
-            className={cn(
-              "grid place-items-center rounded-[10px] border border-dashed border-gray-3/40 font-bureau font-light text-typography-secondary",
-              large ? "h-12 flex-1 text-[11px]" : "size-6 text-[0px]",
-            )}
-          >
-            {label}
-          </span>
-        ))}
       {colours.map((colour, index) => (
         <div key={`${colour}-${index}`} className={cn("group relative", large ? "flex-1" : "")}>
           <button
@@ -116,7 +105,35 @@ function Palette({
           )}
         </div>
       ))}
-      {onChange && (
+      {Array.from({ length: blanks }, (_, i) => {
+        // Only the first blank on an empty palette says what to do; the rest show + on hover.
+        const label = colours.length === 0 && i === 0 && large ? "Add a colour" : null;
+        const blankClass = cn(
+          "group/blank grid place-items-center border border-dashed border-gray-3/40 font-bureau font-light text-typography-secondary",
+          large ? "h-12 flex-1 rounded-[10px] text-[11px]" : "size-6 rounded-full",
+        );
+        return onChange ? (
+          <button
+            key={`blank-${i}`}
+            type="button"
+            aria-label="Add a colour"
+            title="Add a colour"
+            {...fieldEvents}
+            onClick={(event) => {
+              stopFieldEvent(event);
+              pick(-1, colours.at(-1) ?? "#b9b2a5");
+            }}
+            className={cn(blankClass, "transition-colors hover:border-gray-3 hover:text-typography-primary active:scale-[0.96]")}
+          >
+            {label ?? <Plus className="size-3.5 opacity-0 transition-opacity group-hover/blank:opacity-100" />}
+          </button>
+        ) : (
+          <span key={`blank-${i}`} className={blankClass}>
+            {label}
+          </span>
+        );
+      })}
+      {onChange && blanks === 0 && (
         <button
           type="button"
           aria-label="Add a colour"
@@ -307,7 +324,7 @@ export function MoodboardShell({
         <PreviewBody className="gap-1">
           <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-1">
             {images.length === 0 ? (
-              <GhostTiles count={4} className="text-[9px]" />
+              <GhostTiles count={4} className="text-[0px]" />
             ) : (
               images.map((image) => (
                 <img
@@ -395,11 +412,6 @@ export function MoodboardShell({
         )}
         {addImages && <AddImages large={large} onAdd={addImages} />}
       </ShellBody>
-      {!large && (
-        <ShellDetail>
-          {data.images.length ? `${data.images.length} images` : null}
-        </ShellDetail>
-      )}
     </ShellSurface>
   );
 }

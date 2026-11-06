@@ -13,6 +13,7 @@ import {
 } from "@/shared/model/routes";
 import { SidebarLayout } from "@/shared/ui/kit/sidebar";
 import {
+  Grid3x3,
   LayoutGrid,
   LayoutTemplate,
   Wrench,
@@ -33,10 +34,18 @@ import { SidebarUserMenuMobile } from "./compose/sidebar-user-menu-mobile";
 // Bubble 1 — the pharos-standard apps this fork inherits.
 // The library of mini interface shells chat opens, at every size.
 const interfaceLibraryItem: MenuItem = {
-  title: "Interface library",
+  title: "Interface Library",
   url: ROUTES.INTERFACE_LIBRARY,
   matchPaths: [{ path: ROUTES.INTERFACE_LIBRARY, end: false }],
   icon: <LayoutGrid className="size-5" />,
+};
+
+// Every interface in every size and state, for copying into Figma.
+const interfaceStatesItem: MenuItem = {
+  title: "Interface State",
+  url: ROUTES.INTERFACE_STATES,
+  matchPaths: [{ path: ROUTES.INTERFACE_STATES, end: true }],
+  icon: <Grid3x3 className="size-5" />,
 };
 
 const pharosItems: MenuItem[] = [
@@ -75,6 +84,7 @@ const pharosItems: MenuItem[] = [
     icon: <ChatIcon />,
   },
   interfaceLibraryItem,
+  interfaceStatesItem,
   ...(isChatVisualizeEnabled()
     ? [
         {

@@ -4,9 +4,9 @@ import { cn } from "@/shared/lib/css";
 import { shellId, type GuideFact, type GuideNeed, type GuideShellData, type GuideStep, type ShellProps, type ShellSize } from "../model/shell-types";
 import { AddChip } from "../ui/shell-fields";
 import { ghostLabels } from "../ui/shell-accents";
-import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle } from "../ui/shell-kit";
+import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const TERRACOTTA = "#c2563a";
 
@@ -142,14 +142,13 @@ export function GuideShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="guide" title={data.title} />
         <PreviewBody className="gap-1.5 pt-1">
-          {(ghostSteps ? ghostLabels("Step") : data.steps.slice(0, 4)).map((step) => {
+          {/* Medium shows shapes, not words: a bar per step. */}
+          {(ghostSteps ? ghostLabels("Step") : data.steps.slice(0, 4)).map((step, i) => {
             const s = typeof step === "string" ? null : step;
             return (
               <span key={s?.id ?? (step as string)} className="flex min-w-0 items-center gap-1.5">
                 <Tick done={s?.done ?? false} size="xs" label="" />
-                <span className={cn("truncate font-bureau text-[10px]", !s ? "font-light text-typography-secondary" : s.done ? "text-typography-secondary line-through" : "text-typography-primary")}>
-                  {s ? s.text : (step as string)}
-                </span>
+                <Bar width={`${[78, 64, 70, 56][i % 4]}%`} className={cn("h-1.5", s?.done ? "bg-gray-3/15" : "bg-gray-3/25")} />
               </span>
             );
           })}
@@ -273,7 +272,6 @@ export function GuideShell({
           {steps}
           {update && <Add label="Add a step" size={size} onAdd={() => update({ steps: [...data.steps, { id: shellId("step"), text: "", done: false }] })} />}
         </ShellBody>
-        <ShellDetail>{progress}</ShellDetail>
       </ShellSurface>
     );
   }

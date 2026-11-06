@@ -1,5 +1,6 @@
 import {
   Bold,
+  Heading,
   Heading1,
   Heading2,
   Italic,
@@ -526,15 +527,30 @@ export function DocumentEditor({
           </ToolbarButton>
         </>
       )}
-      <ToolbarButton
-        label="Subheading"
-        density={density}
-        disabled={!editable}
-        active={focusedBlock?.type === "heading2"}
-        onPress={() => setType("heading2")}
-      >
-        <Heading2 />
-      </ToolbarButton>
+      {compact ? (
+        // One plain "Heading" toggle: a lone H2 with no H1 beside it reads as a mistake.
+        <ToolbarButton
+          label="Heading"
+          density={density}
+          disabled={!editable}
+          active={focusedBlock?.type === "heading1" || focusedBlock?.type === "heading2"}
+          onPress={() =>
+            setType(focusedBlock?.type === "heading2" ? "heading2" : "heading1")
+          }
+        >
+          <Heading />
+        </ToolbarButton>
+      ) : (
+        <ToolbarButton
+          label="Subheading"
+          density={density}
+          disabled={!editable}
+          active={focusedBlock?.type === "heading2"}
+          onPress={() => setType("heading2")}
+        >
+          <Heading2 />
+        </ToolbarButton>
+      )}
       <Divider density={density} />
       <ToolbarButton label="Bold (⌘B)" density={density} disabled={!editable} onPress={() => wrapSelection("**")}>
         <Bold />

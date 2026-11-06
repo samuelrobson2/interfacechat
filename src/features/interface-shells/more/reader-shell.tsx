@@ -1,39 +1,67 @@
-import { X } from "lucide-react";
-import { useRef, useState } from "react";
+import { ChevronDown, ChevronUp, MessageCircle, MessageCircleQuestion, ScanText, Search, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { readFile } from "../model/reader-file";
-import { shellId, type ReaderHighlight, type ReaderShellData, type ShellProps } from "../model/shell-types";
-import {
-  ChipList,
-  PdfIcon,
-  PreviewBody,
-  PreviewHead,
-  ShellBody,
-  ShellDetail,
-  ShellTitle,
-} from "../ui/shell-kit";
-import { accentOf, ghostLabels } from "../ui/shell-accents";
+import type { ReaderShellData, ShellProps } from "../model/shell-types";
+import { PdfIcon, PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { Bar, barWidths, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
-function accentFor(data: ReaderShellData, category: string) {
-  return accentOf(Math.max(0, data.categories.indexOf(category)));
+/**
+ * Reader is a smart document reader: search the file, ask it a question, find
+ * something in it. Answers go in the chat; the document marks what was found.
+ */
+
+/** What Reader does, shown on an empty card so it's clear what a file is for. */
+const READER_JOBS = [
+  { icon: Search, label: "Search it" },
+  { icon: MessageCircleQuestion, label: "Ask it a question" },
+  { icon: ScanText, label: "Find a clause, date or figure" },
+];
+
+/** One-tap questions for a file that's open but not yet searched. */
+const STARTERS = ["Summarise it", "What are the key dates?", "What do we have to pay?"];
+
+/** A draft reads as a question for the chat, not words to find in the page. */
+const isQuestion = (text: string) =>
+  /\?\s*$/.test(text) ||
+  /^(what|how|why|when|who|where|which|does|do|is|are|can|could|should|will|would|explain|summari[sz]e|tell|list|compare)\b/i.test(text.trim());
+
+type Match = { passage: number; start: number; end: number };
+
+/** Every case-insensitive occurrence of the search in the passages. */
+function findMatches(passages: string[], query: string): Match[] {
+  const needle = query.trim().toLowerCase();
+  if (needle.length < 2 || isQuestion(query)) return [];
+  const matches: Match[] = [];
+  passages.forEach((text, passage) => {
+    const hay = text.toLowerCase();
+    for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + needle.length)) {
+      matches.push({ passage, start: at, end: at + needle.length });
+    }
+  });
+  return matches;
+}
+
+/** Spans of found passages (from the chat) inside one passage. */
+function foundSpans(text: string, data: ReaderShellData) {
+  return data.highlights
+    .map((highlight) => ({ id: highlight.id, note: highlight.note, start: text.indexOf(highlight.quote), length: highlight.quote.length }))
+    .filter((span) => span.start >= 0)
+    .map((span) => ({ ...span, end: span.start + span.length }));
 }
 
 /**
- * The file itself, as a page thumbnail: lines of text with highlighted lines in
- * their category colour, and the PDF mark in the corner.
+ * The file itself, as a page thumbnail: lines of text, with lines the chat found
+ * marked, and the PDF mark in the corner.
  */
 function PageThumb({ data, className, lines = 14 }: { data: ReaderShellData; className?: string; lines?: number }) {
   const empty = data.passages.length === 0;
-  const rows: { width: number; accent?: ReturnType<typeof accentOf> }[] = [];
+  const rows: { width: number; found?: boolean }[] = [];
   for (const passage of data.passages) {
-    const hits = data.highlights.filter((h) => passage.includes(h.quote));
+    const hits = data.highlights.filter((h) => passage.includes(h.quote)).length;
     const count = Math.min(4, Math.max(2, Math.ceil(passage.length / 90)));
-    barWidths(passage, count).forEach((width, i) => {
-      const hit = hits[i];
-      rows.push({ width, accent: hit ? accentFor(data, hit.category) : undefined });
-    });
+    barWidths(passage, count).forEach((width, i) => rows.push({ width, found: i < hits }));
     rows.push({ width: 0 });
     if (rows.length >= lines) break;
   }
@@ -57,7 +85,7 @@ function PageThumb({ data, className, lines = 14 }: { data: ReaderShellData; cla
             row.width === 0 ? (
               <span key={i} className="h-[3px]" />
             ) : (
-              <Bar key={i} width={row.width} className={cn("h-[3px]", row.accent ? row.accent.bar : "bg-gray-3/25")} />
+              <Bar key={i} width={row.width} className={cn("h-[3px]", row.found ? "bg-blue-4/60" : "bg-gray-3/25")} />
             ),
           )}
           <PdfIcon className="absolute right-1 bottom-1 h-4 w-3.5" />
@@ -79,7 +107,7 @@ function FileDrop({
   children,
 }: {
   onFile?: (patch: Partial<ReaderShellData>) => void;
-  /** Replacing a file clears what to look for; adding the first one keeps it. */
+  /** Replacing a file clears the search; adding the first one keeps it. */
   replacing?: boolean;
   label: string;
   className?: string;
@@ -100,7 +128,7 @@ function FileDrop({
         pages: read.pages,
         passages: read.passages,
         highlights: [],
-        ...(replacing ? { categories: [] } : {}),
+        ...(replacing ? { query: "" } : {}),
       });
       setState("idle");
     } catch {
@@ -160,9 +188,6 @@ function FileDrop({
   );
 }
 
-/** One-click starters for the other reason to open a document: learning from it. */
-const LEARN = ["Key ideas", "Explain simply", "Terms to know"];
-
 function FileLabel({ data, large }: { data: ReaderShellData; large: boolean }) {
   if (!data.source) {
     // Nothing to name yet; on large the label is the way to add one.
@@ -184,42 +209,46 @@ function FileLabel({ data, large }: { data: ReaderShellData; large: boolean }) {
   );
 }
 
-/** A passage with every highlight inside it marked in its category's colour. */
+/** A passage with search matches and the chat's found passages marked. */
 function MarkedPassage({
   text,
   index,
   data,
-  focused,
+  matches,
+  current,
 }: {
   text: string;
   index: number;
   data: ReaderShellData;
-  focused: string | null;
+  matches: Match[];
+  current: Match | undefined;
 }) {
-  const marks = data.highlights
-    .map((highlight) => ({ highlight, start: text.indexOf(highlight.quote) }))
-    .filter((mark) => mark.start >= 0)
-    .sort((a, b) => a.start - b.start);
+  // Search matches win where they overlap a found passage: they're what the person is looking at now.
+  const marks = [
+    ...matches.filter((m) => m.passage === index).map((m) => ({ ...m, kind: "match" as const, key: `m${m.start}` })),
+    ...foundSpans(text, data).map((f) => ({ start: f.start, end: f.end, kind: "found" as const, key: f.id, note: f.note })),
+  ].sort((a, b) => a.start - b.start || (a.kind === "match" ? -1 : 1));
   const parts: React.ReactNode[] = [];
   let cursor = 0;
-  for (const { highlight, start } of marks) {
-    if (start < cursor) continue;
-    parts.push(text.slice(cursor, start));
+  for (const mark of marks) {
+    if (mark.start < cursor) continue;
+    parts.push(text.slice(cursor, mark.start));
+    const isCurrent = mark.kind === "match" && current?.passage === index && current.start === mark.start;
     parts.push(
       <mark
-        key={highlight.id}
-        id={`hl-${highlight.id}`}
-        title={highlight.note ?? highlight.category}
+        key={mark.key}
+        data-current={isCurrent || undefined}
+        title={mark.kind === "found" ? (mark as { note?: string }).note ?? "From the chat's answer" : undefined}
         className={cn(
-          "rounded-[3px] px-0.5 text-typography-primary transition-shadow",
-          accentFor(data, highlight.category).mark,
-          focused === highlight.id && "ring-2 ring-gray-3/60",
+          "rounded-[3px] px-0.5 text-typography-primary",
+          mark.kind === "found" ? "bg-blue-1 shadow-[inset_0_-2px_0_var(--color-blue-4)]" : "bg-yellow-1",
+          isCurrent && "bg-orange-5/35 ring-2 ring-orange-5/50",
         )}
       >
-        {highlight.quote}
+        {text.slice(mark.start, mark.end)}
       </mark>,
     );
-    cursor = start + highlight.quote.length;
+    cursor = mark.end;
   }
   parts.push(text.slice(cursor));
   return (
@@ -229,17 +258,120 @@ function MarkedPassage({
   );
 }
 
+/** The one bar for searching, asking and finding. */
+function AskBar({
+  value,
+  onChange,
+  onAsk,
+  count,
+  at,
+  onStep,
+  compact,
+  readOnly,
+}: {
+  value: string;
+  onChange?: (value: string) => void;
+  onAsk?: (question: string) => void;
+  count: number;
+  at: number;
+  onStep: (delta: number) => void;
+  compact?: boolean;
+  readOnly?: boolean;
+}) {
+  const question = isQuestion(value);
+  const searching = value.trim().length >= 2 && !question;
+  const iconButton = "grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary hover:bg-gray-0 hover:text-typography-primary disabled:opacity-30";
+  return (
+    <div className={cn("flex min-w-0 items-center gap-1.5 rounded-full bg-gray-6", compact ? "h-8 pr-1 pl-2.5" : "h-10 pr-1.5 pl-3.5")}>
+      {question ? <MessageCircleQuestion className="size-4 shrink-0 text-typography-secondary" /> : <Search className="size-4 shrink-0 text-typography-secondary" />}
+      <input
+        value={value}
+        readOnly={readOnly || !onChange}
+        placeholder={compact ? "Search or ask" : "Search, ask a question, or find something"}
+        aria-label="Search or ask about the document"
+        {...fieldEvents}
+        onKeyDown={(event) => {
+          stopFieldEvent(event);
+          if (event.key === "Enter") {
+            event.preventDefault();
+            if (question) onAsk?.(value.trim());
+            else onStep(event.shiftKey ? -1 : 1);
+          }
+          if (event.key === "Escape") onChange?.("");
+        }}
+        onChange={(event) => onChange?.(event.target.value)}
+        className={cn("min-w-0 flex-1 bg-transparent font-bureau text-typography-primary outline-none placeholder:font-light placeholder:text-typography-secondary", compact ? "text-[12px]" : "text-[14px]")}
+      />
+      {searching && (
+        <span className="flex shrink-0 items-center gap-0.5 font-bureau text-[11px] text-typography-secondary tabular-nums">
+          {count ? `${at + 1} of ${count}` : "No matches"}
+          {!compact && count > 1 && (
+            <>
+              <button type="button" aria-label="Previous match" {...fieldEvents} onClick={(e) => { stopFieldEvent(e); onStep(-1); }} className={iconButton}>
+                <ChevronUp className="size-3.5" />
+              </button>
+              <button type="button" aria-label="Next match" {...fieldEvents} onClick={(e) => { stopFieldEvent(e); onStep(1); }} className={iconButton}>
+                <ChevronDown className="size-3.5" />
+              </button>
+            </>
+          )}
+        </span>
+      )}
+      {value && onChange && !compact && (
+        <button type="button" aria-label="Clear" {...fieldEvents} onClick={(e) => { stopFieldEvent(e); onChange(""); }} className={iconButton}>
+          <X className="size-3" />
+        </button>
+      )}
+      {question && (
+        <button
+          type="button"
+          disabled={!onAsk}
+          title={onAsk ? "Ask in the chat" : "Ask once this is open in a chat"}
+          {...fieldEvents}
+          onClick={(event) => {
+            stopFieldEvent(event);
+            onAsk?.(value.trim());
+          }}
+          className={cn(
+            "flex shrink-0 items-center gap-1 rounded-full bg-gray-5 font-bureau text-gray-0 transition-opacity active:scale-[0.97] disabled:opacity-40",
+            compact ? "h-6 px-2 text-[11px]" : "h-7 px-3 text-[12px]",
+          )}
+        >
+          <MessageCircle className="size-3" />
+          Ask
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function ReaderShell({
   size,
   data,
   onChange,
   onSubmit,
+  onAsk,
   surface = true,
   className,
 }: ShellProps<ReaderShellData>) {
   const article = useRef<HTMLElement>(null);
-  const [selection, setSelection] = useState<{ quote: string; x: number; y: number } | null>(null);
-  const [focused, setFocused] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const matches = findMatches(data.passages, data.query ?? "");
+  // While asking, the arrows walk the passages the chat found instead.
+  const found = data.highlights.filter((h) => data.passages.some((p) => p.includes(h.quote)));
+  const walkingFound = matches.length === 0 && found.length > 0 && isQuestion(data.query ?? "");
+  const total = walkingFound ? found.length : matches.length;
+  const at = total ? ((step % total) + total) % total : 0;
+
+  // Keep the current match or found passage in view as it changes.
+  useEffect(() => {
+    const root = article.current;
+    if (!root || !total) return;
+    const target = walkingFound
+      ? root.querySelectorAll("mark:not([data-current])")[at]
+      : root.querySelector("mark[data-current]");
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [at, total, walkingFound, data.query]);
 
   if (size === "small") return <ShellAppIcon kind="reader" className={className} />;
 
@@ -248,7 +380,18 @@ export function ReaderShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="reader" title={data.title || data.source} />
         <PreviewBody className="items-center pt-0.5">
-          <PageThumb data={data} className="aspect-[3/4] h-full max-h-full" lines={12} />
+          {/* Medium shows shapes, not words: the page, a search bar over it, lines of text. */}
+          <div className="flex w-full min-h-0 flex-1 flex-col gap-1.5">
+            <span className="flex h-3.5 shrink-0 items-center gap-1 rounded-full bg-gray-6 px-1.5">
+              <Search className="size-2 text-gray-3" />
+              <Bar width="40%" className="h-1" />
+            </span>
+            <PageThumb
+              data={data.passages.length ? data : { ...data, passages: ["x".repeat(180), "y".repeat(140), "z".repeat(200)] }}
+              className="aspect-[3/4] min-h-0 flex-1 self-center"
+              lines={9}
+            />
+          </div>
         </PreviewBody>
       </ShellSurface>
     );
@@ -256,44 +399,14 @@ export function ReaderShell({
 
   const large = size === "large";
   const update = onChange ? (patch: Partial<ReaderShellData>) => onChange({ ...data, ...patch }) : undefined;
-  const count = (category: string) => data.highlights.filter((h) => h.category === category).length;
-
-  const suggestions = update ? LEARN.filter((s) => !data.categories.includes(s)).slice(0, 3) : [];
-  const categories = (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-    <ChipList
-      size={size}
-      items={data.categories}
-      addLabel="Add what to look for"
-      onChange={update && ((categories) => update({ categories }))}
-      render={(category) => (
-        <span className="flex items-center gap-1.5">
-          <span className={cn("size-2 rounded-full", accentFor(data, category).solid)} />
-          {category}
-          {count(category) > 0 && <span className="text-typography-secondary tabular-nums">{count(category)}</span>}
-        </span>
-      )}
-    />
-      {suggestions.map((suggestion) => (
-        <button
-          key={suggestion}
-          type="button"
-          title="Add this to what to look for"
-          {...fieldEvents}
-          onClick={(event) => {
-            stopFieldEvent(event);
-            update?.({ categories: [...data.categories, suggestion] });
-          }}
-          className={cn(
-            "inline-flex shrink-0 items-center rounded-full font-bureau text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary",
-            size === "large" ? "h-7 px-2.5 text-[13px]" : "h-6 px-2 text-[11px]",
-          )}
-        >
-          {suggestion}
-        </button>
-      ))}
-    </div>
-  );
+  const setQuery = update && ((query: string) => {
+    setStep(0);
+    update({ query });
+  });
+  const ask = onAsk && ((question: string) => {
+    setQuery?.(question);
+    onAsk(question);
+  });
 
   if (!large) {
     return (
@@ -312,58 +425,47 @@ export function ReaderShell({
             </FileDrop>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <FileLabel data={data} large={false} />
-              {data.categories.length === 0 && !update ? (
-                <ul className="flex flex-col gap-1">
-                  {ghostLabels("Look for").map((label) => (
-                    <li key={label} className="font-bureau text-[11px] font-light text-typography-secondary">
-                      {label}
-                    </li>
-                  ))}
-                </ul>
+              {data.source ? (
+                <>
+                  <AskBar
+                    compact
+                    value={data.query ?? ""}
+                    onChange={setQuery}
+                    onAsk={ask}
+                    count={matches.length}
+                    at={at}
+                    onStep={(delta) => setStep((s) => s + delta)}
+                  />
+                  {found.length > 0 && (
+                    <span className="flex items-center gap-1.5 font-bureau text-[11px] text-typography-secondary">
+                      <span className="size-2 rounded-full bg-blue-4" />
+                      {found.length === 1 ? "1 passage found" : `${found.length} passages found`}
+                    </span>
+                  )}
+                </>
               ) : (
-                categories
+                // No file yet: say what Reader does with one.
+                <div className="flex flex-col gap-1.5">
+                  <span className="font-bureau text-[12px] text-typography-primary">Add a PDF to</span>
+                  <ul className="flex flex-col gap-1">
+                    {READER_JOBS.map(({ icon: Icon, label }) => (
+                      <li key={label} className="flex items-center gap-1.5 font-bureau text-[11px] font-light text-typography-secondary">
+                        <Icon className="size-3 shrink-0" />
+                        {label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           </div>
         </ShellBody>
-        <ShellDetail>
-          {data.highlights.length ? `${data.highlights.length} highlights` : null}
-        </ShellDetail>
+        <ShellDetail>{data.pages ? `${data.pages} pages` : null}</ShellDetail>
       </ShellSurface>
     );
   }
 
-  // Select text in the document, then pick a category to highlight it under.
-  const captureSelection = () => {
-    if (!update || data.categories.length === 0) return;
-    const sel = window.getSelection();
-    const quote = sel?.toString().trim() ?? "";
-    if (!sel || !quote || !article.current || !article.current.contains(sel.anchorNode)) {
-      setSelection(null);
-      return;
-    }
-    if (!data.passages.some((passage) => passage.includes(quote))) return;
-    const rect = sel.getRangeAt(0).getBoundingClientRect();
-    const box = article.current.getBoundingClientRect();
-    setSelection({ quote, x: rect.left - box.left + rect.width / 2, y: rect.top - box.top + article.current.scrollTop });
-  };
-
-  const addHighlight = (category: string) => {
-    if (!selection || !update) return;
-    update({ highlights: [...data.highlights, { id: shellId("hl"), category, quote: selection.quote }] });
-    window.getSelection()?.removeAllRanges();
-    setSelection(null);
-  };
-
-  const removeHighlight = (id: string) => update?.({ highlights: data.highlights.filter((h) => h.id !== id) });
-  const setHighlight = (next: ReaderHighlight) =>
-    update?.({ highlights: data.highlights.map((h) => (h.id === next.id ? next : h)) });
-
-  const focus = (id: string) => {
-    setFocused(id);
-    document.getElementById(`hl-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-  };
-
+  const hasFile = data.passages.length > 0;
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle
@@ -378,120 +480,84 @@ export function ReaderShell({
           </FileDrop>
         }
       />
-      <div className="px-6 pt-3">{categories}</div>
-      <div className="flex min-h-0 flex-1 gap-5 px-6 pt-4 pb-6">
-        <div className="flex min-w-0 flex-[3] flex-col rounded-[12px] bg-gray-6 p-3">
+      {hasFile && (
+        <div className="flex flex-col gap-2 px-6 pt-3">
+          <AskBar
+            value={data.query ?? ""}
+            onChange={setQuery}
+            onAsk={ask}
+            count={total}
+            at={at}
+            onStep={(delta) => setStep((s) => s + delta)}
+          />
+          {!data.query && (
+            <div className="flex flex-wrap gap-1.5 px-1">
+              {STARTERS.map((starter) => (
+                <button
+                  key={starter}
+                  type="button"
+                  disabled={!ask}
+                  title={ask ? "Ask in the chat" : "Ask once this is open in a chat"}
+                  {...fieldEvents}
+                  onClick={(event) => {
+                    stopFieldEvent(event);
+                    ask?.(starter);
+                  }}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-dashed border-gray-3/40 px-2.5 font-bureau text-[12px] text-typography-secondary transition-colors hover:border-gray-3 hover:text-typography-primary disabled:pointer-events-none"
+                >
+                  <MessageCircleQuestion className="size-3" />
+                  {starter}
+                </button>
+              ))}
+            </div>
+          )}
+          {walkingFound && (
+            <p className="flex items-center gap-1.5 px-1 font-bureau text-[12px] text-typography-secondary">
+              <span className="size-2 rounded-full bg-blue-4" />
+              The answer is in the chat. Marked below: {found.length === 1 ? "the passage it uses" : `the ${found.length} passages it uses`}.
+            </p>
+          )}
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1 px-6 pt-3 pb-6">
+        <div className="flex min-w-0 flex-1 flex-col rounded-[12px] bg-gray-6 p-3">
           <article
             ref={article}
-            onMouseUp={captureSelection}
-            onKeyUp={captureSelection}
             {...fieldEvents}
-            className="no-scrollbar relative mx-auto flex w-full max-w-[520px] min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-white px-8 py-7 shadow-[0_1px_4px_rgba(26,23,24,0.12)]"
+            className="no-scrollbar relative mx-auto flex w-full max-w-[620px] min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-white px-8 py-7 shadow-[0_1px_4px_rgba(26,23,24,0.12)]"
           >
-            {data.passages.length === 0 ? (
+            {hasFile ? (
+              data.passages.map((passage, i) => (
+                <MarkedPassage
+                  key={i}
+                  text={passage}
+                  index={i}
+                  data={data}
+                  matches={matches}
+                  current={walkingFound ? undefined : matches[at]}
+                />
+              ))
+            ) : (
               <FileDrop
                 onFile={update}
                 label="Add a PDF"
-                className="m-auto flex w-64 flex-col items-center gap-2 rounded-[12px] border border-dashed border-gray-3/40 px-6 py-8"
+                className="m-auto flex w-72 flex-col items-center gap-3 rounded-[12px] border border-dashed border-gray-3/40 px-6 py-8"
               >
                 <PdfIcon className="h-10 w-8 opacity-60" />
-                <span className="font-bureau text-[13px] text-typography-primary">Add a PDF</span>
+                <span className="font-bureau text-[13px] text-typography-primary">Add a PDF to</span>
+                <ul className="flex flex-col gap-1.5">
+                  {READER_JOBS.map(({ icon: Icon, label }) => (
+                    <li key={label} className="flex items-center gap-2 font-bureau text-[12px] font-light text-typography-secondary">
+                      <Icon className="size-3.5 shrink-0" />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
                 <span className="font-bureau text-[11px] font-light text-typography-secondary">Drop it here, or click to choose</span>
               </FileDrop>
-            ) : (
-              data.passages.map((passage, i) => (
-                <MarkedPassage key={i} text={passage} index={i} data={data} focused={focused} />
-              ))
-            )}
-            {selection && (
-              <div
-                className="absolute z-10 flex -translate-x-1/2 -translate-y-full gap-1 rounded-full bg-background-primary-inverse p-1 shadow-elevated"
-                style={{ left: selection.x, top: selection.y - 6 }}
-              >
-                {data.categories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => {
-                      stopFieldEvent(event);
-                      addHighlight(category);
-                    }}
-                    className="flex items-center gap-1 rounded-full px-2 py-0.5 font-bureau text-[11px] whitespace-nowrap text-typography-inverse hover:bg-white/15"
-                  >
-                    <span className={cn("size-2 rounded-full", accentFor(data, category).solid)} />
-                    {category}
-                  </button>
-                ))}
-              </div>
             )}
           </article>
         </div>
-        <aside className="no-scrollbar flex min-w-0 flex-[2] flex-col gap-4 overflow-y-auto">
-          {update && data.passages.length > 0 && (
-            <p className="font-bureau text-[11px] text-typography-secondary">Select text in the page to highlight it.</p>
-          )}
-          {(data.categories.length ? data.categories : ghostLabels("Look for")).map((category) => {
-            const items = data.highlights.filter((h) => h.category === category);
-            const ghost = !data.categories.includes(category);
-            return (
-              <section key={category} className="flex flex-col gap-1.5">
-                <h3 className={cn("flex items-center gap-1.5 font-bureau text-[12px]", ghost ? "font-light text-typography-secondary" : "text-typography-secondary")}>
-                  {!ghost && <span className={cn("size-2 rounded-full", accentFor(data, category).solid)} />}
-                  {category}
-                </h3>
-                {!ghost && items.length === 0 && (
-                  <p className="font-bureau text-[12px] font-light text-typography-secondary">Nothing highlighted yet</p>
-                )}
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    {...fieldEvents}
-                    onClick={(event) => {
-                      stopFieldEvent(event);
-                      focus(item.id);
-                    }}
-                    onKeyDown={(event) => event.key === "Enter" && focus(item.id)}
-                    className={cn(
-                      "group flex flex-col gap-0.5 rounded-[10px] bg-gray-6 px-3 py-2 text-left",
-                      focused === item.id && "ring-1 ring-gray-3/50",
-                    )}
-                  >
-                    <span className="flex items-start gap-2">
-                      <span className="flex-1 font-bureau text-[12px] leading-[1.4] text-typography-primary">“{item.quote}”</span>
-                      {update && (
-                        <button
-                          type="button"
-                          aria-label="Remove highlight"
-                          {...fieldEvents}
-                          onClick={(event) => {
-                            stopFieldEvent(event);
-                            removeHighlight(item.id);
-                          }}
-                          className="grid size-5 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:text-typography-primary focus-visible:opacity-100"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      )}
-                    </span>
-                    <input
-                      value={item.note ?? ""}
-                      placeholder="Add a note"
-                      aria-label="Note"
-                      readOnly={!update}
-                      {...fieldEvents}
-                      onKeyDown={stopFieldEvent}
-                      onChange={(event) => setHighlight({ ...item, note: event.target.value || undefined })}
-                      className="bg-transparent font-bureau text-[11px] text-typography-secondary outline-none placeholder:font-light"
-                    />
-                  </div>
-                ))}
-              </section>
-            );
-          })}
-        </aside>
       </div>
     </ShellSurface>
   );

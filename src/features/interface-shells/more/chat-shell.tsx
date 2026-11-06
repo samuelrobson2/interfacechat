@@ -1,11 +1,32 @@
-import { ArrowUp } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
+import { CONTENT_PANEL } from "../ui/shell-kit";
 import { ASSISTANT_SUGGESTIONS, FORMAT_SUGGESTIONS } from "../model/chat-formats";
 import { shellId, type ChatShellData, type ShellProps } from "../model/shell-types";
-import { ActionPill } from "../ui/shell-fields";
 import { ShellAppIcon, ShellGlyph } from "../ui/shell-icons";
-import { AutoTextarea, fieldEvents, isSubmitShortcut, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { Bar, AutoTextarea, fieldEvents, isSubmitShortcut, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+
+function SendButton({ disabled, onPress, className }: { disabled?: boolean; onPress: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label="Send"
+      disabled={disabled}
+      {...fieldEvents}
+      onClick={(event) => {
+        stopFieldEvent(event);
+        onPress();
+      }}
+      className={cn(
+        "grid size-7 shrink-0 place-items-center rounded-full bg-background-primary-inverse text-typography-inverse disabled:opacity-30",
+        className,
+      )}
+    >
+      <ArrowRight className="size-4" />
+    </button>
+  );
+}
 
 function Bubble({ role, children, className }: { role: "user" | "assistant"; children: React.ReactNode; className?: string }) {
   const user = role === "user";
@@ -154,14 +175,21 @@ export function ChatShell({
   if (size === "medium") {
     const text = data.messages[0]?.text ?? data.title;
     return (
-      <ShellSurface size={size} surface={surface} className={cn("justify-center p-2.5", className)}>
-        <div className="flex justify-end">
-          <div className="max-w-full rounded-[14px] bg-gray-6 px-2.5 py-1.5 font-bureau text-[11px] leading-[1.35]">
-            {text.trim() ? (
-              <span className="line-clamp-5 text-typography-primary">{text}</span>
-            ) : (
-              <span className="font-light text-typography-secondary">Ask anything</span>
-            )}
+      <ShellSurface size={size} surface={surface} className={cn("gap-2 p-2.5", className)}>
+        <div className="flex items-center gap-1.5">
+          <ShellGlyph kind="chat" className="size-3.5" />
+          <span className="font-bureau text-[12px] text-typography-primary">Chat</span>
+        </div>
+        <div className={cn("flex min-h-0 flex-1 flex-col justify-center gap-1.5 p-2", CONTENT_PANEL)}>
+          <div className="flex justify-end">
+            {/* Medium shows shapes, not words: a message bubble of bars. */}
+            <div aria-hidden className="flex w-[70%] flex-col gap-1 rounded-[14px] bg-gray-6 px-2.5 py-2">
+              <Bar width="100%" className="h-1.5 bg-gray-3/30" />
+              <Bar width="62%" className="h-1.5 bg-gray-3/30" />
+            </div>
+          </div>
+          <div className="mt-auto flex justify-end">
+            <SendButton disabled={!text.trim() || !onSubmit} onPress={() => onSubmit?.()} />
           </div>
         </div>
       </ShellSurface>
@@ -180,7 +208,7 @@ export function ChatShell({
         <div className="px-4 pt-2.5">
           <Modes data={data} large={false} update={update} />
         </div>
-        <div className="flex min-h-0 flex-1 flex-col justify-end px-4 pt-3">
+        <div className={cn("mx-2.5 mt-3 mb-2.5 flex min-h-0 flex-1 flex-col justify-end gap-2 p-3", CONTENT_PANEL)}>
           <div className="flex justify-end">
             <div className="max-w-[90%] rounded-[16px] bg-gray-6 px-3 py-2">
               <AutoTextarea
@@ -198,10 +226,9 @@ export function ChatShell({
               />
             </div>
           </div>
-        </div>
-        <div className="flex items-center justify-between px-4 pt-2 pb-3">
-          <span />
-          <ActionPill label="Send" shortcut="⌘↵" size="sm" disabled={!data.title.trim() || !onSubmit} onPress={() => onSubmit?.()} />
+          <div className="flex justify-end">
+            <SendButton disabled={!data.title.trim() || !onSubmit} onPress={() => onSubmit?.()} />
+          </div>
         </div>
       </ShellSurface>
     );
@@ -250,19 +277,7 @@ export function ChatShell({
             onChange={(event) => setReply(event.target.value)}
             className="max-h-24 flex-1 font-bureau text-[14px] leading-[1.45] text-typography-primary placeholder:font-light placeholder:text-typography-secondary"
           />
-          <button
-            type="button"
-            aria-label="Send"
-            disabled={!reply.trim() || !update}
-            {...fieldEvents}
-            onClick={(event) => {
-              stopFieldEvent(event);
-              send();
-            }}
-            className="grid size-7 shrink-0 place-items-center rounded-full bg-background-primary-inverse text-typography-inverse disabled:opacity-30"
-          >
-            <ArrowUp className="size-4" />
-          </button>
+          <SendButton disabled={!reply.trim() || !update} onPress={send} />
         </div>
       </div>
     </ShellSurface>

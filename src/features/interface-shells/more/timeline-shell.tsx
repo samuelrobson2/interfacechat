@@ -1,10 +1,11 @@
-import { Plus, X } from "lucide-react";
+import { CirclePlus, Plus } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/shared/lib/css";
-import { shellId, type ShellProps, type TimelineEvent, type TimelineShellData } from "../model/shell-types";
-import { ghostLabels } from "../ui/shell-accents";
-import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle } from "../ui/shell-kit";
+import { shellId, type ShellColour, type ShellProps, type TimelineEvent, type TimelineShellData } from "../model/shell-types";
+import { CanvasBoard, canvasColour, SelectionBar, tint } from "../ui/canvas-board";
+import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const LIME = "#6fa63a";
 
@@ -14,6 +15,9 @@ function when(date: string) {
   if (!y || Number.isNaN(y)) return Number.POSITIVE_INFINITY;
   return y + (m - 1) / 12 + (d - 1) / 365;
 }
+
+/** An empty timeline: blank stops along the line, the middle one inviting an event. */
+const GHOST_STOPS = ["", "Add an event", ""];
 
 const sorted = (events: TimelineEvent[]) => [...events].sort((a, b) => when(a.date) - when(b.date));
 
@@ -34,7 +38,11 @@ function positions(events: TimelineEvent[]) {
   });
 }
 
-function Dot({ size, ghost }: { size: "xs" | "sm" | "md"; ghost?: boolean }) {
+/** The large board's scene: tall enough for a card above and below the line. */
+const SCENE_HEIGHT = 440;
+const CARD_WIDTH = 150;
+
+function Dot({ size, ghost, colour = LIME }: { size: "xs" | "sm" | "md"; ghost?: boolean; colour?: string }) {
   return (
     <span
       className={cn(
@@ -42,7 +50,7 @@ function Dot({ size, ghost }: { size: "xs" | "sm" | "md"; ghost?: boolean }) {
         size === "md" ? "size-4" : size === "sm" ? "size-3" : "size-2 border",
         ghost ? "border-dashed border-gray-3/60 bg-white" : "border-white",
       )}
-      style={ghost ? undefined : { backgroundColor: LIME, boxShadow: `0 0 0 1px ${LIME}` }}
+      style={ghost ? undefined : { backgroundColor: colour, boxShadow: `0 0 0 1px ${colour}` }}
     />
   );
 }
@@ -55,6 +63,7 @@ export function TimelineShell({
   surface = true,
   className,
 }: ShellProps<TimelineShellData>) {
+  const [selected, setSelected] = useState<string | null>(null);
   if (size === "small") return <ShellAppIcon kind="timeline" className={className} />;
 
   const events = sorted(data.events);
@@ -70,10 +79,9 @@ export function TimelineShell({
           <div className="relative mx-1 h-12">
             <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-gray-3/30" />
             {ghost
-              ? ghostLabels("Event").map((label, i) => (
-                  <span key={label} className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1 flex-col items-center gap-1" style={{ left: `${12 + i * 38}%` }}>
+              ? GHOST_STOPS.map((_, i) => (
+                  <span key={i} className="absolute top-1/2 flex -translate-x-1/2 -translate-y-1 flex-col items-center gap-1" style={{ left: `${12 + i * 38}%` }}>
                     <Dot size="xs" ghost />
-                    <span className="font-bureau text-[8px] font-light whitespace-nowrap text-typography-secondary">{label}</span>
                   </span>
                 ))
               : shown.map((event, i) => (
@@ -83,7 +91,7 @@ export function TimelineShell({
                     style={{ left: `${6 + at[i]! * 88}%` }}
                   >
                     <Dot size="xs" />
-                    <span className="font-bureau text-[8px] text-typography-secondary tabular-nums">{event.date.slice(0, 4)}</span>
+                    <Bar width={14} className="h-1" />
                   </span>
                 ))}
           </div>
@@ -126,91 +134,137 @@ export function TimelineShell({
         <ShellBody size={size} className="gap-2">
           <ol className="relative flex flex-col gap-1.5 pl-1">
             <span className="absolute top-1.5 bottom-1.5 left-[9px] w-0.5 rounded-full bg-gray-3/25" />
-            {(ghost ? ghostLabels("Event") : events).map((event) =>
-              typeof event === "string" ? (
-                <li key={event} className="relative flex items-center gap-2.5">
-                  <Dot size="sm" ghost />
-                  <span className="font-bureau text-[12px] font-light text-typography-secondary">{event}</span>
-                </li>
-              ) : (
+            {ghost ? (
+              // Empty: one stop that invites the first event, and adds it when editable.
+              <li className="relative flex items-center gap-2.5">
+                <Dot size="sm" ghost />
+                {add ? (
+                  <button
+                    type="button"
+                    {...fieldEvents}
+                    onClick={(event) => {
+                      stopFieldEvent(event);
+                      add();
+                    }}
+                    className="font-bureau text-[12px] font-light text-typography-secondary hover:text-typography-primary"
+                  >
+                    Add an event
+                  </button>
+                ) : (
+                  <span className="font-bureau text-[12px] font-light text-typography-secondary">Add an event</span>
+                )}
+              </li>
+            ) : (
+              events.map((event) => (
                 <li key={event.id} className="relative flex min-w-0 items-center gap-2">
                   <Dot size="sm" />
                   <InlineInput value={event.date} placeholder="Year" label="Date" size={4} onChange={update && ((date) => set({ ...event, date }))} className="px-0.5 text-[11px] text-typography-secondary tabular-nums" />
                   <InlineInput value={event.title} placeholder="What happened" label="Event" onChange={update && ((title) => set({ ...event, title }))} className="flex-1 px-1 text-[12px]" />
                 </li>
-              ),
+              ))
             )}
           </ol>
-          {addButton}
+          {!ghost && addButton}
         </ShellBody>
-        <ShellDetail>
-          {events.length > 1 ? `${events[0]!.date.slice(0, 4)}–${events.at(-1)!.date.slice(0, 4)}` : null}
-        </ShellDetail>
       </ShellSurface>
     );
   }
 
   const at = positions(events);
-  // Fill the card; only scroll once the events need more room than it has.
   // Cards alternate above and below, so only every other one can collide.
-  const minWidth = Math.ceil(events.length / 2) * 170 + 150;
+  const sceneWidth = Math.max(760, Math.ceil(events.length / 2) * 170 + 150);
+  const xOf = (i: number) => CARD_WIDTH / 2 + at[i]! * (sceneWidth - CARD_WIDTH);
+  const mid = SCENE_HEIGHT / 2;
+
+  const index = selected ? events.findIndex((e) => e.id === selected) : -1;
+  const current = index >= 0 ? events[index] : undefined;
+  const addAfter = () => {
+    if (!update) return;
+    if (!current) return add?.();
+    const year = Number.isFinite(when(current.date)) ? Math.floor(when(current.date)) + 1 : new Date().getFullYear();
+    const next = { id: shellId("ev"), date: String(year), title: "" };
+    update({ events: [...data.events, next] });
+    setSelected(next.id);
+  };
+  const bar = current && (
+    <SelectionBar>
+      <SelectionBar.Colours value={current.colour} onChange={(colour: ShellColour) => set({ ...current, colour })} />
+      <SelectionBar.Divider />
+      <SelectionBar.Button icon={CirclePlus} label="Add an event after" onClick={addAfter} />
+      <SelectionBar.Delete
+        onClick={() => {
+          remove?.(current.id);
+          setSelected(null);
+        }}
+      />
+    </SelectionBar>
+  );
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
-      <ShellTitle kind="timeline" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} aside={addButton} />
-      <div className="no-scrollbar min-h-0 flex-1 overflow-x-auto px-6 pt-2 pb-6">
-        <div className="relative h-full min-h-[360px] w-full" style={{ minWidth }}>
-          <span className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gray-3/25" />
-          {ghost &&
-            ghostLabels("Event").map((label, i) => (
-              <div key={label} className="absolute top-1/2 flex -translate-x-1/2 -translate-y-2 flex-col items-center gap-2" style={{ left: `${15 + i * 35}%` }}>
-                <Dot size="md" ghost />
-                <span className="font-bureau text-[13px] font-light text-typography-secondary">{label}</span>
-              </div>
-            ))}
-          {events.map((event, i) => {
-            const above = i % 2 === 0;
-            return (
+      <ShellTitle kind="timeline" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+      <CanvasBoard
+        width={sceneWidth}
+        height={SCENE_HEIGHT}
+        editable={Boolean(update)}
+        className="mx-4 mt-2 mb-4 rounded-[14px]"
+        tools={[{ id: "event", icon: CirclePlus, label: "Add an event", onClick: addAfter }]}
+        // The bar sits on the card's outer edge, away from the line and its neighbours.
+        selection={current ? { anchor: current.id, placement: index % 2 === 0 ? "above" : "below", bar } : null}
+        onClearSelection={() => setSelected(null)}
+        onDelete={() => {
+          if (!current) return;
+          remove?.(current.id);
+          setSelected(null);
+        }}
+      >
+        <span className="absolute inset-x-0 h-1 -translate-y-1/2 rounded-full bg-gray-3/25" style={{ top: mid }} />
+        {ghost &&
+          GHOST_STOPS.map((label, i) => (
+            <div key={i} className="absolute flex -translate-x-1/2 -translate-y-2 flex-col items-center gap-2" style={{ left: `${15 + i * 35}%`, top: mid }}>
+              <Dot size="md" ghost />
+              <span className="font-bureau text-[13px] font-light text-typography-secondary">{label}</span>
+            </div>
+          ))}
+        {events.map((event, i) => {
+          const above = i % 2 === 0;
+          const colour = event.colour ? canvasColour(event.colour) : undefined;
+          const isSel = selected === event.id;
+          return (
+            <div
+              key={event.id}
+              data-canvas-item
+              data-canvas-id={event.id}
+              onClick={(e) => {
+                stopFieldEvent(e);
+                if (update) setSelected(event.id);
+              }}
+              className={cn("absolute flex -translate-x-1/2 flex-col items-center", update && "cursor-pointer", above ? "-mb-2 flex-col-reverse" : "-mt-2")}
+              style={{ left: xOf(i), width: CARD_WIDTH, ...(above ? { bottom: SCENE_HEIGHT - mid } : { top: mid }) }}
+            >
+              <Dot size="md" colour={colour} />
+              <span className="h-5 w-px bg-gray-3/40" />
               <div
-                key={event.id}
-                className={cn("group absolute flex w-[150px] -translate-x-1/2 flex-col items-center", above ? "bottom-1/2 -mb-2 flex-col-reverse" : "top-1/2 -mt-2")}
-                style={{ left: `calc(75px + ${at[i]!} * (100% - 150px))` }}
+                className={cn("relative flex w-full flex-col gap-0.5 rounded-[12px] bg-gray-6 px-3 py-2", isSel && "ring-2 ring-blue-4")}
+                style={colour ? { backgroundColor: tint(colour, 14), ...(isSel ? { ["--tw-ring-color" as string]: colour } : {}) } : undefined}
               >
-                <Dot size="md" />
-                <span className="h-5 w-px bg-gray-3/40" />
-                <div className="relative flex w-full flex-col gap-0.5 rounded-[12px] bg-gray-6 px-3 py-2">
-                  <InlineInput value={event.date} placeholder="Year" label="Date" size={4} onChange={update && ((date) => set({ ...event, date }))} className="px-0.5 text-[13px] tabular-nums" />
-                  <InlineInput value={event.title} placeholder="What happened" label="Event" onChange={update && ((title) => set({ ...event, title }))} className="px-0.5 text-[12px]" />
-                  <AutoTextarea
-                    value={event.detail ?? ""}
-                    placeholder="A line of detail"
-                    aria-label="Detail"
-                    readOnly={!update}
-                    {...fieldEvents}
-                    onKeyDown={stopFieldEvent}
-                    onChange={(e) => set({ ...event, detail: e.target.value || undefined })}
-                    className="px-0.5 font-bureau text-[11px] leading-[1.4] text-typography-secondary placeholder:font-light"
-                  />
-                  {remove && (
-                    <button
-                      type="button"
-                      aria-label={`Remove ${event.title || "event"}`}
-                      {...fieldEvents}
-                      onClick={(e) => {
-                        stopFieldEvent(e);
-                        remove(event.id);
-                      }}
-                      className="absolute top-1.5 right-1.5 grid size-5 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-white focus-visible:opacity-100"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  )}
-                </div>
+                <InlineInput value={event.date} placeholder="Year" label="Date" size={4} onChange={update && ((date) => set({ ...event, date }))} className="px-0.5 text-[13px] tabular-nums" />
+                <InlineInput value={event.title} placeholder="What happened" label="Event" onChange={update && ((title) => set({ ...event, title }))} className="px-0.5 text-[12px]" />
+                <AutoTextarea
+                  value={event.detail ?? ""}
+                  placeholder="A line of detail"
+                  aria-label="Detail"
+                  readOnly={!update}
+                  {...fieldEvents}
+                  onKeyDown={stopFieldEvent}
+                  onChange={(e) => set({ ...event, detail: e.target.value || undefined })}
+                  className="px-0.5 font-bureau text-[11px] leading-[1.4] text-typography-secondary placeholder:font-light"
+                />
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
+          );
+        })}
+      </CanvasBoard>
     </ShellSurface>
   );
 }

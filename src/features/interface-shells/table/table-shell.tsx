@@ -126,50 +126,18 @@ function TablePreview({ data }: { data: TableShellData }) {
           {hasTitle ? data.title : "Table"}
         </div>
       </div>
-      {hasColumns || hasRows ? (
-        <MiniGrid data={data} columns={3} rows={4} compact />
-      ) : (
-        <div className="overflow-hidden rounded-[6px] bg-gray-3/15 p-px">
-          <p className="bg-white px-2 py-1.5 font-bureau text-[11px] leading-[1.35] font-light text-typography-secondary">
-            Add / remove columns
-          </p>
-        </div>
-      )}
+      <MiniGrid
+        data={
+          hasColumns || hasRows || data.columns.length
+            ? data
+            : { ...data, columns: [0, 1, 2].map((i) => ({ id: `ghost-${i}`, label: "", type: "text" as const })) }
+        }
+        columns={3}
+        rows={4}
+        compact
+      />
       <ShellFooter compact className="mt-auto" />
     </div>
-  );
-}
-
-function rowsDetail(data: TableShellData) {
-  const count = data.rows.length || data.rowCount;
-  if (!count) return null;
-  const label = `${count} ${count === 1 ? "row" : "rows"}`;
-  return data.rows.length ? label : `~${label}`;
-}
-
-function RowsField({
-  data,
-  editable,
-  onChange,
-}: {
-  data: TableShellData;
-  editable: boolean;
-  onChange?: (data: TableShellData) => void;
-}) {
-  const shown = rowsDetail(data);
-  if (!editable || data.rows.length > 0 || !onChange) return shown;
-  return (
-    <input
-      value={data.rowCount ? `~${data.rowCount} ${data.rowCount === 1 ? "row" : "rows"}` : ""}
-      placeholder="~12 rows"
-      aria-label="Expected rows"
-      {...fieldEvents}
-      onChange={(event) => {
-        const count = Number(event.target.value.replace(/[^\d]/g, ""));
-        onChange({ ...data, rowCount: count || undefined });
-      }}
-      className="w-[5.5rem] bg-transparent text-right font-bureau text-[11px] text-typography-secondary tabular-nums outline-none placeholder:text-typography-secondary/50"
-    />
   );
 }
 
@@ -463,10 +431,7 @@ export function TableShell({
             {descriptionField(false)}
           </div>
           <EditableGrid data={data} editable={editable} onChange={onChange} onSubmit={onSubmit} />
-          <ShellFooter
-           
-            detail={<RowsField data={data} editable={editable} onChange={onChange} />}
-          />
+          <ShellFooter />
         </div>
       </ShellSurface>
     );
@@ -479,13 +444,9 @@ export function TableShell({
           {titleField(true)}
           {descriptionField(true)}
         </div>
-        <span className="shrink-0 font-bureau text-[12px] text-typography-secondary tabular-nums">
-          {status === "loading" ? (
-            "Filling in…"
-          ) : (
-            <RowsField data={data} editable={editable} onChange={onChange} />
-          )}
-        </span>
+        {status === "loading" && (
+          <span className="shrink-0 font-bureau text-[12px] text-typography-secondary tabular-nums">Filling in…</span>
+        )}
         {actions}
       </div>
       <TableGrid data={data} onChange={onChange} status={status} />

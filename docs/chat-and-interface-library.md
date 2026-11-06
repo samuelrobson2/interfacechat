@@ -30,11 +30,11 @@ Search shows how the layers split:
 | Table | Columns and rows of text, tags or pictures: a shot list or a comparison. |
 | Schedule | Planning tasks across hours and days, as a Gantt chart. Fields are durations in days. |
 | Tracker | The steps to get something done, with owners and status. |
-| Calendar | Dates, availability and clashes across a month. You can add events. |
-| Reader | Understanding or finding things in a document you already have. It previews the PDF. |
+| Calendar | Events on dates across a month: what's on, when, and at what time. You can add, rename and remove events. |
+| Reader | A smart reader for a document you already have: search it, ask it a question, find something. Answers go in the chat, and the passages they use are marked in the document. |
 | Map | Places, distances and a shortlist around a location. |
 | Timeline | Events in order, to see what happened when. |
-| Flowchart | Steps, decisions and the paths between them. |
+| Flowchart | Steps, decisions and the paths between them. At large size it is a board, like Mind map and Timeline. |
 | Mind map | Ideas branching out from a central topic. |
 | Guide | A recipe or how-to to follow step by step, with facts, what you need, and steps with notes. It works for recipes and furniture builds alike. |
 | Moodboard | Images, colours and words collected for a look. |
@@ -42,7 +42,7 @@ Search shows how the layers split:
 Each description is written around the job the interface does: find, understand, create, plan, track, compare or explore. Neighbouring interfaces name each other.
 
 - Reader and Document split on whether the document already exists.
-- Calendar is for dates, and Schedule is for hours and days of work.
+- Calendar is for events on dates, and Schedule is for hours and days of work.
 - Tracker is for status, and Guide is for following steps.
 
 ## Sizes and states
@@ -54,7 +54,7 @@ Every interface is the same object at four sizes.
 | Small (S) | App icon | A white 3D glyph on a solid coloured tile. |
 | Medium (M) | A tile on the chat home | The blank interface, named after its kind ("Document", not "Untitled"). Chat at M is just a bubble holding the query. |
 | Medium plus (M+) | The card while you type | Every field is editable. ⌘↵ sends. |
-| Large (L) | Docked beside the thread | The working interface, with room to edit. The key functions also appear at M+ and M. |
+| Large (L) | Docked beside the thread | The working interface, with room to edit. The key functions also appear at M+ and M. Mind map, Flowchart and Timeline open as a FigJam-style board: pan, zoom, a tool bar, and a small bar of options above whatever is selected. |
 
 Each size has three content states: **Empty**, **Suggestion** and **History**. Suggestion and History only apply at M+, because M is always the blank interface. Empty interfaces say in grey what you can add, inside the interface: "Add additional context", "Add a filter", or placeholder rows such as "Item 1".
 

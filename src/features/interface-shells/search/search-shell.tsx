@@ -5,6 +5,7 @@ import {
   Globe,
   ImageIcon,
   Newspaper,
+  Search as SearchIcon,
   Tag,
   Video,
   type LucideIcon,
@@ -12,11 +13,11 @@ import {
 import { useState } from "react";
 import { Popover, PopoverAnchor, PopoverContent } from "@/shared/ui/kit/popover";
 import { cn } from "@/shared/lib/css";
+import { CONTENT_PANEL, PreviewBody, PreviewHead } from "../ui/shell-kit";
 import { resultDomain } from "../model/search-results";
 import type { SearchShellData, ShellProps } from "../model/shell-types";
 import { SearchAppIcon, ShellGlyph } from "../ui/shell-icons";
 import { ActionPill, AddChip, Kbd, ShellField, SoftChip } from "../ui/shell-fields";
-import { ShellFooter } from "../ui/shell-meta";
 import {
   AutoTextarea,
   Bar,
@@ -117,13 +118,13 @@ function QueryField({
 }) {
   const textClass = cn(
     "font-bureau font-normal text-typography-primary",
-    large ? "text-[20px] leading-[1.35] tracking-[-0.2px]" : "text-[15px] leading-[1.35]",
+    large ? "text-[20px] leading-[1.35] tracking-[-0.2px]" : "text-[14px] leading-[1.35]",
   );
   return (
     <div className="flex min-w-0 flex-1 items-start gap-2">
       <ShellGlyph
         kind="search"
-        className={large ? "mt-0.5 size-6" : "mt-0.5 size-5"}
+        className={large ? "mt-0.5 size-6" : "mt-px size-4"}
       />
       {editable ? (
         <AutoTextarea
@@ -319,72 +320,37 @@ function FilterBar({
   );
 }
 
+/** Medium: the same head as every card, then shapes, not words: a search bar, filters, results. */
 function SearchPreview({ data }: { data: SearchShellData }) {
-  const hasQuery = Boolean(data.query.trim());
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2.5">
-      <div className="flex shrink-0 items-center gap-1.5 rounded-[12px] bg-gray-6 px-2 py-1.5">
-        <ShellGlyph kind="search" className="size-3.5" />
-        <span
-          className={cn(
-            "min-w-0 flex-1 font-bureau text-[12px] leading-[1.3]",
-            hasQuery
-              ? "line-clamp-2 font-normal text-typography-primary"
-              : "truncate font-light text-typography-secondary",
-          )}
-        >
-          {hasQuery ? data.query : "Search…"}
+    <>
+      <PreviewHead kind="search" title={data.query} />
+      <PreviewBody className="gap-1.5">
+        <span className="flex h-4 shrink-0 items-center gap-1 rounded-full bg-gray-6 px-1.5">
+          <SearchIcon className="size-2.5 text-gray-3" />
+          <Bar width="45%" className="h-1" />
         </span>
-      </div>
-      <div className="flex h-4 shrink-0 gap-1 overflow-hidden">
-        {data.filters.length > 0 ? (
-          <>
-            <span className="flex min-w-0 items-center gap-1 rounded-full bg-gray-6 px-1.5 font-bureau text-[10px] leading-4 font-normal text-typography-primary">
-              {(() => {
-                const Icon = filterIcon(data.filters[0] ?? "");
-                return <Icon className="size-2.5 shrink-0 text-typography-secondary" />;
-              })()}
-              <span className="truncate">{data.filters[0]}</span>
-            </span>
-            {data.filters.length > 1 && (
-              <span className="shrink-0 rounded-full bg-gray-6 px-1.5 font-bureau text-[10px] leading-4 font-normal text-typography-secondary tabular-nums">
-                +{data.filters.length - 1}
-              </span>
-            )}
-          </>
-        ) : (
-          [40, 28].map((width) => (
-            <span key={width} className="h-4 rounded-full bg-gray-6" style={{ width }} />
-          ))
-        )}
-      </div>
-      {data.results.length > 0 ? (
-        <div className="mt-auto flex flex-col gap-1.5">
-          {data.results.slice(0, 3).map((result) => (
-            <div key={result.id} className="flex items-center gap-1.5">
-              <Favicon url={result.url} size={11} />
-              <span className="min-w-0 flex-1 truncate font-bureau text-[11px] leading-[1.3] text-typography-primary">
-                {result.title}
-              </span>
-            </div>
+        <span className="flex shrink-0 gap-1">
+          {[34, 26].map((width) => (
+            <span key={width} className="h-3 rounded-full bg-gray-6" style={{ width }} />
           ))}
+        </span>
+        <ResultShapes className="mt-auto" />
+      </PreviewBody>
+    </>
+  );
+}
+
+/** Rows standing for results not yet read. */
+function ResultShapes({ className, rows = 3 }: { className?: string; rows?: number }) {
+  return (
+    <div aria-hidden className={cn("flex flex-col gap-1.5", className)}>
+      {[86, 64, 74, 58].slice(0, rows).map((width, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="size-1.5 shrink-0 rounded-full bg-gray-3/35" />
+          <Bar width={`${width}%`} className="h-1.5" />
         </div>
-      ) : (
-        <div className="mt-auto flex flex-col gap-1.5">
-          {[88, 64, 76].map((width, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "size-1.5 shrink-0 rounded-full",
-                  hasQuery ? "bg-blue-5/60" : "bg-gray-3/35",
-                )}
-              />
-              <Bar width={width} className={hasQuery ? "h-1.5 bg-gray-3/30" : "h-1.5"} />
-            </div>
-          ))}
-        </div>
-      )}
-      <ShellFooter compact />
+      ))}
     </div>
   );
 }
@@ -432,7 +398,6 @@ function Steps({
   const ghost = !data.query.trim() && data.queries.length === 0;
   return (
     <div className={cn("flex flex-col", large ? "gap-2" : "gap-1")}>
-      <span className={cn("font-bureau text-typography-secondary", large ? "text-[12px]" : "text-[11px]")}>Searching</span>
       <ol className={cn("flex flex-col", large ? "gap-1.5" : "gap-1")}>
         {ghost
           ? ["Search 1", "Search 2", "Search 3"].map((label) => (
@@ -584,18 +549,18 @@ export function SearchShell({
   if (!large) {
     return (
       <ShellSurface size={size} surface={surface} className={className}>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-          <ShellField index={0}>
-            <div className="flex rounded-[14px] bg-gray-6 px-3 py-2">{query}</div>
-          </ShellField>
+        {/* Like every card: the query is the title on the grey, the work sits in the panel. */}
+        <div className="px-4 pt-3.5">
+          <ShellField index={0}>{query}</ShellField>
+        </div>
+        <div className={cn("mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col gap-3 p-3", CONTENT_PANEL)}>
           <ShellField index={1}>{filters}</ShellField>
           <ShellField index={2}>
-            <Steps data={data} large={false} loading={loading} editable={editable} onQueries={(queries) => update({ queries })} />
+            {data.results.length > 0 ? <Reading data={data} large={false} /> : <ResultShapes rows={4} />}
           </ShellField>
-          <div className="mt-auto flex shrink-0 items-center justify-between gap-2">
-            <span />
-            {action}
-          </div>
+        </div>
+        <div className="flex shrink-0 items-center justify-end px-2.5 pt-2 pb-2.5">
+          {action}
         </div>
       </ShellSurface>
     );

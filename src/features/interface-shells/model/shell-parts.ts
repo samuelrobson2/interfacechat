@@ -14,7 +14,6 @@ export type ShellPartType =
   | "links"
   | "tasks"
   | "items"
-  | "people"
   | "dates"
   | "file"
   | "highlights"
@@ -59,10 +58,9 @@ export const SHELL_PART_TYPE_HINT: Record<ShellPartType, string> = {
   links: "Real links, one per line, never invented",
   tasks: "Tasks with a day, start, end and type",
   items: "To-dos with an owner, a due date and done",
-  people: "Names whose availability counts",
   dates: "Chosen dates, each with a note",
   file: "The document being worked on",
-  highlights: "Quoted passages, each with a category",
+  highlights: "Exact quoted passages, each with an optional note",
   place: "A location",
   places: "Places with a distance, some shortlisted",
   colours: "Hex colours",
@@ -124,16 +122,14 @@ export const SHELL_PARTS: Record<ShellKind, ShellPart[]> = {
     { key: "groups", label: "Groups", type: "tags", description: "Optional sections, such as Locations or Crew." },
   ],
   calendar: [
-    { key: "title", label: "Title", type: "text", required: true, description: "What the dates are for." },
+    { key: "title", label: "Title", type: "text", required: true, description: "What the events are for, such as December shoot." },
     { key: "month", label: "Month", type: "text", description: "The month shown, as YYYY-MM." },
-    { key: "people", label: "People", type: "people", description: "Whose availability counts." },
     { key: "events", label: "Events", type: "events", required: true, description: "Events on the calendar, each with a date, a title and an optional time." },
-    { key: "count", label: "How many", type: "count", description: "How many dates are wanted." },
   ],
   reader: [
     { key: "source", label: "Document", type: "file", required: true, description: "The document the person attached." },
-    { key: "categories", label: "Look for", type: "tags", required: true, description: "What to find or explain, such as fees, cancellation terms or the method." },
-    { key: "highlights", label: "Highlights", type: "highlights", description: "Exact quotes from the document, each tagged with a category and a short note." },
+    { key: "query", label: "Search or ask", type: "text", description: "What the person is searching for or asking, such as cancellation, or What happens if we cancel late? Answers go in the chat, not here." },
+    { key: "highlights", label: "Found", type: "highlights", description: "Exact quotes the chat's answer relies on, each with an optional short note, marked in the document." },
   ],
   map: [
     { key: "query", label: "Looking for", type: "text", required: true, description: "The kind of place, such as cafés." },

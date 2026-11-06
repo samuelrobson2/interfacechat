@@ -162,18 +162,12 @@ export type CalendarShellData = ProjectSlot & {
   title: string;
   /** ISO month, e.g. "2026-12". */
   month: string;
-  /** Whose availability counts. */
-  people: string[];
-  /** ISO dates when someone can't make it. */
-  busy: { date: string; who: string }[];
   events: CalendarEvent[];
-  /** How many dates are wanted. */
-  count?: number;
 };
 
+/** A passage a chat answer relies on, marked in the original. */
 export type ReaderHighlight = {
   id: string;
-  category: string;
   /** Exact text from one of the passages. */
   quote: string;
   note?: string;
@@ -181,11 +175,11 @@ export type ReaderHighlight = {
 
 export type ReaderShellData = ProjectSlot & {
   title: string;
-  /** The file being reviewed. */
+  /** The file being read. */
   source: string;
   pages?: number;
-  /** What to look for. */
-  categories: string[];
+  /** What the person is searching for, or asking, in the document. Answers go in the chat. */
+  query: string;
   passages: string[];
   highlights: ReaderHighlight[];
 };
@@ -225,6 +219,7 @@ export type TimelineEvent = {
   date: string;
   title: string;
   detail?: string;
+  colour?: ShellColour;
 };
 
 export type TimelineShellData = ProjectSlot & {
@@ -234,7 +229,7 @@ export type TimelineShellData = ProjectSlot & {
 
 export type FlowNodeKind = "start" | "step" | "decision" | "end";
 
-export type FlowNode = { id: string; kind: FlowNodeKind; label: string };
+export type FlowNode = { id: string; kind: FlowNodeKind; label: string; colour?: ShellColour };
 
 export type FlowEdge = { from: string; to: string; label?: string };
 
@@ -244,7 +239,17 @@ export type FlowchartShellData = ProjectSlot & {
   edges: FlowEdge[];
 };
 
-export type MindmapNode = { id: string; label: string; children: MindmapNode[] };
+/** Colours a person can give an item on a canvas: design-system tokens. */
+export const SHELL_COLOURS = ["blue-4", "mint-2", "rose-2", "orange-5", "green-5", "red-5", "gray-3"] as const;
+export type ShellColour = (typeof SHELL_COLOURS)[number];
+
+export type MindmapNode = {
+  id: string;
+  label: string;
+  children: MindmapNode[];
+  /** Set by the person; otherwise a branch takes its place in the default set, and ideas their branch's. */
+  colour?: ShellColour;
+};
 
 export type MindmapShellData = ProjectSlot & {
   /** The central topic. */
@@ -329,6 +334,8 @@ export type ShellProps<D> = {
   onChange?: (data: D) => void;
   /** Explicit start (⌘↵, or Enter in a search bar). */
   onSubmit?: () => void;
+  /** Send a question to the chat the interface is docked in. Absent outside a chat. */
+  onAsk?: (text: string) => void;
   status?: ShellStatus;
   /** Draw the shell's own surface; off when a host frame already draws one. */
   surface?: boolean;

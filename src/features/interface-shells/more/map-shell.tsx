@@ -8,7 +8,6 @@ import {
   PreviewBody,
   PreviewHead,
   ShellBody,
-  ShellDetail,
   ShellTitle,
 } from "../ui/shell-kit";
 import { ghostLabels } from "../ui/shell-accents";
@@ -350,11 +349,6 @@ export function MapShell({
           <MapCanvas data={data} size="medium-plus" onToggle={toggle} className="h-[120px] shrink-0 rounded-[12px]" />
         )}
       </ShellBody>
-      {!large && (
-        <ShellDetail>
-          {data.places.length ? `${data.places.length} places · ${shortlisted} starred` : null}
-        </ShellDetail>
-      )}
     </ShellSurface>
   );
 }

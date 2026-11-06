@@ -97,6 +97,8 @@ export const ROUTES = {
   // The mini interface shells chat opens (document, search, table), live at
   // every size: app icon, idle, filling in, and docked.
   INTERFACE_LIBRARY: "/interface-library",
+  // Every interface in every size and state, with no other text, for Figma.
+  INTERFACE_STATES: "/interface-states",
   USER_PROFILE: "/user-profile",
   SETTINGS: "/settings",
   PLANS: "/plans",

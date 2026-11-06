@@ -1,14 +1,16 @@
+import { CirclePlus, GitBranchPlus } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
-import { shellId, type MindmapNode, type MindmapShellData, type ShellProps } from "../model/shell-types";
+import { shellId, type MindmapNode, type MindmapShellData, type ShellColour, type ShellProps } from "../model/shell-types";
+import { CanvasBoard, canvasColour, SelectionBar, tint } from "../ui/canvas-board";
 import { ghostLabels } from "../ui/shell-accents";
 import { AddChip } from "../ui/shell-fields";
-import { FitBox, PreviewBody, PreviewHead, ShellDetail, ShellTitle } from "../ui/shell-kit";
+import { CONTENT_PANEL, FitBox, PreviewBody, PreviewHead, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const PURPLE = "#a45cf0";
-/** One colour per branch, so its ideas read as a group. */
+/** One colour per branch, so its ideas read as a group, until the person picks one. */
 const BRANCH = ["#a45cf0", "#17a9cf", "#e956a1", "#6fa63a", "#f0a23a", "#4565e6"];
 
 const W = 760;
@@ -16,7 +18,19 @@ const H = 440;
 const CX = W / 2;
 const CY = H / 2;
 
-type Spot = { id: string; label: string; x: number; y: number; colour: string; level: 0 | 1 | 2; branch?: string };
+/** Half the height of each level's pill, for placing the selection bar above it. */
+const HALF_HEIGHT = { 0: 28, 1: 18, 2: 14 } as const;
+
+type Spot = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  colour: string;
+  token?: ShellColour;
+  level: 0 | 1 | 2;
+  branch?: string;
+};
 
 function layout(data: MindmapShellData, ghost: boolean): { spots: Spot[]; lines: [Spot, Spot][] } {
   const branches: MindmapNode[] = ghost
@@ -27,8 +41,16 @@ function layout(data: MindmapShellData, ghost: boolean): { spots: Spot[]; lines:
   const lines: [Spot, Spot][] = [];
   branches.forEach((branch, i) => {
     const angle = (i / Math.max(1, branches.length)) * Math.PI * 2 - Math.PI / 2 + (branches.length % 2 ? 0 : Math.PI / branches.length);
-    const colour = BRANCH[i % BRANCH.length]!;
-    const b: Spot = { id: branch.id, label: branch.label, x: CX + Math.cos(angle) * 195, y: CY + Math.sin(angle) * 118, colour, level: 1 };
+    const colour = branch.colour ? canvasColour(branch.colour) : BRANCH[i % BRANCH.length]!;
+    const b: Spot = {
+      id: branch.id,
+      label: branch.label,
+      x: CX + Math.cos(angle) * 195,
+      y: CY + Math.sin(angle) * 118,
+      colour,
+      token: branch.colour,
+      level: 1,
+    };
     spots.push(b);
     lines.push([centre, b]);
     const n = branch.children.length;
@@ -40,7 +62,8 @@ function layout(data: MindmapShellData, ghost: boolean): { spots: Spot[]; lines:
         label: child.label,
         x: Math.max(70, Math.min(W - 70, CX + Math.cos(a) * 320)),
         y: Math.max(24, Math.min(H - 24, CY + Math.sin(a) * 190)),
-        colour,
+        colour: child.colour ? canvasColour(child.colour) : colour,
+        token: child.colour,
         level: 2,
         branch: branch.id,
       };
@@ -51,13 +74,15 @@ function layout(data: MindmapShellData, ghost: boolean): { spots: Spot[]; lines:
   return { spots, lines };
 }
 
-function MindTree({
+/** The map at its own size; medium sizes fit it into the card, large puts it on a board. */
+function MindScene({
   data,
   ghost,
   labels,
   selected,
   onSelect,
   onRename,
+  onTab,
 }: {
   data: MindmapShellData;
   ghost: boolean;
@@ -65,10 +90,12 @@ function MindTree({
   selected?: string | null;
   onSelect?: (id: string | null) => void;
   onRename?: (id: string, label: string) => void;
+  /** Tab in a label adds a child, as in FigJam. */
+  onTab?: (id: string) => void;
 }) {
   const { spots, lines } = layout(data, ghost);
   return (
-    <FitBox width={W} height={H} className="size-full">
+    <>
       <svg width={W} height={H} className="absolute inset-0" aria-hidden>
         {lines.map(([a, b]) => {
           const mx = (a.x + b.x) / 2;
@@ -98,7 +125,14 @@ function MindTree({
               size={Math.max(4, spot.label.length)}
               {...fieldEvents}
               onFocus={() => onSelect?.(spot.id)}
-              onKeyDown={stopFieldEvent}
+              onKeyDown={(event) => {
+                stopFieldEvent(event);
+                if (event.key === "Tab" && onTab && spot.level < 2) {
+                  event.preventDefault();
+                  onTab(spot.id);
+                }
+                if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur();
+              }}
               onChange={(event) => onRename(spot.id, event.target.value)}
               className="bg-transparent text-center outline-none placeholder:text-current/50"
             />
@@ -108,6 +142,7 @@ function MindTree({
         return (
           <div
             key={spot.id}
+            data-canvas-item
             onClick={(event) => {
               stopFieldEvent(event);
               onSelect?.(spot.id);
@@ -118,7 +153,8 @@ function MindTree({
               spot.level === 1 && "min-h-9 min-w-16 px-3.5 text-[13px]",
               spot.level === 2 && "min-h-7 px-2.5 text-[11px] text-typography-primary ring-1",
               ghost && "border-2 border-dashed border-gray-3/50 bg-white font-light text-typography-secondary shadow-none ring-0",
-              isSel && "ring-2 ring-offset-2",
+              onSelect && "cursor-pointer",
+              isSel && spot.level !== 1 && "ring-2 ring-offset-2",
             )}
             style={{
               left: spot.x,
@@ -130,15 +166,15 @@ function MindTree({
                 : spot.level === 0
                   ? { backgroundColor: PURPLE }
                   : spot.level === 1
-                    ? { backgroundColor: `${spot.colour}22`, color: spot.colour, boxShadow: isSel ? `0 0 0 2px ${spot.colour}` : undefined }
-                    : { backgroundColor: "#fff", ["--tw-ring-color" as string]: `${spot.colour}55` }),
+                    ? { backgroundColor: tint(spot.colour, 13), color: spot.colour, boxShadow: isSel ? `0 0 0 2px ${spot.colour}` : undefined }
+                    : { backgroundColor: "#fff", ["--tw-ring-color" as string]: isSel ? spot.colour : tint(spot.colour, 33) }),
             }}
           >
             {text}
           </div>
         );
       })}
-    </FitBox>
+    </>
   );
 }
 
@@ -172,7 +208,9 @@ export function MindmapShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="mindmap" title={data.title} />
         <PreviewBody>
-          <MindTree data={data} ghost={ghost} labels={ghost} />
+          <FitBox width={W} height={H} className="size-full">
+            <MindScene data={data} ghost={ghost} labels={false} />
+          </FitBox>
         </PreviewBody>
       </ShellSurface>
     );
@@ -190,11 +228,12 @@ export function MindmapShell({
     setSelected(node.id);
   };
   // An idea goes on the selected branch, or on the branch of the selected idea.
-  const owner = data.branches.find((b) => b.id === selected || b.children.some((c) => c.id === selected));
-  const addIdea = () => {
-    if (!owner) return;
+  const ownerOf = (id: string | null) => data.branches.find((b) => b.id === id || b.children.some((c) => c.id === id));
+  const owner = ownerOf(selected);
+  const addIdea = (branchId = owner?.id) => {
+    if (!branchId) return;
     const idea = { id: shellId("idea"), label: "New idea", children: [] };
-    update?.({ branches: data.branches.map((b) => (b.id === owner.id ? { ...b, children: [...b.children, idea] } : b)) });
+    update?.({ branches: data.branches.map((b) => (b.id === branchId ? { ...b, children: [...b.children, idea] } : b)) });
     setSelected(idea.id);
   };
   const remove = () => {
@@ -202,52 +241,70 @@ export function MindmapShell({
     update?.({ branches: mapTree(data.branches, selected, () => null) });
     setSelected(null);
   };
+  const recolour = (colour: ShellColour) =>
+    selected && selected !== "centre" && update?.({ branches: mapTree(data.branches, selected, (n) => ({ ...n, colour })) });
 
-  const action = (label: string, onPress: () => void, disabled = false) => (
-    <button
-      type="button"
-      disabled={disabled}
-      {...fieldEvents}
-      onClick={(event) => {
-        stopFieldEvent(event);
-        onPress();
-      }}
-      className="rounded-full bg-gray-6 px-3 py-1 font-bureau text-[12px] text-typography-primary hover:bg-gray-5/60 disabled:opacity-40"
-    >
-      {label}
-    </button>
+  if (!large) {
+    return (
+      <ShellSurface size={size} surface={surface} className={className}>
+        <ShellTitle kind="mindmap" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+        {update && (
+          <div className="px-4 pt-2">
+            <AddChip size="sm" placeholder="Branch name" onSubmitValue={(label) => addBranch(label)}>
+              Add a branch
+            </AddChip>
+          </div>
+        )}
+        <div className={cn("mx-2.5 mt-2 mb-2.5 min-h-0 flex-1 p-1", CONTENT_PANEL)}>
+          <FitBox width={W} height={H} className="size-full">
+            <MindScene data={data} ghost={ghost} labels />
+          </FitBox>
+        </div>
+      </ShellSurface>
+    );
+  }
+
+  const spot = selected ? layout(data, ghost).spots.find((s) => s.id === selected) : undefined;
+  const bar = spot && (
+    <SelectionBar>
+      {spot.level > 0 && (
+        <>
+          <SelectionBar.Colours value={spot.token} onChange={recolour} />
+          <SelectionBar.Divider />
+        </>
+      )}
+      {spot.level === 0 && <SelectionBar.Button icon={GitBranchPlus} label="Add a branch (Tab)" onClick={() => addBranch()} />}
+      {spot.level === 1 && <SelectionBar.Button icon={CirclePlus} label="Add an idea (Tab)" onClick={() => addIdea(spot.id)} />}
+      {spot.level > 0 && <SelectionBar.Delete onClick={remove} />}
+    </SelectionBar>
   );
-
-  const ideas = data.branches.reduce((sum, b) => sum + b.children.length, 0);
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle kind="mindmap" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
-      {update && large && (
-        <div className="flex flex-wrap items-center gap-1.5 px-6 pt-3">
-          {action("Add a branch", () => addBranch())}
-          {action("Add an idea", addIdea, !owner)}
-          {action("Remove", remove, !selected || selected === "centre")}
-          <span className="font-bureau text-[11px] text-typography-secondary">
-            {owner ? `Ideas go on “${owner.label}”.` : "Select a branch to add ideas to it."}
-          </span>
-        </div>
-      )}
-      {update && !large && (
-        <div className="px-4 pt-2">
-          <AddChip size="sm" placeholder="Branch name" onSubmitValue={(label) => addBranch(label)}>
-            Add a branch
-          </AddChip>
-        </div>
-      )}
-      <div className={cn("min-h-0 flex-1", large ? "px-6 pt-2 pb-6" : "px-2 pb-1")} onClick={() => setSelected(null)}>
-        <MindTree data={data} ghost={ghost} labels selected={selected} onSelect={setSelected} onRename={large ? rename : undefined} />
-      </div>
-      {!large && (
-        <ShellDetail>
-          {data.branches.length ? `${data.branches.length} branches · ${ideas} ideas` : null}
-        </ShellDetail>
-      )}
+      <CanvasBoard
+        width={W}
+        height={H}
+        editable={Boolean(update)}
+        className="mx-4 mb-4 mt-2 rounded-[14px]"
+        tools={[
+          { id: "branch", icon: GitBranchPlus, label: "Add a branch", onClick: () => addBranch() },
+          { id: "idea", icon: CirclePlus, label: "Add an idea to the selected branch", onClick: () => addIdea(), disabled: !owner },
+        ]}
+        selection={spot && !ghost ? { x: spot.x, y: spot.y - HALF_HEIGHT[spot.level], bar } : null}
+        onClearSelection={() => setSelected(null)}
+        onDelete={remove}
+      >
+        <MindScene
+          data={data}
+          ghost={ghost}
+          labels
+          selected={selected}
+          onSelect={update && !ghost ? setSelected : undefined}
+          onRename={update ? rename : undefined}
+          onTab={update && ((id) => (id === "centre" ? addBranch() : addIdea(id)))}
+        />
+      </CanvasBoard>
     </ShellSurface>
   );
 }

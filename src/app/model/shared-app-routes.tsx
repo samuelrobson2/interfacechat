@@ -61,6 +61,10 @@ export const sharedAppRoutes: RouteObject[] = [
     lazy: () => import("@/features/interface-shells/interface-library.page"),
   },
   {
+    path: ROUTES.INTERFACE_STATES,
+    lazy: () => import("@/features/interface-shells/interface-states.page"),
+  },
+  {
     path: ROUTES.COMMON_UI_EXAMPLES,
     lazy: () =>
       import("@/features/common-ui-examples/common-ui-examples.layout"),

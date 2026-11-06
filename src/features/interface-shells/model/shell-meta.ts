@@ -28,7 +28,7 @@ export const SHELL_META: Record<ShellKind, { label: string; description: string 
   },
   calendar: {
     label: "Calendar",
-    description: "Dates, availability and clashes across a month.",
+    description: "Events on dates across a month.",
   },
   reader: {
     label: "Reader",
@@ -87,3 +87,9 @@ export const STATE_META: Record<ShellState, { label: string }> = {
 
 /** Only medium plus shows the empty / suggestion / history states; medium is always the blank interface. */
 export const STATEFUL_SIZES: ShellSize[] = ["medium-plus"];
+
+/** Which content a size shows: small and medium are blank, large is the docked chat. */
+export function contentFor(size: ShellSize, state: ShellState): ShellState {
+  if (STATEFUL_SIZES.includes(size)) return state;
+  return size === "large" ? "history" : "empty";
+}

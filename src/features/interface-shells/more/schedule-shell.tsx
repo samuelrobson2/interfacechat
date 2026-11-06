@@ -21,7 +21,7 @@ import {
 } from "../ui/shell-kit";
 import { ghostLabels } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { fieldEvents, ShellSurface, stopFieldEvent, Bar } from "../ui/shell-surface";
 
 const TYPES: ScheduleTaskType[] = ["setup", "shoot", "travel", "break"];
 
@@ -106,8 +106,9 @@ function GanttPreview({ data }: { data: ScheduleShellData }) {
         const task = typeof row === "string" ? null : row;
         return (
           <div key={task?.id ?? (row as string)} className="flex h-3 items-center gap-1.5">
-            <span className="w-9 shrink-0 truncate font-bureau text-[8px] text-typography-secondary">
-              {task ? task.label : (row as string)}
+            {/* Medium shows shapes, not words: a bar stands for the task's name. */}
+            <span className="flex w-9 shrink-0 items-center">
+              <Bar width={`${[80, 62, 72, 56, 68][i % 5]}%`} className="h-1" />
             </span>
             <div className="relative h-full flex-1 rounded-[3px] bg-gray-6/80">
               {task ? (
