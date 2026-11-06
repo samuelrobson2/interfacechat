@@ -57,11 +57,14 @@ function foundSpans(text: string, data: ReaderShellData) {
  */
 function PageThumb({ data, className, lines = 14 }: { data: ReaderShellData; className?: string; lines?: number }) {
   const empty = data.passages.length === 0;
-  const rows: { width: number; found?: boolean }[] = [];
+  const needle = (data.query ?? "").trim().toLowerCase();
+  const searching = needle.length >= 2 && !isQuestion(needle);
+  const rows: { width: number; found?: boolean; match?: boolean }[] = [];
   for (const passage of data.passages) {
     const hits = data.highlights.filter((h) => passage.includes(h.quote)).length;
+    const match = searching && passage.toLowerCase().includes(needle);
     const count = Math.min(4, Math.max(2, Math.ceil(passage.length / 90)));
-    barWidths(passage, count).forEach((width, i) => rows.push({ width, found: i < hits }));
+    barWidths(passage, count).forEach((width, i) => rows.push({ width, found: i < hits, match: match && i === 0 }));
     rows.push({ width: 0 });
     if (rows.length >= lines) break;
   }
@@ -85,7 +88,7 @@ function PageThumb({ data, className, lines = 14 }: { data: ReaderShellData; cla
             row.width === 0 ? (
               <span key={i} className="h-[3px]" />
             ) : (
-              <Bar key={i} width={row.width} className={cn("h-[3px]", row.found ? "bg-blue-4/60" : "bg-gray-3/25")} />
+              <Bar key={i} width={row.width} className={cn("h-[3px]", row.match ? "bg-orange-5/70" : row.found ? "bg-blue-4/60" : "bg-gray-3/25")} />
             ),
           )}
           <PdfIcon className="absolute right-1 bottom-1 h-4 w-3.5" />
@@ -409,6 +412,7 @@ export function ReaderShell({
   });
 
   if (!large) {
+    // Minimal: the search bar, the page beneath it, and the file in the corner.
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         <ShellTitle
@@ -418,49 +422,26 @@ export function ReaderShell({
           onChange={update && ((title) => update({ title }))}
           onSubmit={onSubmit}
         />
-        <ShellBody size={size}>
-          <div className="flex min-w-0 gap-3">
-            <FileDrop onFile={update} replacing={Boolean(data.source)} label={data.source ? "Replace the file" : "Add a PDF"} className="w-[84px] shrink-0">
-              <PageThumb data={data} className="aspect-[3/4] w-full" lines={14} />
-            </FileDrop>
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <FileLabel data={data} large={false} />
-              {data.source ? (
-                <>
-                  <AskBar
-                    compact
-                    value={data.query ?? ""}
-                    onChange={setQuery}
-                    onAsk={ask}
-                    count={matches.length}
-                    at={at}
-                    onStep={(delta) => setStep((s) => s + delta)}
-                  />
-                  {found.length > 0 && (
-                    <span className="flex items-center gap-1.5 font-bureau text-[11px] text-typography-secondary">
-                      <span className="size-2 rounded-full bg-blue-4" />
-                      {found.length === 1 ? "1 passage found" : `${found.length} passages found`}
-                    </span>
-                  )}
-                </>
-              ) : (
-                // No file yet: say what Reader does with one.
-                <div className="flex flex-col gap-1.5">
-                  <span className="font-bureau text-[12px] text-typography-primary">Add a PDF to</span>
-                  <ul className="flex flex-col gap-1">
-                    {READER_JOBS.map(({ icon: Icon, label }) => (
-                      <li key={label} className="flex items-center gap-1.5 font-bureau text-[11px] font-light text-typography-secondary">
-                        <Icon className="size-3 shrink-0" />
-                        {label}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
+        <ShellBody size={size} className="gap-2.5">
+          <AskBar
+            compact
+            value={data.query ?? ""}
+            onChange={data.source ? setQuery : undefined}
+            onAsk={ask}
+            count={matches.length}
+            at={at}
+            onStep={(delta) => setStep((s) => s + delta)}
+          />
+          <FileDrop
+            onFile={update}
+            replacing={Boolean(data.source)}
+            label={data.source ? "Replace the file" : "Add a PDF"}
+            className="flex min-h-0 flex-1 justify-center"
+          >
+            <PageThumb data={data} className="aspect-[3/4] h-full" lines={14} />
+          </FileDrop>
         </ShellBody>
-        <ShellDetail>{data.pages ? `${data.pages} pages` : null}</ShellDetail>
+        <ShellDetail>{data.source ? <FileLabel data={data} large={false} /> : null}</ShellDetail>
       </ShellSurface>
     );
   }

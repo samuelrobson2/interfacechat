@@ -4,6 +4,7 @@ import {
   CircleDashed,
   CircleSlash,
   Loader2,
+  Minimize2,
   MousePointerSquareDashed,
   Play,
   RotateCcw,
@@ -227,8 +228,29 @@ function LogView({ lines }: { lines: LogLine[] }) {
   );
 }
 
+const MINIMISED_KEY = "interface-state.edit-overlay.minimised";
+
+function readMinimised() {
+  try {
+    return window.localStorage.getItem(MINIMISED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function EditOverlay() {
   const [selecting, setSelecting] = useState(false);
+  // Remembered per browser, so the page stays clear for Figma between visits.
+  const [minimised, setMinimisedState] = useState(readMinimised);
+  const setMinimised = (next: boolean) => {
+    setMinimisedState(next);
+    if (next) setSelecting(false);
+    try {
+      window.localStorage.setItem(MINIMISED_KEY, next ? "1" : "0");
+    } catch {
+      // Storage can be unavailable; the overlay still works for this visit.
+    }
+  };
   const [hovered, setHovered] = useState<HTMLElement | null>(null);
   const [selections, setSelections] = useState<Selection[]>([]);
   const [prompt, setPrompt] = useState("");
@@ -381,6 +403,25 @@ export function EditOverlay() {
   const waiting = queue.filter((item) => item.status === "queued").length;
   const finished = queue.some((item) => item.status !== "queued" && item.status !== "running");
 
+  if (minimised) {
+    // Edits keep running while minimised; the pill shows that they are.
+    return (
+      <button
+        type="button"
+        {...{ [OVERLAY_ATTR]: "" }}
+        onClick={() => setMinimised(false)}
+        title="Open the editor"
+        className="fixed right-6 bottom-6 z-50 flex items-center gap-1.5 rounded-full border border-gray-3/20 bg-gray-0/95 py-2 pr-3.5 pl-3 font-bureau text-[13px] text-typography-primary shadow-[0_8px_24px_-10px_rgba(26,23,24,0.3)] backdrop-blur-md transition-transform active:scale-[0.97]"
+      >
+        {busy ? <Loader2 className="size-3.5 animate-spin text-blue-4" /> : <MousePointerSquareDashed className="size-3.5" />}
+        Edit
+        {waiting > 0 && (
+          <span className="rounded-full bg-blue-1 px-1.5 text-[11px] text-blue-6 tabular-nums">{waiting}</span>
+        )}
+      </button>
+    );
+  }
+
   return (
     <>
       {selecting && hovered && <Outline element={hovered} tone="hover" />}
@@ -531,6 +572,15 @@ export function EditOverlay() {
           >
             <MousePointerSquareDashed className="size-3.5" />
             {selecting ? "Selecting · Esc to stop" : "Select"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMinimised(true)}
+            aria-label="Minimise the editor"
+            title="Minimise"
+            className="grid size-[30px] place-items-center rounded-full text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary active:scale-[0.95]"
+          >
+            <Minimize2 className="size-3.5" />
           </button>
           {sessionId && !busy && waiting === 0 && (
             <button

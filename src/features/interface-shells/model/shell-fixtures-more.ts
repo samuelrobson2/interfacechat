@@ -201,7 +201,7 @@ const readerFixture: Fixture<"reader"> = {
       title: "Harbour Pier location agreement",
       source: "harbour-pier-agreement.pdf",
       pages: 6,
-      query: "What happens if we cancel late?",
+      query: "What if we cancel late?",
       passages: agreement,
       highlights: [
         { id: "r1", quote: "If the Producer cancels more than fourteen days before the first filming day, the deposit is returned in full." },
