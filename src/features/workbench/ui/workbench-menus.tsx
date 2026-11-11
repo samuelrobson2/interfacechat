@@ -147,6 +147,7 @@ export function LayoutMenu({
               const change: LayoutChange = { type: "side", id: entry.id, side: target };
               const result = preview(change);
               const selected = currentSide === target;
+              const stackedMain = !!mainSide && !!layout.stacked;
               return (
                 <button
                   key={target}
@@ -163,12 +164,40 @@ export function LayoutMenu({
                   )}
                 >
                   <LayoutGlyph geometry={geometryOf(result.layout)} id={entry.id} />
-                  <Text variant="label">{target === "left" ? "Left" : "Right"}</Text>
+                  <Text variant="label">
+                    {stackedMain ? (target === "left" ? "Top" : "Bottom") : target === "left" ? "Left" : "Right"}
+                  </Text>
                 </button>
               );
             })}
           </div>
         </>
+      )}
+      {mainSide && (
+        <div role="menu" aria-label="Arrangement" className="flex gap-1 px-1 pt-1 pb-0.5">
+          {([false, true] as const).map((stacked) => {
+            const change: LayoutChange = { type: "arrange", stacked };
+            const selected = !!layout.stacked === stacked;
+            const result = selected ? { layout, evicted: [] } : preview(change);
+            return (
+              <button
+                key={String(stacked)}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                title={evictionNote(result.evicted)}
+                onClick={() => !selected && onChange(change)}
+                className={cn(
+                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] transition-colors hover:bg-gray-6",
+                  selected && "bg-gray-6",
+                )}
+              >
+                <LayoutGlyph geometry={geometryOf(result.layout)} id={entry.id} />
+                <Text variant="label">{stacked ? "Stacked" : "Side by side"}</Text>
+              </button>
+            );
+          })}
+        </div>
       )}
     </MenuCard>
   );

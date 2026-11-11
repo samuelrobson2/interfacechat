@@ -29,7 +29,7 @@ import {
   type ChatLabArtefactKind,
   type ChatLabMessage,
 } from "./chat-lab-store";
-import { flash, hasWindow, isChatMinimized, layoutOf, openWindow, peekReply } from "./chat-lab-workbench";
+import { flash, hasWindow, isChatMinimized, layoutOf, openWindow, peekReply, settleActive } from "./chat-lab-workbench";
 import {
   matchVisualInterface,
   opensAsOf,
@@ -365,7 +365,7 @@ function syncArtefact(id: string, messages: ChatLabMessage[]) {
 }
 
 /** Past this, the model isn't sent an interface's contents, and rewrites rather than patches. */
-const CATALOGUE_SNAPSHOT_CHARS = 12000;
+const CATALOGUE_SNAPSHOT_CHARS = 200_000;
 
 /**
  * What the model is told is open. It works on the interface used last, unless
@@ -457,6 +457,8 @@ export function getChatLabChat(id: string) {
       trigger,
       messageId,
     }) => {
+      // An open window is always in reach: the model reads the one used last.
+      settleActive(id);
       const artefact = artefactContextForRequest(id, messages);
       // The interface in use when the turn begins is the one it writes to.
       const active = getActiveArtefact(useChatLabStore.getState().sessions[id]);

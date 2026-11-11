@@ -125,13 +125,17 @@ export function StripIcon({
 /** The bar between two large interfaces. Drag to share the main area; double-click to even it out. */
 export function MainDivider({
   x,
+  y,
   main,
   onMove,
   onEnd,
   onCancel,
   onReset,
 }: {
-  x: number;
+  /** Between two side by side. */
+  x?: number;
+  /** Between two stacked. */
+  y?: number;
   main: Rect;
   onMove: (point: DragPoint) => void;
   onEnd: (point: DragPoint) => void;
@@ -139,17 +143,26 @@ export function MainDivider({
   onReset: () => void;
 }) {
   const handle = usePointerDrag({ onMove, onEnd, onCancel });
+  const rows = y !== undefined;
   return (
     <div
       role="separator"
-      aria-orientation="vertical"
+      aria-orientation={rows ? "horizontal" : "vertical"}
       aria-label="Resize large interfaces"
-      className="group absolute z-10 flex w-3 -translate-x-1/2 cursor-col-resize touch-none items-center justify-center"
-      style={{ left: x, top: main.y, height: main.height }}
+      className={cn(
+        "group absolute z-10 flex touch-none items-center justify-center",
+        rows ? "h-3 -translate-y-1/2 cursor-row-resize" : "w-3 -translate-x-1/2 cursor-col-resize",
+      )}
+      style={rows ? { top: y, left: main.x, width: main.width } : { left: x, top: main.y, height: main.height }}
       onDoubleClick={onReset}
       {...handle}
     >
-      <span className="h-12 w-1 rounded-full bg-gray-3/30 transition-colors group-hover:bg-gray-3/70" />
+      <span
+        className={cn(
+          "rounded-full bg-gray-3/30 transition-colors group-hover:bg-gray-3/70",
+          rows ? "h-1 w-12" : "h-12 w-1",
+        )}
+      />
     </div>
   );
 }

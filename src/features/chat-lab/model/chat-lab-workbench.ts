@@ -146,17 +146,17 @@ const options = () => {
 };
 
 /**
- * The model works on the window used last. When that one is put away, it moves
- * to the open window used most recently; an interface still inline keeps it.
+ * The model works on the window used last. When that one is put away or
+ * deleted, it moves to the open window used most recently; an interface still
+ * inline keeps it.
  */
-function settleActive(sessionId: string) {
+export function settleActive(sessionId: string) {
   const session = store.getState().sessions[sessionId];
   const layout = session?.layout;
   if (!session || !layout) return;
   const active = session.activeArtefactId;
-  if (!active) return;
-  const entry = layout.entries[active];
-  if (session.artefacts[active] && (!entry || entry.presentation !== "minimized")) return;
+  const entry = active ? layout.entries[active] : undefined;
+  if (active && session.artefacts[active] && (!entry || entry.presentation !== "minimized")) return;
   const next = Object.values(layout.entries)
     .filter((item) => item.id !== CHAT_WINDOW && item.presentation !== "minimized" && session.artefacts[item.id])
     .sort((a, b) => b.lastInteraction - a.lastInteraction)[0];
@@ -251,10 +251,11 @@ export function flash(id: string | undefined) {
 }
 
 /**
- * Give an interface its own window, or bring its window back. "support" is a
- * medium beside the work; "open" is large in the middle.
+ * Give an interface its own window, or bring its window back. "open" is large:
+ * half the page beside Chat, which is the default. "support" is a medium
+ * beside the work.
  */
-export function openWindow(sessionId: string, artefactId: string, as: "support" | "open" = "support") {
+export function openWindow(sessionId: string, artefactId: string, as: "support" | "open" = "open") {
   const session = store.getState().sessions[sessionId];
   const layout = layoutOf(sessionId);
   if (!session?.artefacts[artefactId] || !layout) return undefined;
@@ -321,7 +322,7 @@ export function settleInlineForTurn(sessionId: string) {
   if (!edited) return;
   view.setState({ inlineEditing: null });
   if (!store.getState().sessions[sessionId]?.artefacts[edited]) return;
-  flash(openWindow(sessionId, edited, "support"));
+  flash(openWindow(sessionId, edited));
   store.getState().focusArtefact(sessionId, edited);
 }
 

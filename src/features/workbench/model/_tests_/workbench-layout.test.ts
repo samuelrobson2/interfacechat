@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitsWidth, layoutGeometry } from "../workbench-geometry";
+import { dropChange, fitsWidth, layoutGeometry } from "../workbench-geometry";
 import {
   addEntry,
   applyLayoutChange,
@@ -162,5 +162,54 @@ describe("layout controller", () => {
     expect(table.y).toBeGreaterThan(search.y + search.height);
     expect(geometry.frames.chat!.x).toBe(geometry.content.x);
     expect(geometry.frames.doc!.x).toBeGreaterThan(geometry.frames.chat!.width);
+  });
+});
+
+describe("stacked large interfaces", () => {
+  /** Chat in the sidebar with Document and Table large. */
+  const pair = () => {
+    const moved = applyLayoutChange(research(), { type: "present", id: "table", presentation: "large" }, 10).layout;
+    return moved;
+  };
+
+  it("draws two large interfaces one above the other", () => {
+    const stacked = applyLayoutChange(pair(), { type: "arrange", stacked: true }, 11).layout;
+    const { frames, dividerX, dividerY, main } = layoutGeometry(stacked, { width: 1400, height: 800 });
+    const [first, second] = inRegion(stacked, "main");
+    const top = frames[first!.id]!;
+    const bottom = frames[second!.id]!;
+    expect(top.width).toBe(main.width);
+    expect(bottom.width).toBe(main.width);
+    expect(bottom.y).toBeGreaterThan(top.y + top.height);
+    expect(dividerX).toBeUndefined();
+    expect(dividerY).toBeGreaterThan(top.y);
+    expect(describePlacement(stacked, inRegion(stacked, "main")[0]!)).toBe("large, top");
+  });
+
+  it("fits stacked where side by side would not", () => {
+    const stacked = applyLayoutChange(pair(), { type: "arrange", stacked: true }, 11).layout;
+    expect(fitsWidth(stacked, 1150)).toBe(true);
+    const fits = (layout: WorkspaceLayout) => fitsWidth(layout, 1150);
+    const back = applyLayoutChange(stacked, { type: "arrange", stacked: false }, 12, { fits });
+    expect(back.evicted.length).toBeGreaterThan(0);
+  });
+
+  it("stacks on a drop near the top or bottom of the main area", () => {
+    const layout = research();
+    const geometry = layoutGeometry(layout, { width: 1400, height: 800 });
+    const { main } = geometry;
+    const bottom = dropChange(layout, geometry, "table", { x: main.x + main.width / 2, y: main.y + main.height - 20 });
+    expect(bottom).toMatchObject({ region: "main", stacked: true });
+    const result = applyLayoutChange(layout, bottom, 10).layout;
+    expect(result.stacked).toBe(true);
+    expect(inRegion(result, "main").map((entry) => entry.id)).toEqual(["doc", "table"]);
+    const right = dropChange(layout, geometry, "table", { x: main.x + main.width - 20, y: main.y + main.height / 2 });
+    expect(right).toMatchObject({ region: "main", stacked: false });
+  });
+
+  it("undo brings back the arrangement", () => {
+    const before = pair();
+    const stacked = applyLayoutChange(before, { type: "arrange", stacked: true }, 11).layout;
+    expect(restoreArrangement(before, stacked).stacked).toBeFalsy();
   });
 });

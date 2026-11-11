@@ -183,12 +183,12 @@ export function chatOnlyLayout(now: number): WorkspaceLayout {
   return applyLayoutChange(layout, { type: "move", id: CHAT_WINDOW, region: "main", order: 0 }, now).layout;
 }
 
-/** An interface large in the middle, with Chat in its sidebar. */
+/** Chat and an interface sharing the page, half each: Chat on the left. */
 export function interfaceFirstLayout(artefactId: string, now: number): WorkspaceLayout {
   let layout = addEntry({ entries: {}, divider: 0.5 }, CHAT_WINDOW, true, now - 1);
   layout = addEntry(layout, artefactId, false, now);
-  layout = applyLayoutChange(layout, { type: "move", id: artefactId, region: "main", order: 0 }, now).layout;
-  return applyLayoutChange(layout, { type: "move", id: CHAT_WINDOW, region: "left", order: 0 }, now - 1).layout;
+  layout = applyLayoutChange(layout, { type: "move", id: CHAT_WINDOW, region: "main", order: 0 }, now - 1).layout;
+  return applyLayoutChange(layout, { type: "move", id: artefactId, region: "main", order: 1 }, now).layout;
 }
 
 /**

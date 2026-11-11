@@ -36,8 +36,10 @@ export type WorkspaceGeometry = {
    */
   main: Rect;
   columns: { left?: Rect; right?: Rect };
-  /** Centre of the gap between two large interfaces. */
+  /** Centre of the gap between two large interfaces side by side. */
   dividerX?: number;
+  /** The same, when one is above the other. */
+  dividerY?: number;
 };
 
 export const METRICS = {
@@ -128,8 +130,14 @@ export function layoutGeometry(
 
   const large = inRegion(layout, "main");
   let dividerX: number | undefined;
+  let dividerY: number | undefined;
   if (large.length === 1 && large[0]) {
     frames[large[0].id] = { ...main };
+  } else if (large.length >= 2 && large[0] && large[1] && layout.stacked) {
+    const topShare = (main.height - gap) * layout.divider;
+    frames[large[0].id] = { ...main, height: topShare };
+    frames[large[1].id] = { ...main, y: main.y + topShare + gap, height: main.height - topShare - gap };
+    dividerY = main.y + topShare + gap / 2;
   } else if (large.length >= 2 && large[0] && large[1]) {
     const leftShare = (main.width - gap) * layout.divider;
     frames[large[0].id] = { ...main, width: leftShare };
@@ -152,7 +160,7 @@ export function layoutGeometry(
     };
   });
 
-  return { size, frames, icons, strip, panel, content, main, columns, dividerX };
+  return { size, frames, icons, strip, panel, content, main, columns, dividerX, dividerY };
 }
 
 /** Every large interface at least `minLarge` wide in a workspace this wide. */
@@ -166,8 +174,8 @@ const END = 1e9;
 
 /**
  * The move a drop at `point` asks for: the top bar minimizes, a side column
- * takes it at the top or bottom, and the main area takes the half it's
- * dropped on.
+ * takes it at the top or bottom, and the main area takes the edge it's
+ * dropped nearest: left or right for side by side, top or bottom to stack.
  */
 export function dropChange(
   layout: WorkspaceLayout,
@@ -186,6 +194,10 @@ export function dropChange(
 
   const others = inRegion(layout, "main").filter((entry) => entry.id !== id);
   if (others.length === 0) return { type: "move", id, region: "main", order: 0 };
-  const leftHalf = point.x < main.x + main.width / 2;
-  return { type: "move", id, region: "main", order: leftHalf ? -1 : END };
+  // Which edge of the main area the point is nearest, as shares of its size.
+  const across = (point.x - main.x) / (main.width || 1) - 0.5;
+  const down = (point.y - main.y) / (main.height || 1) - 0.5;
+  const stacked = Math.abs(down) > Math.abs(across);
+  const first = stacked ? down < 0 : across < 0;
+  return { type: "move", id, region: "main", order: first ? -1 : END, stacked };
 }

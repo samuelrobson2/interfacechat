@@ -191,7 +191,10 @@ export function WorkbenchSurface({
   const dividerRatio = (point: DragPoint) => {
     if (!geometry) return layout.divider;
     const { main } = geometry;
-    const ratio = (toLocal(point).x - main.x - 6) / (main.width - 12);
+    const local = toLocal(point);
+    const ratio = layout.stacked
+      ? (local.y - main.y - 6) / (main.height - 12)
+      : (local.x - main.x - 6) / (main.width - 12);
     return Math.min(DIVIDER_RANGE[1], Math.max(DIVIDER_RANGE[0], ratio));
   };
 
@@ -288,9 +291,10 @@ export function WorkbenchSurface({
                 );
               })}
 
-              {geometry.dividerX !== undefined && (
+              {(geometry.dividerX ?? geometry.dividerY) !== undefined && (
                 <MainDivider
                   x={geometry.dividerX}
+                  y={geometry.dividerY}
                   main={geometry.main}
                   onMove={(point) => setLiveDivider(dividerRatio(point))}
                   onEnd={(point) => {

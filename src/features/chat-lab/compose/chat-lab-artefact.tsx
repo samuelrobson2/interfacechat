@@ -239,7 +239,7 @@ export function ChatLabArtefactInline({
         view.onChange(data);
         select();
       }}
-      onOpen={() => flash(openWindow(sessionId, artefact.id, "support"))}
+      onOpen={() => flash(openWindow(sessionId, artefact.id))}
       // Its content lines up with the reply's text.
       className="-mx-6"
     />

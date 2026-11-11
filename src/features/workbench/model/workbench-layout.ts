@@ -39,11 +39,13 @@ export type LayoutEntry = Placement & {
 
 export type WorkspaceLayout = {
   entries: Record<InstanceId, LayoutEntry>;
-  /** Share of the main area the left large interface takes when two are open. */
+  /** Share of the main area the first large interface takes when two are open. */
   divider: number;
+  /** Two large interfaces sit one above the other rather than side by side. */
+  stacked?: boolean;
 };
 
-export type PresetId = "focus" | "pair" | "split" | "research";
+export type PresetId = "focus" | "pair" | "split" | "stack" | "research";
 
 export type LayoutChange =
   /** Show it: from the strip back to where it was, or its default. */
@@ -54,10 +56,12 @@ export type LayoutChange =
    */
   | { type: "support"; id: InstanceId }
   | { type: "present"; id: InstanceId; presentation: Presentation }
-  /** Dragged somewhere. The presentation follows the region. */
-  | { type: "move"; id: InstanceId; region: Region; order: number }
-  /** Same presentation, the other side (or the other main slot). */
+  /** Dragged somewhere. The presentation follows the region. `stacked` says how the main area is shared from then on. */
+  | { type: "move"; id: InstanceId; region: Region; order: number; stacked?: boolean }
+  /** Same presentation, the other side (or the other main slot: left is first, so the top when stacked). */
   | { type: "side"; id: InstanceId; side: Side }
+  /** Two large interfaces: one above the other, or side by side. */
+  | { type: "arrange"; stacked: boolean }
   | { type: "preset"; preset: PresetId }
   | { type: "divider"; ratio: number };
 
@@ -105,6 +109,7 @@ export const PRESETS: { id: PresetId; label: string; description: string }[] = [
   { id: "focus", label: "Chat", description: "Chat large, everything else minimized." },
   { id: "pair", label: "Chat + one", description: "Chat in the sidebar and the latest interface large." },
   { id: "split", label: "Side by side", description: "Chat in the sidebar and the two latest interfaces large." },
+  { id: "stack", label: "Stacked", description: "Chat in the sidebar and the two latest interfaces large, one above the other." },
   { id: "research", label: "Research", description: "Chat in the sidebar, one large, two medium on the right." },
 ];
 
@@ -132,7 +137,7 @@ function sideUnits(entries: LayoutEntry[]) {
   return entries.reduce((sum, entry) => sum + UNITS[entry.presentation], 0);
 }
 
-/** Which side a large interface reads as: its slot when split, otherwise none. */
+/** Which side a large interface reads as: its slot when split (the first is left, or the top), otherwise none. */
 function mainSide(layout: WorkspaceLayout, entry: LayoutEntry): Side | null {
   const main = inRegion(layout, "main");
   if (main.length < 2) return null;
@@ -282,7 +287,7 @@ function presetPlacements(layout: WorkspaceLayout, preset: PresetId): Map<Instan
   } else {
     set(chat, { presentation: "sidebar", region: "left", order: 0 });
     set(others[0], { presentation: "large", region: "main", order: 0 });
-    if (preset === "split") set(others[1], { presentation: "large", region: "main", order: 1 });
+    if (preset === "split" || preset === "stack") set(others[1], { presentation: "large", region: "main", order: 1 });
     if (preset === "research") {
       set(others[1], { presentation: "medium", region: "right", order: 0 });
       set(others[2], { presentation: "medium", region: "right", order: 1 });
@@ -298,7 +303,7 @@ export function applyLayoutChange(
   now: number,
   options: LayoutOptions = {},
 ): LayoutResult {
-  const next: WorkspaceLayout = { entries: { ...layout.entries }, divider: layout.divider };
+  const next: WorkspaceLayout = { ...layout, entries: { ...layout.entries } };
   const unchanged: LayoutResult = { layout, evicted: [], changed: false };
 
   if (change.type === "divider") {
@@ -313,9 +318,22 @@ export function applyLayoutChange(
       // Kept interfaces don't count as used; only what the preset shows does.
       next.entries[entry.id] = placement ? { ...entry, ...placement } : minimize(entry);
     }
-    if (change.preset === "split") next.divider = 0.5;
+    if (change.preset === "split" || change.preset === "stack") {
+      next.divider = 0.5;
+      next.stacked = change.preset === "stack";
+    }
     normalize(next);
     return { layout: next, evicted: [], changed: !sameArrangement(layout, next) };
+  }
+
+  if (change.type === "arrange") {
+    if (!!layout.stacked === change.stacked) return unchanged;
+    next.stacked = change.stacked;
+    // Side by side needs the width; the one used last stays.
+    const latest = byRecency(inRegion(next, "main"))[0];
+    const evicted = enforceCapacity(next, new Set(latest ? [latest.id] : []), options);
+    normalize(next);
+    return { layout: next, evicted, changed: true };
   }
 
   const entry = layout.entries[change.id];
@@ -347,6 +365,7 @@ export function applyLayoutChange(
         region: change.region,
         order: change.order,
       };
+      if (change.stacked !== undefined) next.stacked = change.stacked;
       break;
     case "side": {
       if (entry.region === "main") {
@@ -380,7 +399,7 @@ export function touchEntry(layout: WorkspaceLayout, id: InstanceId, now: number)
 
 /** Placement and divider only, ignoring recency. */
 export function sameArrangement(a: WorkspaceLayout, b: WorkspaceLayout) {
-  if (a.divider !== b.divider) return false;
+  if (a.divider !== b.divider || !!a.stacked !== !!b.stacked) return false;
   const ids = Object.keys(a.entries);
   if (ids.length !== Object.keys(b.entries).length) return false;
   return ids.every((id) => {
@@ -407,7 +426,7 @@ export function restoreArrangement(snapshot: WorkspaceLayout, current: Workspace
   for (const [id, entry] of Object.entries(current.entries)) {
     if (!entries[id]) entries[id] = { ...minimize(entry), order: LAST };
   }
-  const layout = { entries, divider: snapshot.divider };
+  const layout: WorkspaceLayout = { entries, divider: snapshot.divider, stacked: snapshot.stacked };
   normalize(layout);
   return layout;
 }
@@ -432,7 +451,8 @@ export function describePlacement(layout: WorkspaceLayout, entry: LayoutEntry): 
   if (entry.presentation === "sidebar") return `sidebar, ${entry.region}`;
   if (entry.region === "main") {
     const side = mainSide(layout, entry);
-    return side ? `${size}, ${side}` : size;
+    if (!side) return size;
+    return `${size}, ${layout.stacked ? (side === "left" ? "top" : "bottom") : side}`;
   }
   if (entry.presentation === "medium") {
     const column = inRegion(layout, entry.region);
