@@ -1,4 +1,7 @@
 import {
+  CHART_TYPE_META,
+  catalogueFields,
+  isCatalogueKind,
   shellAvoidScore,
   shellPartsSummary,
   shellQueryMatchScore,
@@ -295,12 +298,17 @@ export function resolveImplementableKind(
   return "document";
 }
 
+/** What the model's pick opens as: a panel kind, or a catalogue interface of its own. */
+export function opensAsOf(kind: VisualInterfaceKind): ImplementableInterfaceKind | "tracker" {
+  return kind === "checklist" ? "tracker" : resolveImplementableKind(kind);
+}
+
 export type InterfaceCandidate = {
   id: VisualInterfaceKind;
   label: string;
   description: string;
   /** Panel kind if the model opens this candidate. */
-  opensAs: ImplementableInterfaceKind;
+  opensAs: ImplementableInterfaceKind | "tracker";
   /** A format shapes the reply in the thread; only an interface opens. */
   layer: "interface" | "format";
 };
@@ -461,9 +469,9 @@ export function retrieveInterfaces(
       description: format
         ? formatCandidateText(format)
         : profile && libraryKind
-          ? libraryCandidateText(libraryKind, profile)
+          ? libraryCandidateText(libraryKind, profile) + chartTypeNote(item.id)
           : item.description,
-      opensAs: resolveImplementableKind(item.id),
+      opensAs: opensAsOf(item.id),
       // A chat format lays out the reply; it never opens.
       layer: format ? "format" : "interface",
     };
@@ -480,12 +488,19 @@ function libraryCandidateText(kind: ShellKind, profile: ShellRetrieval) {
   return [
     profile.description.trim(),
     profile.notFor.trim() && `Not for: ${profile.notFor.trim()}`,
-    `Parts: ${shellPartsSummary(kind)}.`,
+    // A catalogue interface's fields come from the schema the model fills.
+    `Parts: ${isCatalogueKind(kind) ? catalogueFields(kind) : shellPartsSummary(kind)}.`,
     examples.length && `Opens for: ${examples.map((q) => `"${q}"`).join(", ")}.`,
     nearMisses.length && `Does not open for: ${nearMisses.map((q) => `"${q}"`).join(", ")}.`,
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+/** Mind map, timeline and flowchart are Chart's types: say which one this candidate opens. */
+function chartTypeNote(kind: VisualInterfaceKind) {
+  if (kind !== "mindmap" && kind !== "timeline" && kind !== "flowchart") return "";
+  return ` Opens Chart as a ${CHART_TYPE_META[kind].label.toLowerCase()}.`;
 }
 
 /** Chat formats: versions of a chat reply, described to the model like an interface's parts. */
@@ -520,10 +535,11 @@ const LIBRARY_KIND: Partial<Record<VisualInterfaceKind, ShellKind>> = {
   search: "search",
   table: "table",
   spreadsheet: "table",
-  timeline: "timeline",
+  // Three ways the model can ask for a chart; each opens Chart as that type.
+  timeline: "chart",
   schedule: "schedule",
-  flowchart: "flowchart",
-  mindmap: "mindmap",
+  flowchart: "chart",
+  mindmap: "chart",
   guide: "guide",
   checklist: "tracker",
   calendar: "calendar",

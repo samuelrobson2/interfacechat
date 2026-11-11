@@ -4,6 +4,8 @@ import { SHELL_META } from "../model/shell-meta";
 import type { ShellKind, ShellSize } from "../model/shell-types";
 import { AddChip, SoftChip } from "./shell-fields";
 import { ShellGlyph } from "./shell-icons";
+import { useShellMark } from "./shell-mark";
+import { useShellTitleAside } from "./shell-title-aside";
 import { ShellFooter } from "./shell-meta";
 import { fieldEvents, isSubmitShortcut, stopFieldEvent } from "./shell-surface";
 
@@ -48,7 +50,7 @@ export function PreviewBody({ className, children }: { className?: string; child
   );
 }
 
-/** Medium plus and large: an editable title beside the glyph. */
+/** Medium plus and large: an editable title, beside the glyph where the shell draws one. */
 export function ShellTitle({
   kind,
   size,
@@ -68,10 +70,12 @@ export function ShellTitle({
   aside?: React.ReactNode;
 }) {
   const large = size === "large";
+  const mark = useShellMark(size);
+  const hostAside = useShellTitleAside();
   placeholder ??= SHELL_META[kind].label;
   return (
-    <div className={cn("flex shrink-0 items-center", large ? "gap-3 px-6 pt-5" : "gap-2 px-4 pt-3.5")}>
-      <ShellGlyph kind={kind} className={large ? "size-7" : "size-4"} />
+    <div className={cn("flex shrink-0 items-center", large ? "gap-3 px-6 pt-3" : "gap-2 px-4 pt-3.5")}>
+      {mark && <ShellGlyph kind={kind} className={large ? "size-7" : "size-4"} />}
       {onChange ? (
         <input
           value={value}
@@ -100,6 +104,7 @@ export function ShellTitle({
         </span>
       )}
       {aside}
+      {hostAside}
     </div>
   );
 }

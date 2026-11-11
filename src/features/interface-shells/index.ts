@@ -1,8 +1,12 @@
 export { InterfaceShell, type InterfaceShellProps } from "./interface-shell";
+export { InlineShell } from "./inline/inline-shell";
+export { InlineMedium } from "./inline/inline-medium";
+export { InlineSmall } from "./inline/inline-small";
+export { hasInline, inlineDetail, inlineTitle } from "./inline/inline-summary";
 export { DocumentShell } from "./document/document-shell";
 export { SearchShell } from "./search/search-shell";
 export { TableShell } from "./table/table-shell";
-export { ShellAppIcon } from "./ui/shell-icons";
+export { ShellAppIcon, ShellGlyph } from "./ui/shell-icons";
 export {
   parseMarkdownTable,
   serializeMarkdownTable,
@@ -20,6 +24,20 @@ export {
 } from "./model/shell-fill";
 export { requestShellFill } from "./model/shell-fill-api";
 export { SHELL_META } from "./model/shell-meta";
+export {
+  CATALOGUE,
+  CATALOGUE_KINDS,
+  FILL_TOOL_KIND,
+  applyCatalogueOperations,
+  catalogueFields,
+  isCatalogueKind,
+  readCatalogueValue,
+  type CatalogueKind,
+  type CatalogueOperation,
+  type CatalogueValue,
+  type CatalogueValueByKind,
+} from "./model/shell-catalogue";
+export { CHART_TYPE_META, chartTypeFor } from "./model/chart";
 export * from "./model/shell-types";
 export {
   SHELL_PARTS,

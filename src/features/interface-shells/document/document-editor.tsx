@@ -502,7 +502,7 @@ export function DocumentEditor({
         "flex shrink-0 items-center gap-0.5",
         compact
           ? "h-8 border-b border-gray-3/15 bg-white/80 px-2"
-          : "h-12 border-b border-gray-3/15 px-3",
+          : "h-12 border-b border-gray-3/15 px-4",
       )}
     >
       {!compact && (
@@ -709,14 +709,14 @@ export function DocumentEditor({
       }}
       className={cn(
         "w-full shrink-0 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary",
-        compact ? "text-[13px] font-normal leading-[1.3]" : "text-[30px] font-light leading-[1.2] tracking-[-0.4px]",
+        compact ? "text-[13px] font-normal leading-[1.3]" : "text-[26px] font-light leading-[1.2] tracking-[-0.3px]",
       )}
     />
   ) : (
     <div
       className={cn(
         "shrink-0 truncate font-bureau",
-        compact ? "text-[13px] font-normal leading-[1.3]" : "text-[30px] font-light leading-[1.2] tracking-[-0.4px]",
+        compact ? "text-[13px] font-normal leading-[1.3]" : "text-[26px] font-light leading-[1.2] tracking-[-0.3px]",
         data.title ? "text-typography-primary" : "text-typography-secondary",
       )}
     >
@@ -762,38 +762,25 @@ export function DocumentEditor({
     );
   }
 
+  // Large: everything starts on the same 24px edge as the window's icon,
+  // and the text keeps a readable width without being centred away from it.
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-      <div className="mx-auto w-full max-w-[680px] shrink-0 px-6 pt-8 pb-4 md:px-10">
-        {title}
-      </div>
+      <div className="w-full max-w-[728px] shrink-0 px-6 pt-3 pb-3">{title}</div>
       {toolbar}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[680px] px-6 pt-6 pb-16 md:px-10">
+        <div className="w-full max-w-[728px] px-6 pt-5 pb-16">
           {isEmpty && !editingEmpty ? null : blocks.map(renderBlock)}
           {showBulletHint && !editingEmpty && <BulletHint onPress={startContext} />}
         </div>
       </div>
-      <div className="flex h-9 shrink-0 items-center justify-between border-t border-gray-3/15 px-4 font-bureau text-[12px] text-typography-secondary">
-        <span className="flex items-center gap-1 tabular-nums">
+      <div
+        className="flex h-9 shrink-0 items-center justify-between border-t border-gray-3/15 px-6 font-bureau text-[12px] text-typography-secondary"
+      >
+        <span className="tabular-nums">
           {words} {words === 1 ? "word" : "words"}
-          {(editable || data.length) && (
-            <>
-              <span aria-hidden>·</span>
-              <span className="font-light">aiming for</span>
-              <LengthField
-                value={data.length}
-                editable={editable}
-                onChange={(length) => onChange?.({ ...data, length })}
-              />
-            </>
-          )}
         </span>
-        {status === "loading" ? (
-          <span className="animate-pulse">Writing…</span>
-        ) : (
-          editable && <span>Markdown shortcuts work: # ## - 1. &gt;</span>
-        )}
+        {status === "loading" && <span className="animate-pulse">Writing…</span>}
       </div>
     </div>
   );

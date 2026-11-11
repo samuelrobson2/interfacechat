@@ -16,6 +16,7 @@ import {
   Grid3x3,
   LayoutGrid,
   LayoutTemplate,
+  PanelsTopLeft,
   Wrench,
 } from "lucide-react";
 import { useState } from "react";
@@ -46,6 +47,14 @@ const interfaceStatesItem: MenuItem = {
   url: ROUTES.INTERFACE_STATES,
   matchPaths: [{ path: ROUTES.INTERFACE_STATES, end: true }],
   icon: <Grid3x3 className="size-5" />,
+};
+
+// The flexible workspace, tried out here before it goes into chat.
+const workbenchItem: MenuItem = {
+  title: "Workbench",
+  url: ROUTES.WORKBENCH,
+  matchPaths: [{ path: ROUTES.WORKBENCH, end: true }],
+  icon: <PanelsTopLeft className="size-5" />,
 };
 
 const pharosItems: MenuItem[] = [
@@ -85,6 +94,7 @@ const pharosItems: MenuItem[] = [
   },
   interfaceLibraryItem,
   interfaceStatesItem,
+  workbenchItem,
   ...(isChatVisualizeEnabled()
     ? [
         {
@@ -148,6 +158,11 @@ export function AppSidebar({ className }: { className?: string }) {
   const isMobile = useIsMobile();
   // New Chat is just the pharos bubble: the explorations below it stay hidden.
   const isNewChat = useMatch({ path: ROUTES.CHAT_LAB, end: false }) != null;
+  // A workbench is an app window: the menu sits in its top-left corner. Every
+  // chat thread is one, and so is the sandbox.
+  const isSandbox = useMatch({ path: ROUTES.WORKBENCH, end: true }) != null;
+  const isThread = useMatch({ path: ROUTES.CHAT_LAB_SESSION, end: true }) != null;
+  const isWorkbench = isSandbox || isThread;
 
   return (
     // Minimized by default: the rail stays collapsed and expands on hover (or
@@ -162,6 +177,7 @@ export function AppSidebar({ className }: { className?: string }) {
         isNewChat &&
           !isMobile &&
           "bottom-12 pointer-events-none [&>*]:pointer-events-auto",
+        isWorkbench && !isMobile && "md:top-3 md:left-3",
         className,
       )}
     >

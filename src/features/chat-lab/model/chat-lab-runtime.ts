@@ -1,18 +1,38 @@
-import { assistantInstruction, formatInstruction, SHELL_META } from "@/features/interface-shells";
+import {
+  CATALOGUE,
+  FILL_TOOL_KIND,
+  applyCatalogueOperations,
+  assistantInstruction,
+  formatInstruction,
+  readCatalogueValue,
+  SHELL_META,
+  type CatalogueKind,
+  type CatalogueOperation,
+  type CatalogueValue,
+} from "@/features/interface-shells";
 import { Chat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatStatus } from "ai";
 import { create } from "zustand";
-import { isArtefactRelated } from "./artefact-relatedness";
+import {
+  artefactCatalogueKind,
+  artefactCatalogueValue,
+  catalogueArtefactPatch,
+  newCatalogueArtefact,
+} from "./catalogue-adapters";
 import { CHAT_LAB_API } from "./chat-lab-api";
 import { agentActivity, type AgentActivity } from "./agent-activity";
 import {
   getActiveArtefact,
+  findLatestMessage,
   getMessageText,
   useChatLabStore,
   type ChatLabArtefactKind,
   type ChatLabMessage,
 } from "./chat-lab-store";
+import { flash, hasWindow, isChatMinimized, layoutOf, openWindow, peekReply } from "./chat-lab-workbench";
 import {
+  matchVisualInterface,
+  opensAsOf,
   resolveImplementableKind,
   retrieveInterfaces,
   type VisualInterfaceKind,
@@ -120,87 +140,261 @@ function readOpenInterfaceToolInput(
   };
 }
 
-function latestUserMessageId(messages: ChatLabMessage[]) {
-  return [...messages].reverse().find((message) => message.role === "user")?.id;
+/** The turn in flight: the latest user message and the assistant messages after it. */
+function currentTurn(messages: ChatLabMessage[]) {
+  const index = messages.map((message) => message.role).lastIndexOf("user");
+  return {
+    userMessageId: index >= 0 ? messages[index]?.id : undefined,
+    replies: messages.slice(index + 1).filter((message) => message.role === "assistant"),
+  };
 }
 
-/** Open interfaces the model chose from retrieved candidates. */
+/**
+ * Open the interface the model chose from retrieved candidates. It shows inline
+ * in the reply; with Chat minimized nobody would see it there, so it opens
+ * beside the work.
+ */
 function syncOpenInterface(id: string, messages: ChatLabMessage[]) {
-  const session = useChatLabStore.getState().sessions[id];
-  if (!session) return;
+  const { userMessageId, replies } = currentTurn(messages);
+  if (!userMessageId) return;
 
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message?.role !== "assistant") continue;
+  for (const message of replies) {
     for (const part of message.parts) {
       const input = readOpenInterfaceToolInput(part);
       if (!input?.id) continue;
 
       const libraryKind = input.id as VisualInterfaceKind;
-      const kind =
-        input.opensAs ?? resolveImplementableKind(libraryKind);
-      const sourceUserMessageId = latestUserMessageId(messages) ?? null;
+      const opensAs = opensAsOf(libraryKind);
       const title = input.title?.trim() || libraryKind;
+      // A tracker is a library interface holding its own data.
+      const tracker = opensAs === "tracker" ? newCatalogueArtefact("tracker", title) : null;
+      const kind = tracker?.kind ?? input.opensAs ?? resolveImplementableKind(libraryKind);
 
-      // Avoid opening duplicates for the same source turn + kind.
-      const fresh = useChatLabStore.getState().sessions[id];
-      const already = Object.values(fresh?.artefacts ?? {}).some(
+      // One per turn and kind.
+      const session = useChatLabStore.getState().sessions[id];
+      const already = Object.values(session?.artefacts ?? {}).some(
         (artefact) =>
-          artefact.sourceUserMessageId === sourceUserMessageId &&
+          artefact.sourceUserMessageId === userMessageId &&
           (artefact.libraryKind === libraryKind || artefact.kind === kind),
       );
-      if (already) return;
+      if (already) continue;
 
-      useChatLabStore.getState().createArtefact(id, {
+      const artefactId = useChatLabStore.getState().createArtefact(id, {
         kind,
         title,
-        sourceUserMessageId,
+        sourceUserMessageId: userMessageId,
         libraryKind,
+        ...(tracker?.shell ? { shell: tracker.shell } : {}),
       });
-      return;
+      if (!artefactId) continue;
+      useChatLabStore.getState().setTurnTarget(id, userMessageId, artefactId);
+      if (isChatMinimized(id)) flash(openWindow(id, artefactId, "support"));
     }
   }
 }
 
-/** Pull write_interface tool args into the active artefact. */
+/** Past this length, a document being written gets a window of its own. */
+const DOCUMENT_WINDOW_CHARS = 900;
+
+// The last write applied per thread, so a later edit by hand isn't written over.
+const applied = new Map<string, string>();
+
+/** The interface this turn writes to: the one opened in it, or the one in use when it began. */
+function turnTarget(id: string, userMessageId: string) {
+  const session = useChatLabStore.getState().sessions[id];
+  if (!session) return undefined;
+  const locked = session.turnTarget;
+  if (locked?.userMessageId === userMessageId && session.artefacts[locked.artefactId]) {
+    return session.artefacts[locked.artefactId];
+  }
+  const active = getActiveArtefact(session);
+  if (active) useChatLabStore.getState().setTurnTarget(id, userMessageId, active.id);
+  return active ?? undefined;
+}
+
+type ToolPart = {
+  type?: string;
+  toolName?: string;
+  toolCallId?: string;
+  state?: string;
+  input?: unknown;
+  output?: unknown;
+};
+
+function toolNameOf(part: ToolPart) {
+  if (part.type === "dynamic-tool") return part.toolName ?? null;
+  return part.type?.startsWith("tool-") ? part.type.slice(5) : null;
+}
+
+/** How often a fill that's still streaming is drawn. The finished one always is. */
+const STREAM_FILL_MS = 60;
+
+// What's been applied of each tool call, so nothing is applied twice.
+const appliedCalls = new Map<string, string>();
+const lastStreamedAt = new Map<string, number>();
+
+/**
+ * The interface a fill goes into: the one this turn is working on if it is that
+ * kind, or a new one. So the model can fill an interface without opening it first.
+ */
+function catalogueTarget(id: string, userMessageId: string, kind: CatalogueKind, title: string) {
+  const store = useChatLabStore.getState();
+  const session = store.sessions[id];
+  if (!session) return undefined;
+  const locked = session.turnTarget?.userMessageId === userMessageId ? session.artefacts[session.turnTarget.artefactId] : undefined;
+  if (locked && artefactCatalogueKind(locked) === kind) return locked;
+
+  const made = Object.values(session.artefacts).find(
+    (artefact) => artefact.sourceUserMessageId === userMessageId && artefactCatalogueKind(artefact) === kind,
+  );
+  const artefactId =
+    made?.id ??
+    store.createArtefact(id, {
+      ...newCatalogueArtefact(kind, title),
+      title: title || CATALOGUE[kind].label,
+      sourceUserMessageId: userMessageId,
+    });
+  if (!artefactId) return undefined;
+  store.setTurnTarget(id, userMessageId, artefactId);
+  if (!made && isChatMinimized(id)) flash(openWindow(id, artefactId, "support"));
+  return useChatLabStore.getState().sessions[id]?.artefacts[artefactId];
+}
+
+/** Write a catalogue value into its interface, and give it a window when it wants one. */
+function applyCatalogueValue(id: string, artefactId: string, value: CatalogueValue) {
+  const artefact = useChatLabStore.getState().sessions[id]?.artefacts[artefactId];
+  const patch = artefact && catalogueArtefactPatch(artefact, value);
+  if (!artefact || !patch) return;
+  useChatLabStore.getState().updateArtefact(id, patch, artefactId);
+
+  // Short results stay in the reply. A full document, or one asked for as a window, opens.
+  const long = "body" in value && value.body.trim().length >= DOCUMENT_WINDOW_CHARS;
+  if ((long || value.placement === "window") && !hasWindow(layoutOf(id), artefactId)) {
+    flash(openWindow(id, artefactId, "open"));
+  }
+}
+
+/**
+ * This turn's catalogue tool calls, in order. A fill is drawn as it streams:
+ * the tool's input arrives as partial JSON, and whatever is usable so far goes
+ * into the interface. update_interface applies once the server has checked it.
+ */
+function syncCatalogue(id: string, userMessageId: string, replies: ChatLabMessage[]) {
+  for (const message of replies) {
+    for (const part of message.parts as ToolPart[]) {
+      const name = toolNameOf(part);
+      const callId = part.toolCallId;
+      if (!name || !callId || appliedCalls.get(callId) === "done") continue;
+
+      const kind = FILL_TOOL_KIND[name];
+      if (kind) {
+        const value = readCatalogueValue(kind, part.input);
+        if (!value) continue;
+        const streaming = part.state === "input-streaming";
+        const signature = streaming ? `partial:${JSON.stringify(value).length}` : "done";
+        if (appliedCalls.get(callId) === signature) continue;
+        const now = Date.now();
+        if (streaming && now - (lastStreamedAt.get(id) ?? 0) < STREAM_FILL_MS) continue;
+
+        const target = catalogueTarget(id, userMessageId, kind, value.title);
+        if (!target) continue;
+        lastStreamedAt.set(id, now);
+        appliedCalls.set(callId, signature);
+        applyCatalogueValue(id, target.id, value);
+        continue;
+      }
+
+      if (name !== "update_interface" || part.state !== "output-available") continue;
+      appliedCalls.set(callId, "done");
+      if (!(part.output as { ok?: boolean } | undefined)?.ok) continue;
+      const target = turnTarget(id, userMessageId);
+      const targetKind = target && artefactCatalogueKind(target);
+      const current = target && artefactCatalogueValue(target);
+      const operations = (part.input as { operations?: CatalogueOperation[] } | undefined)?.operations;
+      if (!target || !targetKind || !current || !operations) continue;
+      const result = applyCatalogueOperations(targetKind, current, operations);
+      if (result.ok) applyCatalogueValue(id, target.id, result.value);
+    }
+  }
+}
+
+/** Pull this turn's tool calls into the interface it's working on. */
 function syncArtefact(id: string, messages: ChatLabMessage[]) {
   syncOpenInterface(id, messages);
 
-  const session = useChatLabStore.getState().sessions[id];
-  const artefact = getActiveArtefact(session);
-  if (!artefact) return;
+  const { userMessageId, replies } = currentTurn(messages);
+  if (!userMessageId) return;
 
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message?.role !== "assistant") continue;
-    for (const part of message.parts) {
-      const input = readInterfaceToolInput(part);
-      if (!input) continue;
-      const current = getActiveArtefact(useChatLabStore.getState().sessions[id]);
-      if (
-        current &&
-        (input.content === undefined || current.content === input.content) &&
-        (!input.title || current.title === input.title) &&
-        (input.filters === undefined ||
-          sameFilters(current.filters, input.filters))
-      ) {
-        return;
-      }
-      useChatLabStore.getState().updateArtefact(id, {
-        title: input.title,
-        content: input.content,
-        filters: input.filters,
-      });
-      return;
-    }
+  syncCatalogue(id, userMessageId, replies);
+
+  let input: InterfaceToolInput | null = null;
+  for (const message of replies) {
+    for (const part of message.parts) input = readInterfaceToolInput(part) ?? input;
+  }
+  if (!input) return;
+
+  const target = turnTarget(id, userMessageId);
+  // A library interface keeps its own data; the model doesn't write to it.
+  if (!target || target.kind === "shell") return;
+
+  const key = `${userMessageId}|${target.id}|${input.title ?? ""}|${(input.filters ?? []).join(",")}|${input.content ?? ""}`;
+  if (applied.get(id) === key) return;
+  applied.set(id, key);
+
+  const same =
+    (input.content === undefined || target.content === input.content) &&
+    (!input.title || target.title === input.title) &&
+    (input.filters === undefined || sameFilters(target.filters, input.filters));
+  if (!same) {
+    useChatLabStore.getState().updateArtefact(
+      id,
+      { title: input.title, content: input.content, filters: input.filters },
+      target.id,
+    );
+  }
+
+  // Short results stay in the reply. A full document opens as a window.
+  const layout = layoutOf(id);
+  if (
+    target.kind === "document" &&
+    !hasWindow(layout, target.id) &&
+    (input.content ?? "").trim().length >= DOCUMENT_WINDOW_CHARS
+  ) {
+    flash(openWindow(id, target.id, "open"));
   }
 }
 
-/** Only expose write_interface when the latest user turn is about the interface. */
+/** Past this, the model isn't sent an interface's contents, and rewrites rather than patches. */
+const CATALOGUE_SNAPSHOT_CHARS = 12000;
+
+/**
+ * What the model is told is open. It works on the interface used last, unless
+ * the person is plainly asking for a different kind: then it picks a new one.
+ */
 function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]) {
   const session = useChatLabStore.getState().sessions[sessionId];
   const active = getActiveArtefact(session);
   if (!active) return undefined;
+
+  const users = messages.filter((message) => message.role === "user");
+  const lastUser = users.at(-1);
+  if (lastUser && users.length > 1) {
+    const asked = matchVisualInterface(getMessageText(lastUser));
+    const showing = active.libraryKind ?? active.shell?.kind ?? active.kind;
+    const sameKind = resolveImplementableKind(asked ?? "document") === active.kind || (asked && opensAsOf(asked) === artefactCatalogueKind(active));
+    if (asked && asked !== showing && !sameKind) return undefined;
+  }
+
+  // A catalogue interface: the model fills it, and reads what's in it to change part of it.
+  const catalogueKind = artefactCatalogueKind(active);
+  if (catalogueKind) {
+    const value = JSON.stringify(artefactCatalogueValue(active));
+    return {
+      kind: catalogueKind,
+      title: active.title,
+      ...(value.length <= CATALOGUE_SNAPSHOT_CHARS ? { value } : {}),
+    };
+  }
 
   // A library interface: tell the model what's open and what's in it, briefly.
   if (active.kind === "shell" && active.shell) {
@@ -211,18 +405,8 @@ function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]
       snapshot: JSON.stringify(active.shell.data).slice(0, 2000),
     };
   }
+  if (active.kind === "shell") return undefined;
 
-  const lastUser = [...messages].reverse().find((message) => message.role === "user");
-  if (!lastUser) {
-    return {
-      kind: active.kind,
-      title: active.title,
-      filters: active.filters ?? [],
-    };
-  }
-  if (!isArtefactRelated(getMessageText(lastUser), active)) {
-    return undefined;
-  }
   return {
     kind: active.kind,
     title: active.title,
@@ -272,7 +456,15 @@ export function getChatLabChat(id: string) {
       body,
       trigger,
       messageId,
-    }) => ({
+    }) => {
+      const artefact = artefactContextForRequest(id, messages);
+      // The interface in use when the turn begins is the one it writes to.
+      const active = getActiveArtefact(useChatLabStore.getState().sessions[id]);
+      const userMessageId = currentTurn(messages).userMessageId;
+      if (artefact && active && userMessageId) {
+        useChatLabStore.getState().setTurnTarget(id, userMessageId, active.id);
+      }
+      return {
       body: {
         ...body,
         id: chatId,
@@ -280,11 +472,12 @@ export function getChatLabChat(id: string) {
         trigger,
         messageId,
         system: useChatLabStore.getState().systemPrompt ?? undefined,
-        artefact: artefactContextForRequest(id, messages),
+        artefact,
         interfaceCandidates: interfaceCandidatesForRequest(id, messages),
         chatModes: chatModesForRequest(id, messages),
       },
-    }),
+      };
+    },
   });
 
   const chat: Chat<ChatLabMessage> = new Chat<ChatLabMessage>({
@@ -295,6 +488,11 @@ export function getChatLabChat(id: string) {
       useChatLabStore.getState().saveMessages(id, messages);
       syncArtefact(id, messages);
       const activity = useChatLabActivity.getState();
+      // Chat is minimized: the reply shows above the input for a moment.
+      if (!isAbort && activity.viewingId === id && isChatMinimized(id)) {
+        const reply = findLatestMessage(messages, "assistant");
+        if (reply) peekReply(id, getMessageText(reply));
+      }
       if (!isAbort && activity.viewingId !== id) {
         useChatLabActivity.setState({
           unread: { ...activity.unread, [id]: true },
@@ -324,6 +522,8 @@ export function disposeChatLabChat(id: string) {
   if (!chat) return;
   void chat.stop();
   chats.delete(id);
+  applied.delete(id);
+  lastStreamedAt.delete(id);
   useChatLabActivity.setState((state) => {
     const status = { ...state.status };
     const activity = { ...state.activity };

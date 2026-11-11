@@ -1,4 +1,5 @@
 import type {
+  ChartShellData,
   ChatShellData,
   FlowchartShellData,
   GuideShellData,
@@ -27,7 +28,13 @@ const ferryHistory = [
   { id: "t5", date: "2024", title: "Restored", detail: "The ticket hall reopens as a café and museum." },
 ];
 
-const timelineFixture: Fixture<"timeline"> = {
+type TypeSample<D> = {
+  states: Record<ShellState, D>;
+  suggestionPrompt: string;
+  history: { chatTitle: string; when: string };
+};
+
+const timelineFixture: TypeSample<TimelineShellData> = {
   suggestionPrompt: "Give me a timeline of the Harbour Pier ferry, from when it opened to now.",
   history: { chatTitle: "Harbour Pier history", when: "Last week" },
   states: {
@@ -66,7 +73,7 @@ const bookingEdges: FlowchartShellData["edges"] = [
   { from: "f7", to: "f8" },
 ];
 
-const flowchartFixture: Fixture<"flowchart"> = {
+const flowchartFixture: TypeSample<FlowchartShellData> = {
   suggestionPrompt: "Map out how we book a location, including what happens if it's not free or over budget.",
   history: { chatTitle: "Location booking process", when: "2 weeks ago" },
   states: {
@@ -86,7 +93,7 @@ export const emptyMindmap: MindmapShellData = { title: "", branches: [] };
 
 const leaf = (id: string, label: string) => ({ id, label, children: [] });
 
-const mindmapFixture: Fixture<"mindmap"> = {
+const mindmapFixture: TypeSample<MindmapShellData> = {
   suggestionPrompt: "Help me brainstorm the themes of The Last Ferry as a mind map.",
   history: { chatTitle: "Themes of the film", when: "Last month" },
   states: {
@@ -187,18 +194,44 @@ const chatFixture: Fixture<"chat"> = {
   },
 };
 
+/* ── Chart ────────────────────────────────────────────────────────────── */
+
+export const emptyChart: ChartShellData = { title: "", type: "mindmap", branches: [], events: [], nodes: [], edges: [] };
+
+/**
+ * Chart keeps every type's content, so each state carries all three samples
+ * and opens on the type its prompt asks for: the suggestion is a mind map,
+ * the history a timeline. Switching type shows the others.
+ */
+function chartState(state: ShellState, type: ChartShellData["type"], title: string): ChartShellData {
+  return {
+    title,
+    type,
+    branches: mindmapFixture.states[state].branches,
+    events: timelineFixture.states[state].events,
+    nodes: flowchartFixture.states[state].nodes,
+    edges: flowchartFixture.states[state].edges,
+  };
+}
+
+const chartFixture: Fixture<"chart"> = {
+  suggestionPrompt: mindmapFixture.suggestionPrompt,
+  history: timelineFixture.history,
+  states: {
+    empty: emptyChart,
+    suggestion: chartState("suggestion", "mindmap", mindmapFixture.states.suggestion.title),
+    history: chartState("history", "timeline", timelineFixture.states.history.title),
+  },
+};
+
 export const EXTRA_FIXTURES = {
   chat: chatFixture,
-  timeline: timelineFixture,
-  flowchart: flowchartFixture,
-  mindmap: mindmapFixture,
+  chart: chartFixture,
   guide: guideFixture,
 };
 
 export const EXTRA_EMPTY = {
   chat: emptyChat,
-  timeline: emptyTimeline,
-  flowchart: emptyFlowchart,
-  mindmap: emptyMindmap,
+  chart: emptyChart,
   guide: emptyGuide,
 };

@@ -25,7 +25,8 @@ import { fieldEvents, ShellSurface, stopFieldEvent, Bar } from "../ui/shell-surf
 
 const TYPES: ScheduleTaskType[] = ["setup", "shoot", "travel", "break"];
 
-const TYPE_STYLE: Record<ScheduleTaskType, { bar: string; label: string }> = {
+/** Each task type's bar colour and name. Inline reuses them. */
+export const TYPE_STYLE: Record<ScheduleTaskType, { bar: string; label: string }> = {
   setup: { bar: "bg-[#9fd3d0] text-[#0d4f4c]", label: "Setup" },
   shoot: { bar: "bg-[#1fa5a0] text-white", label: "Shooting" },
   travel: { bar: "bg-orange-5/80 text-white", label: "Travel" },

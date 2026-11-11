@@ -3,6 +3,7 @@ import { cn } from "@/shared/lib/css";
 import { parseBlocks, plainText } from "../model/markdown-blocks";
 import type { DocumentShellData, ShellProps } from "../model/shell-types";
 import { DocumentAppIcon, ShellGlyph } from "../ui/shell-icons";
+import { useShellMark } from "../ui/shell-mark";
 import { ShellFooter } from "../ui/shell-meta";
 import { Bar, barWidths, ShellSurface } from "../ui/shell-surface";
 import { DocumentEditor } from "./document-editor";
@@ -118,6 +119,7 @@ export function DocumentShell({
   actions,
   className,
 }: ShellProps<DocumentShellData>) {
+  const mark = useShellMark(size);
   if (size === "small") return <DocumentAppIcon className={className} />;
 
   if (size === "medium") {
@@ -133,7 +135,7 @@ export function DocumentShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <DocumentEditor
           density="compact"
-          titleMark={<ShellGlyph kind="document" className="size-4" />}
+          titleMark={mark && <ShellGlyph kind="document" className="size-4" />}
           data={data}
           onChange={onChange}
           onSubmit={onSubmit}
@@ -147,7 +149,7 @@ export function DocumentShell({
     <ShellSurface size={size} surface={surface} className={className}>
       <DocumentEditor
         density="comfortable"
-        titleMark={<ShellGlyph kind="document" className="size-7" />}
+        titleMark={mark && <ShellGlyph kind="document" className="size-7" />}
         data={data}
         onChange={onChange}
         onSubmit={onSubmit}

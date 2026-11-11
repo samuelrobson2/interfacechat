@@ -16,11 +16,9 @@ import mapIcon from "@/shared/assets/images/3d/interfaces/map.png";
 import mapGlyph from "@/shared/assets/images/3d/interfaces/map-glyph.png";
 import moodboardIcon from "@/shared/assets/images/3d/interfaces/moodboard.png";
 import moodboardGlyph from "@/shared/assets/images/3d/interfaces/moodboard-glyph.png";
-import timelineIcon from "@/shared/assets/images/3d/interfaces/timeline.png";
 import timelineGlyph from "@/shared/assets/images/3d/interfaces/timeline-glyph.png";
 import flowchartIcon from "@/shared/assets/images/3d/interfaces/flowchart.png";
 import flowchartGlyph from "@/shared/assets/images/3d/interfaces/flowchart-glyph.png";
-import mindmapIcon from "@/shared/assets/images/3d/interfaces/mindmap.png";
 import mindmapGlyph from "@/shared/assets/images/3d/interfaces/mindmap-glyph.png";
 import guideIcon from "@/shared/assets/images/3d/interfaces/guide.png";
 import guideGlyph from "@/shared/assets/images/3d/interfaces/guide-glyph.png";
@@ -29,7 +27,7 @@ import chatGlyph from "@/shared/assets/images/3d/interfaces/chat-glyph.png";
 import { motion, useTransform, type MotionValue } from "motion/react";
 import { cn } from "@/shared/lib/css";
 import { SHELL_META } from "../model/shell-meta";
-import type { ShellKind } from "../model/shell-types";
+import type { ChartType, ShellKind } from "../model/shell-types";
 
 // A white frosted-glass 3D object on a flat colour, the object rendered in
 // the same glass style as the product's other 3D images.
@@ -43,9 +41,7 @@ const ICON_SRC: Record<ShellKind, string> = {
   reader: readerIcon,
   map: mapIcon,
   moodboard: moodboardIcon,
-  timeline: timelineIcon,
-  flowchart: flowchartIcon,
-  mindmap: mindmapIcon,
+  chart: flowchartIcon,
   guide: guideIcon,
   chat: chatIcon,
 };
@@ -76,9 +72,7 @@ const GLYPH_SRC: Record<ShellKind, string> = {
   reader: readerGlyph,
   map: mapGlyph,
   moodboard: moodboardGlyph,
-  timeline: timelineGlyph,
-  flowchart: flowchartGlyph,
-  mindmap: mindmapGlyph,
+  chart: flowchartGlyph,
   guide: guideGlyph,
   chat: chatGlyph,
 };
@@ -142,3 +136,14 @@ export const SearchAppIcon = ({ className }: { className?: string }) => (
 export const TableAppIcon = ({ className }: { className?: string }) => (
   <ShellAppIcon kind="table" className={className} />
 );
+
+const CHART_TYPE_GLYPH: Record<ChartType, string> = {
+  mindmap: mindmapGlyph,
+  timeline: timelineGlyph,
+  flowchart: flowchartGlyph,
+};
+
+/** A chart type's own mark, for choosing between them inside Chart. */
+export function ChartTypeGlyph({ type, className }: { type: ChartType; className?: string }) {
+  return <img src={CHART_TYPE_GLYPH[type]} alt="" draggable={false} className={cn("shrink-0 object-contain", className)} />;
+}

@@ -99,6 +99,8 @@ export const ROUTES = {
   INTERFACE_LIBRARY: "/interface-library",
   // Every interface in every size and state, with no other text, for Figma.
   INTERFACE_STATES: "/interface-states",
+  // A test bed for the flexible workspace before it goes into chat.
+  WORKBENCH: "/workbench",
   USER_PROFILE: "/user-profile",
   SETTINGS: "/settings",
   PLANS: "/plans",

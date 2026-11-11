@@ -9,8 +9,18 @@ export type ShellRetrieval = {
   queries: string[];
   /** Near-miss prompts that should NOT open it. A draft that reads like one is pushed away. */
   avoidQueries: string[];
-  /** Whole words or phrases that pull this interface in as you type, on the chat home. */
+  /**
+   * Words or phrases that name this interface or the job it does. One is
+   * enough to bring it forward on the chat home. Inflections match too:
+   * "compare" also catches "comparing", "essay" also catches "essays".
+   */
   triggers: string[];
+  /**
+   * Related words that lean towards this interface without naming it
+   * ("restaurant", "budget", "colours"). One alone is not enough; two are, and
+   * one tips the balance between interfaces.
+   */
+  hints?: string[];
 };
 
 /**
@@ -34,7 +44,29 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Find studies on opening shots",
       "Make a shot list for the opening",
     ],
-    triggers: ["quick question", "what do you think", "do you think", "thoughts on", "hi", "hello", "hey", "chat", "talk through"],
+    triggers: [
+      "quick question",
+      "what do you think",
+      "do you think",
+      "thoughts on",
+      "hi",
+      "hello",
+      "hey",
+      "chat",
+      "talk through",
+      "good morning",
+      "thanks",
+      "thank you",
+      "quick one",
+      "question",
+      "opinion on",
+      "advice on",
+      "wondering",
+      "curious",
+      "help me think",
+      "think through",
+      "difference between",
+    ],
   },
   document: {
     description:
@@ -52,7 +84,64 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Explain this paper to me",
       "Make a table of essay topics with due dates",
     ],
-    triggers: ["paper", "essay", "report", "memo", "article", "brief", "email", "write", "draft", "compose"],
+    triggers: [
+      "paper",
+      "essay",
+      "report",
+      "memo",
+      "article",
+      "brief",
+      "email",
+      "write",
+      "draft",
+      "compose",
+      "letter",
+      "cover letter",
+      "blog post",
+      "blog",
+      "proposal",
+      "speech",
+      "story",
+      "poem",
+      "newsletter",
+      "press release",
+      "statement",
+      "bio",
+      "cv",
+      "resume",
+      "outline",
+      "write up",
+      "rewrite",
+      "reword",
+      "proofread",
+      "announcement",
+      "pitch",
+      "one pager",
+      "white paper",
+      "whitepaper",
+      "abstract",
+      "paragraph",
+      "thesis",
+      "dissertation",
+      "linkedin post",
+      "case study",
+    ],
+    hints: [
+      "script",
+      "post",
+      "summary",
+      "caption",
+      "introduction",
+      "words",
+      "note",
+      "message",
+      "tone",
+      "linkedin",
+      "copy",
+      "wording",
+      "page",
+      "pages",
+    ],
   },
   search: {
     description:
@@ -70,7 +159,44 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Summarise this paper on sleep and memory",
       "Show cafés near the studio on a map",
     ],
-    triggers: ["search", "find", "look up", "sources", "research", "studies", "papers on"],
+    triggers: [
+      "search",
+      "find",
+      "look up",
+      "sources",
+      "research",
+      "studies",
+      "papers on",
+      "look for",
+      "look into",
+      "google",
+      "latest",
+      "news",
+      "articles",
+      "evidence",
+      "statistics",
+      "stats",
+      "citations",
+      "literature",
+      "reviews of",
+      "search the web",
+      "what's new",
+      "find out",
+    ],
+    hints: [
+      "web",
+      "online",
+      "recent",
+      "information",
+      "info",
+      "journal",
+      "published",
+      "reviews",
+      "data",
+      "source",
+      "study",
+      "report on",
+    ],
   },
   table: {
     description:
@@ -88,7 +214,45 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Find reviews of the shortlisted cameras",
       "Build a shoot schedule from this shot list",
     ],
-    triggers: ["table", "tabulate", "shot list", "compare", "comparison", "columns", "rows", "inventory"],
+    triggers: [
+      "table",
+      "tabulate",
+      "shot list",
+      "compare",
+      "comparison",
+      "columns",
+      "rows",
+      "inventory",
+      "spreadsheet",
+      "grid",
+      "versus",
+      "vs",
+      "side by side",
+      "matrix",
+      "price list",
+      "database",
+      "leaderboard",
+      "tabular",
+      "csv",
+      "sheet",
+      "list of options",
+    ],
+    hints: [
+      "budget",
+      "specs",
+      "prices",
+      "pricing",
+      "features",
+      "options",
+      "breakdown",
+      "catalogue",
+      "catalog",
+      "costs",
+      "list",
+      "categories",
+      "organise",
+      "organize",
+    ],
   },
   schedule: {
     description:
@@ -106,7 +270,51 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Create a checklist of what to book before the shoot",
       "What time does the ferry leave?",
     ],
-    triggers: ["schedule", "gantt", "call sheet", "hour by hour", "itinerary", "setups", "breaks", "run of show"],
+    triggers: [
+      "schedule",
+      "gantt",
+      "call sheet",
+      "hour by hour",
+      "itinerary",
+      "setups",
+      "breaks",
+      "run of show",
+      "agenda",
+      "timetable",
+      "rota",
+      "roster",
+      "plan my day",
+      "plan the day",
+      "plan my week",
+      "plan the week",
+      "day plan",
+      "weekly plan",
+      "study plan",
+      "meal plan",
+      "roadmap",
+      "sprint",
+      "shifts",
+      "time block",
+      "time blocking",
+      "daily routine",
+      "running order",
+    ],
+    hints: [
+      "plan",
+      "week",
+      "days",
+      "hours",
+      "timings",
+      "weekend",
+      "trip",
+      "travel",
+      "tomorrow",
+      "morning",
+      "afternoon",
+      "shift",
+      "session",
+      "sessions",
+    ],
   },
   tracker: {
     description:
@@ -124,13 +332,64 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Plan the shoot day hour by hour",
       "Write a memo about the hiring plan",
     ],
-    triggers: ["checklist", "to-do", "todo", "to do", "tracker", "action items", "task list", "packing list", "owners", "deadlines"],
+    triggers: [
+      "checklist",
+      "to-do list",
+      "todo",
+      "tracker",
+      "action items",
+      "task list",
+      "packing list",
+      "owners",
+      "deadlines",
+      "task",
+      "to dos",
+      "todos",
+      "track",
+      "progress",
+      "milestones",
+      "shopping list",
+      "grocery list",
+      "bucket list",
+      "chores",
+      "next steps",
+      "punch list",
+      "prep list",
+      "list of things",
+      "kanban",
+      "backlog",
+      "what needs doing",
+      "need to do",
+      "need to get done",
+      "remind me",
+      "things to sort",
+      "follow ups",
+    ],
+    hints: [
+      "to-do",
+      "list",
+      "organise",
+      "organize",
+      "pack",
+      "status",
+      "done",
+      "assign",
+      "due",
+      "prepare",
+      "arrange",
+      "errands",
+      "goals",
+      "habit",
+      "moving",
+      "wedding",
+      "launch",
+    ],
   },
   calendar: {
     description:
       "Events on dates across a month: what's on, when, and at what time. Choose this when the person wants to add, move or see events, such as a shoot, a review, a deadline or a trip, on a calendar.",
     notFor:
-      "Planning what happens hour by hour within a day (use Schedule), tasks with owners (use Tracker), or what already happened (use Timeline).",
+      "Planning what happens hour by hour within a day (use Schedule), tasks with owners (use Tracker), or what already happened (use a timeline Chart).",
     queries: [
       "Put the recce, the three shoot days and the rough cut review on a December calendar",
       "Add the rough cut review to the calendar on the 17th",
@@ -142,7 +401,61 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Create a checklist with owners and deadlines",
       "What day of the week is Christmas?",
     ],
-    triggers: ["calendar", "event", "events", "on the calendar", "what's on", "dates", "save the date", "appointment", "this month", "next month"],
+    triggers: [
+      "calendar",
+      "event",
+      "on the calendar",
+      "what's on",
+      "dates",
+      "save the date",
+      "appointment",
+      "this month",
+      "next month",
+      "meeting",
+      "birthday",
+      "anniversary",
+      "reminder",
+      "book in",
+      "reschedule",
+      "diary",
+      "planner",
+      "upcoming",
+      "next week",
+      "this week",
+      "week of",
+      "rsvp",
+      "public holidays",
+      "bank holidays",
+    ],
+    hints: [
+      "january",
+      "february",
+      "march",
+      "april",
+      "june",
+      "july",
+      "august",
+      "september",
+      "october",
+      "november",
+      "december",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+      "holiday",
+      "deadline",
+      "when is",
+      "invite",
+      "party",
+      "booking",
+      "tonight",
+      "term",
+      "festival",
+    ],
   },
   reader: {
     description:
@@ -160,7 +473,61 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Find papers on location agreements",
       "What does force majeure mean?",
     ],
-    triggers: ["review this", "explain this", "this paper", "this pdf", "this document", "this contract", "agreement", "highlight", "read this", "summarise this", "summarize this", "this report", "lease"],
+    triggers: [
+      "review this",
+      "explain this",
+      "this paper",
+      "this pdf",
+      "this document",
+      "this contract",
+      "agreement",
+      "highlight",
+      "read this",
+      "summarise this",
+      "summarize this",
+      "this report",
+      "lease",
+      "attached",
+      "attachment",
+      "this file",
+      "the pdf",
+      "my pdf",
+      "this article",
+      "uploaded",
+      "this essay",
+      "this doc",
+      "the contract",
+      "my contract",
+      "terms and conditions",
+      "fine print",
+      "small print",
+      "clause",
+      "go through this",
+      "what does this say",
+      "key points",
+      "pull out",
+      "this letter",
+      "this transcript",
+      "this policy",
+      "tldr",
+      "tl dr",
+    ],
+    hints: [
+      "summarise",
+      "summarize",
+      "summary",
+      "contract",
+      "pdf",
+      "policy",
+      "terms",
+      "document",
+      "read",
+      "passage",
+      "quote",
+      "section",
+      "annotate",
+      "file",
+    ],
   },
   map: {
     description:
@@ -179,67 +546,155 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "How far is Paris from London?",
       "Make a mind map of ideas for the campaign",
     ],
-    triggers: ["map", "near", "nearby", "walking distance", "closest", "nearest", "around the corner", "directions", "route"],
+    triggers: [
+      "map",
+      "near",
+      "nearby",
+      "walking distance",
+      "closest",
+      "nearest",
+      "around the corner",
+      "directions",
+      "route",
+      "where is",
+      "where are",
+      "where can i",
+      "places to",
+      "how far",
+      "distance",
+      "restaurants",
+      "cafes",
+      "hotels",
+      "bars",
+      "pubs",
+      "close to",
+      "next to",
+      "in the area",
+      "neighbourhood",
+      "neighborhood",
+      "commute",
+      "locations",
+      "places in",
+      "spots",
+      "venues",
+      "things to do in",
+    ],
+    hints: [
+      "restaurant",
+      "cafe",
+      "hotel",
+      "shops",
+      "parking",
+      "station",
+      "airport",
+      "area",
+      "around",
+      "street",
+      "city",
+      "town",
+      "miles",
+      "km",
+      "drive",
+      "walk",
+      "visit",
+      "location",
+      "venue",
+      "beach",
+      "park",
+      "stay",
+      "eat",
+    ],
   },
-  timeline: {
+  chart: {
     description:
-      "Lay out events in time order, to show what happened when and how one thing led to another. Choose this for history, the story of a project, or a sequence of past changes.",
+      "A chart of ideas, events or a process. Pick its type from what's asked: a mind map develops ideas as branches around a central topic (brainstorming, seeing how ideas connect); a timeline lays out events in time order (history, the story of a project); a flowchart maps steps and decisions with the paths between them (a how-to with branches, a decision tree, a workflow).",
     notFor:
-      "Planning future tasks with times (use Schedule), or upcoming events on dates (use Calendar).",
-    queries: [
-      "Give me a timeline of the Harbour Pier ferry",
-      "What happened on the project so far, in order?",
-      "Show the history of 16mm film",
-      "Lay out the key events of the war in order",
-    ],
-    avoidQueries: [
-      "Build a three-day shoot schedule",
-      "Put next month's screenings on a calendar",
-      "Write a history essay on the pier",
-    ],
-    triggers: ["timeline", "history of", "chronology", "chronological", "in order of events", "what happened", "over the years", "since"],
-  },
-  flowchart: {
-    description:
-      "Map a process as steps and decisions, with the paths between them, so someone can follow it or spot where it breaks. Choose this for a how-to with branches, a decision tree or a workflow.",
-    notFor:
-      "A simple list of to-dos (use Tracker), or tasks laid out in time (use Schedule).",
-    queries: [
-      "Map out how we book a location, including what happens if it's not free",
-      "Draw a decision tree for whether to reshoot a scene",
-      "Make a flowchart of the approval process",
-      "What's the workflow from shoot to edit?",
-    ],
-    avoidQueries: [
-      "Create a checklist of what to book",
-      "Plan the shoot hour by hour",
-      "Explain how ferries dock",
-    ],
-    triggers: ["flowchart", "flow chart", "decision tree", "workflow", "process", "map out how", "if not", "what happens if", "steps"],
-  },
-  mindmap: {
-    description:
-      "Develop ideas as branches around a central topic, grouping related thoughts as they come. Choose this for brainstorming or seeing how ideas connect before structuring them.",
-    notFor:
-      "A finished outline or document (use Document), or images for a look (use Moodboard).",
+      "A finished outline or document (use Document), a simple list of to-dos (use Tracker), planning future tasks with times (use Schedule), or upcoming events on dates (use Calendar).",
     queries: [
       "Help me brainstorm the themes of the film as a mind map",
-      "Mind map ideas for the campaign",
+      "Give me a timeline of the Harbour Pier ferry",
+      "Map out how we book a location, including what happens if it's not free",
+      "Draw a decision tree for whether to reshoot a scene",
       "Branch out everything we could do for the launch",
+      "Show the history of 16mm film",
+      "What's the workflow from shoot to edit?",
       "Brainstorm angles for the documentary",
     ],
     avoidQueries: [
       "Map the cafés near the pier",
       "Write an outline for the script",
-      "Create a moodboard for the film",
+      "Create a checklist of what to book",
+      "Build a three-day shoot schedule",
+      "Put next month's screenings on a calendar",
+      "Write a history essay on the pier",
     ],
-    triggers: ["mind map", "mindmap", "brainstorm", "branch out", "ideas for", "angles for", "spider diagram"],
+    triggers: [
+      "mind map",
+      "mindmap",
+      "brainstorm",
+      "branch out",
+      "ideas for",
+      "angles for",
+      "spider diagram",
+      "timeline",
+      "history of",
+      "chronology",
+      "chronological",
+      "in order of events",
+      "what happened",
+      "over the years",
+      "flowchart",
+      "flow chart",
+      "decision tree",
+      "workflow",
+      "map out how",
+      "what happens if",
+      "diagram",
+      "org chart",
+      "concept map",
+      "family tree",
+      "key events",
+      "sequence of events",
+      "story of",
+      "evolution of",
+      "origins of",
+      "user flow",
+      "user journey",
+      "process map",
+      "process flow",
+      "process for",
+      "visualise",
+      "visualize",
+      "map out",
+      "steps and decisions",
+      "funnel",
+      "swimlane",
+      "mind mapping",
+    ],
+    hints: [
+      "ideas",
+      "themes",
+      "concepts",
+      "connections",
+      "stages",
+      "phases",
+      "process",
+      "flow",
+      "history",
+      "decision",
+      "branches",
+      "explore",
+      "era",
+      "pipeline",
+      "structure",
+      "names",
+    ],
   },
   guide: {
     description:
       "A recipe or how-to to follow along: what you need, then the steps in order, ticked off as you go, with timers where there's waiting. Recipes, flat-pack assembly, repairs, setups, workouts, garden jobs. Choose this when the person is going to do something themselves, one step at a time.",
     notFor:
-      "A team's to-dos with owners and deadlines (use Tracker), a process with decisions (use Flowchart), or learning how something works (use Explainer).",
+      "A team's to-dos with owners and deadlines (use Tracker), a process with decisions (use a flowchart Chart), or learning how something works (use Explainer).",
     queries: [
       "Give me a recipe for fish stew for the crew lunch, for 12",
       "How do I assemble an IKEA Billy bookcase?",
@@ -270,6 +725,51 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "serves",
       "cook",
       "bake",
+      "tutorial",
+      "walkthrough",
+      "diy",
+      "set up",
+      "steps to",
+      "steps for",
+      "guide to",
+      "method for",
+      "meal prep",
+      "stretches",
+      "troubleshoot",
+      "unclog",
+      "descale",
+      "how can i make",
+      "how do you make",
+      "how do you",
+    ],
+    hints: [
+      "dinner",
+      "lunch",
+      "breakfast",
+      "meal",
+      "dish",
+      "cake",
+      "bread",
+      "soup",
+      "stew",
+      "pasta",
+      "dessert",
+      "cocktail",
+      "exercise",
+      "stretch",
+      "routine",
+      "clean",
+      "replace",
+      "grow",
+      "plant",
+      "minutes",
+      "beginner",
+      "tools",
+      "how can i",
+      "how should i",
+      "make",
+      "homemade",
+      "easy",
     ],
   },
   moodboard: {
@@ -287,7 +787,58 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Write a creative brief for the campaign",
       "Find stock photo sites with free licences",
     ],
-    triggers: ["moodboard", "mood board", "inspiration", "visual references", "look and feel", "aesthetic", "palette", "vibe"],
+    triggers: [
+      "moodboard",
+      "mood board",
+      "inspiration",
+      "visual references",
+      "look and feel",
+      "aesthetic",
+      "palette",
+      "vibe",
+      "colour scheme",
+      "color scheme",
+      "colour palette",
+      "color palette",
+      "inspo",
+      "pinterest",
+      "visual direction",
+      "art direction",
+      "visual style",
+      "lookbook",
+      "look book",
+      "swatches",
+      "visual identity",
+    ],
+    hints: [
+      "colours",
+      "colors",
+      "colour",
+      "color",
+      "style",
+      "mood",
+      "look",
+      "theme",
+      "visual",
+      "visuals",
+      "images",
+      "photos",
+      "pictures",
+      "tones",
+      "textures",
+      "interior",
+      "outfit",
+      "branding",
+      "design",
+      "cosy",
+      "cozy",
+      "warm",
+      "muted",
+      "minimal",
+      "vintage",
+      "retro",
+      "references",
+    ],
   },
 };
 
@@ -297,6 +848,7 @@ export const copyShellRetrieval = (profile: ShellRetrieval): ShellRetrieval => (
   queries: [...profile.queries],
   avoidQueries: [...profile.avoidQueries],
   triggers: [...profile.triggers],
+  hints: [...(profile.hints ?? [])],
 });
 const copy = copyShellRetrieval;
 
@@ -476,17 +1028,63 @@ const QUERY_STOPWORDS = new Set([
   "turn",
 ]);
 
-function contentWords(text: string) {
+/** Lowercase, with accents folded ("cafés" is "cafes"), split into words. */
+function tokenize(text: string): string[] {
   return text
     .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .split(/[^a-z0-9+#]+/)
-    .filter((word) => word.length > 2 && !QUERY_STOPWORDS.has(word));
+    .filter(Boolean);
+}
+
+function contentWords(text: string) {
+  return tokenize(text).filter((word) => word.length > 2 && !QUERY_STOPWORDS.has(word));
+}
+
+const undouble = (stem: string) =>
+  stem.length > 2 && stem.at(-1) === stem.at(-2) ? stem.slice(0, -1) : stem;
+
+/**
+ * A word and the plainer words it may be an inflection of: "essays" is also
+ * "essay", "comparing" also "compare", "planned" also "plan". Deliberately
+ * one-way, so a listed "pros" or "papers on" still needs the plural.
+ */
+function wordForms(word: string): string[] {
+  const forms = [word];
+  if (word.length > 4 && word.endsWith("ies")) forms.push(`${word.slice(0, -3)}y`);
+  if (word.length > 4 && word.endsWith("es")) forms.push(word.slice(0, -2));
+  if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) forms.push(word.slice(0, -1));
+  if (word.length > 5 && word.endsWith("ing")) {
+    const stem = word.slice(0, -3);
+    forms.push(stem, `${stem}e`, undouble(stem));
+  }
+  if (word.length > 4 && word.endsWith("ed")) {
+    const stem = word.slice(0, -2);
+    forms.push(stem, `${stem}e`, undouble(stem));
+  }
+  return forms;
+}
+
+type DraftWords = { words: Set<string>[]; all: Set<string> };
+
+let lastDraft: { draft: string; value: DraftWords } | null = null;
+
+/** The draft's words, each with the forms it may stand for. Kept for the keystroke: every profile reads it. */
+function draftWords(draft: string): DraftWords {
+  if (lastDraft?.draft === draft) return lastDraft.value;
+  const words = tokenize(draft).map((word) => new Set(wordForms(word)));
+  const all = new Set<string>();
+  for (const forms of words) for (const form of forms) all.add(form);
+  lastDraft = { draft, value: { words, all } };
+  return lastDraft.value;
 }
 
 /** How closely a draft resembles any one of these prompts: 36 for a full match, up to 28 for most of its words. */
 function similarity(queries: string[], draft: string): number {
   const text = draft.trim().toLowerCase();
   if (text.length < 8) return 0;
+  const { all } = draftWords(draft);
   let best = 0;
   for (const query of queries) {
     const q = query.trim().toLowerCase();
@@ -497,7 +1095,7 @@ function similarity(queries: string[], draft: string): number {
     }
     const words = contentWords(q);
     if (words.length < 2) continue;
-    const hits = words.filter((word) => text.includes(word)).length;
+    const hits = words.filter((word) => wordForms(word).some((form) => all.has(form))).length;
     if (hits < 2) continue;
     const ratio = hits / words.length;
     if (ratio < 0.6) continue;
@@ -506,20 +1104,31 @@ function similarity(queries: string[], draft: string): number {
   return best;
 }
 
-/** Lowercase words separated by single spaces, padded so phrases match on word edges. */
-function wordText(text: string) {
-  return ` ${text.toLowerCase().replace(/[^a-z0-9+#]+/g, " ").trim()} `;
-}
+const phraseWords = new Map<string, string[]>();
 
-/** Which trigger words or phrases the draft contains, as whole words. */
-function triggerHits(triggers: string[], draft: string): string[] {
-  const text = wordText(draft);
-  if (text.trim().length === 0) return [];
-  return triggers.filter((trigger) => {
-    const phrase = wordText(trigger);
-    return phrase.trim() !== "" && text.includes(phrase);
+/** Which of these words or phrases the draft contains, as whole words in order, allowing for inflections. */
+function phraseHits(phrases: string[], draft: string): string[] {
+  const { words } = draftWords(draft);
+  if (words.length === 0) return [];
+  // "to-do" and "to do" are the same words, and count once.
+  const seen = new Set<string>();
+  return phrases.filter((phrase) => {
+    let parts = phraseWords.get(phrase);
+    if (!parts) phraseWords.set(phrase, (parts = tokenize(phrase)));
+    const key = parts.join(" ");
+    if (parts.length === 0 || seen.has(key)) return false;
+    seen.add(key);
+    for (let start = 0; start + parts.length <= words.length; start += 1) {
+      if (parts.every((part, i) => words[start + i]?.has(part))) return true;
+    }
+    return false;
   });
 }
+
+/** One trigger is enough to bring an interface forward; a second confirms it. */
+const TRIGGER_POINTS = 20;
+/** A hint alone stays under the floor. Two reach it, and one breaks a tie. */
+const HINT_POINTS = 10;
 
 export type ShellScore = {
   total: number;
@@ -528,19 +1137,29 @@ export type ShellScore = {
   /** Subtracted: how closely the draft reads like a "should not open" prompt. */
   avoid: number;
   matchedTriggers: string[];
+  /** Related words: weaker than triggers, counted up to two. */
+  hints: number;
+  matchedHints: string[];
 };
 
 export function scoreProfile(profile: ShellRetrieval, draft: string): ShellScore {
-  const matchedTriggers = triggerHits(profile.triggers, draft);
-  const triggers = Math.min(matchedTriggers.length, 2) * 20;
+  const matchedTriggers = phraseHits(profile.triggers, draft);
+  const triggers = Math.min(matchedTriggers.length, 2) * TRIGGER_POINTS;
+  // A hint already inside a matched trigger ("list" in "packing list") adds nothing.
+  const matchedHints = phraseHits(profile.hints ?? [], draft).filter(
+    (hint) => !matchedTriggers.some((trigger) => ` ${trigger} `.includes(` ${hint} `)),
+  );
+  const hints = Math.min(matchedHints.length, 2) * HINT_POINTS;
   const queries = similarity(profile.queries, draft);
   const avoid = similarity(profile.avoidQueries, draft);
   return {
-    total: Math.max(0, triggers + queries - avoid),
+    total: Math.max(0, triggers + hints + queries - avoid),
     triggers,
     queries,
     avoid,
     matchedTriggers,
+    hints,
+    matchedHints,
   };
 }
 
@@ -562,7 +1181,7 @@ export function shellAvoidScore(kind: ShellKind, draft: string): number {
  * whole words. Two hits count fully; more add nothing.
  */
 export function shellTriggerScore(kind: ShellKind, draft: string): number {
-  return Math.min(triggerHits(live[kind].triggers, draft).length, 2) * 20;
+  return Math.min(phraseHits(live[kind].triggers, draft).length, 2) * TRIGGER_POINTS;
 }
 
 /** Everything that says a draft is asking for this kind of interface, less what says it isn't. */
@@ -573,11 +1192,16 @@ export function shellKindScore(kind: ShellKind, draft: string): number {
   return own;
 }
 
-/** How strongly a draft asks for a particular reply format or assistant. */
+/**
+ * How strongly a draft asks for a particular reply format or assistant. One
+ * point short of the same evidence for an interface, so "best restaurants in
+ * Lisbon" is a map before it is a ranked reply.
+ */
 function chatModeScore(draft: string) {
   let persona = 0;
   for (const kind of CHAT_PERSONA_KINDS) persona = Math.max(persona, scoreProfile(livePersonas[kind], draft).total);
-  return Math.max(chatFormatFor(draft).score, persona >= SHELL_ROUTE_FLOOR ? persona : 0);
+  const mode = Math.max(chatFormatFor(draft).score, persona >= SHELL_ROUTE_FLOOR ? persona : 0);
+  return Math.max(0, mode - 1);
 }
 
 /** Which version of a chat reply a draft is asking for, if any. */

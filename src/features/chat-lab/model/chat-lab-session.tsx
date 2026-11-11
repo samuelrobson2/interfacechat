@@ -2,10 +2,8 @@ import { useChat } from "@ai-sdk/react";
 import { createContext, useContext, useEffect, useEffectEvent, useRef } from "react";
 import { userMessageSentEvent } from "../pharos/chat";
 import { getChatLabChat, useChatLabActivity } from "./chat-lab-runtime";
-import {
-  findLatestMessage,
-  useChatLabStore,
-} from "./chat-lab-store";
+import { findLatestMessage, useChatLabStore } from "./chat-lab-store";
+import { clearPeek, settleInlineForTurn } from "./chat-lab-workbench";
 
 const ChatLabSessionIdContext = createContext<string>("");
 
@@ -29,15 +27,14 @@ export function useChatLabSession() {
   const sessionId = useContext(ChatLabSessionIdContext);
   const chat = useChat({ chat: getChatLabChat(sessionId) });
   const { status, sendMessage } = chat;
-  const evaluateArtefactForTurn = useChatLabStore(
-    (state) => state.evaluateArtefactForTurn,
-  );
 
   return {
     ...chat,
     sessionId,
     sendText: (text: string) => {
-      evaluateArtefactForTurn(sessionId, text);
+      // The inline interface they've been changing moves into its own window.
+      settleInlineForTurn(sessionId);
+      clearPeek();
       return sendMessage({ text });
     },
     isPending: status === "submitted",

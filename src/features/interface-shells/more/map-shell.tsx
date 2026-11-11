@@ -127,7 +127,8 @@ function Pin({
   );
 }
 
-function MapCanvas({
+/** The drawn map: streets, the place searched around and its pins. Inline reuses it. */
+export function MapCanvas({
   data,
   size,
   onToggle,

@@ -243,7 +243,7 @@ export function FlowchartShell({
 }: ShellProps<FlowchartShellData>) {
   const [selected, setSelected] = useState<string | null>(null);
 
-  if (size === "small") return <ShellAppIcon kind="flowchart" className={className} />;
+  if (size === "small") return <ShellAppIcon kind="chart" className={className} />;
 
   const ghost = data.nodes.length === 0;
   const shown = ghost ? GHOST : data;
@@ -251,7 +251,7 @@ export function FlowchartShell({
   if (size === "medium") {
     return (
       <ShellSurface size={size} surface={surface} className={className}>
-        <PreviewHead kind="flowchart" title={data.title} />
+        <PreviewHead kind="chart" title={data.title} />
         <PreviewBody>
           <Chart data={shown} ghost={ghost} labels={false} />
         </PreviewBody>
@@ -331,7 +331,7 @@ export function FlowchartShell({
     );
     return (
       <ShellSurface size={size} surface={surface} className={className}>
-        <ShellTitle kind="flowchart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+        <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
         {update && (
           <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2">
             {action(ghost ? "Start" : "Add a step", () => addAfter("step"))}
@@ -374,7 +374,7 @@ export function FlowchartShell({
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
-      <ShellTitle kind="flowchart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+      <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
       <CanvasBoard
         width={width}
         height={height}

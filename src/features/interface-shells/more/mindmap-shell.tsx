@@ -10,8 +10,8 @@ import { ShellAppIcon } from "../ui/shell-icons";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const PURPLE = "#a45cf0";
-/** One colour per branch, so its ideas read as a group, until the person picks one. */
-const BRANCH = ["#a45cf0", "#17a9cf", "#e956a1", "#6fa63a", "#f0a23a", "#4565e6"];
+/** One colour per branch, so its ideas read as a group, until the person picks one. Inline reuses them. */
+export const BRANCH = ["#a45cf0", "#17a9cf", "#e956a1", "#6fa63a", "#f0a23a", "#4565e6"];
 
 const W = 760;
 const H = 440;
@@ -251,14 +251,14 @@ export function MindmapShell({
 }: ShellProps<MindmapShellData>) {
   const [selected, setSelected] = useState<string | null>(null);
 
-  if (size === "small") return <ShellAppIcon kind="mindmap" className={className} />;
+  if (size === "small") return <ShellAppIcon kind="chart" className={className} />;
 
   const ghost = data.branches.length === 0;
 
   if (size === "medium") {
     return (
       <ShellSurface size={size} surface={surface} className={className}>
-        <PreviewHead kind="mindmap" title={data.title} />
+        <PreviewHead kind="chart" title={data.title} />
         <PreviewBody className="items-center justify-center">
           <MindPreview data={data} />
         </PreviewBody>
@@ -297,7 +297,7 @@ export function MindmapShell({
   if (!large) {
     return (
       <ShellSurface size={size} surface={surface} className={className}>
-        <ShellTitle kind="mindmap" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+        <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
         {update && (
           <div className="px-4 pt-2">
             <AddChip size="sm" placeholder="Branch name" onSubmitValue={(label) => addBranch(label)}>
@@ -331,7 +331,7 @@ export function MindmapShell({
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
-      <ShellTitle kind="mindmap" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+      <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
       <CanvasBoard
         width={W}
         height={H}

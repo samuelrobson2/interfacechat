@@ -15,9 +15,11 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 function TriggerChips({
   triggers,
   onChange,
+  noun = "trigger",
 }: {
   triggers: string[];
   onChange: (triggers: string[]) => void;
+  noun?: string;
 }) {
   const [draft, setDraft] = useState("");
   const add = () => {
@@ -35,7 +37,7 @@ function TriggerChips({
           {trigger}
           <button
             type="button"
-            aria-label={`Remove trigger ${trigger}`}
+            aria-label={`Remove ${noun} ${trigger}`}
             onClick={() => onChange(triggers.filter((t) => t !== trigger))}
             className="grid size-4 place-items-center rounded-full text-typography-secondary hover:text-typography-primary"
           >
@@ -54,7 +56,7 @@ function TriggerChips({
         }}
         onBlur={add}
         placeholder="Add a word"
-        aria-label="Add a trigger word"
+        aria-label={`Add a ${noun} word`}
         className="h-6 w-24 bg-transparent px-1 font-bureau text-[12px] text-typography-primary outline-none placeholder:text-typography-secondary"
       />
     </div>
@@ -93,6 +95,14 @@ export function DescriptionCell({
         <TriggerChips
           triggers={profile.triggers}
           onChange={(triggers) => onChange({ ...profile, triggers })}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label>Related words</Label>
+        <TriggerChips
+          noun="related"
+          triggers={profile.hints ?? []}
+          onChange={(hints) => onChange({ ...profile, hints })}
         />
       </div>
     </div>

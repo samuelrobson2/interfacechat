@@ -38,17 +38,9 @@ export const SHELL_META: Record<ShellKind, { label: string; description: string 
     label: "Map",
     description: "Places, distances and a shortlist around a location.",
   },
-  timeline: {
-    label: "Timeline",
-    description: "Events in order, to see what happened when.",
-  },
-  flowchart: {
-    label: "Flowchart",
-    description: "Steps, decisions and the paths between them.",
-  },
-  mindmap: {
-    label: "Mind map",
-    description: "Ideas branching out from a central topic.",
+  chart: {
+    label: "Chart",
+    description: "A mind map, timeline or flowchart: ideas around a topic, events in order, or steps and decisions.",
   },
   guide: {
     label: "Guide",

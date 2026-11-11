@@ -3,7 +3,11 @@ import { nanoid } from "nanoid";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ChatShellKind, ShellDataByKind } from "@/features/interface-shells";
-import { isArtefactRelated } from "./artefact-relatedness";
+import {
+  addEntry,
+  applyLayoutChange,
+  type WorkspaceLayout,
+} from "@/features/workbench";
 import {
   createDemoThreads,
   DEMO_THREAD_SINCE,
@@ -20,6 +24,9 @@ export type ChatLabMessage = UIMessage<ChatLabMessageMetadata>;
  * shown as that interface's large size.
  */
 export type ChatLabArtefactKind = "document" | "search" | "table" | "moodboard" | "shell";
+
+/** Chat's own place in a thread's layout. Every other window is keyed by its artefact's id. */
+export const CHAT_WINDOW = "chat";
 
 /** A library interface opened beside a thread with its own data. */
 export type ArtefactShell = { [K in ChatShellKind]: { kind: K; data: ShellDataByKind[K] } }[ChatShellKind];
@@ -38,8 +45,10 @@ export type ChatLabArtefact = {
   libraryKind?: string;
   /** User message that opened this interface; bound once messages land. */
   sourceUserMessageId: string | null;
-  /** Pinned interfaces stay docked even when later turns aren't related. */
+  /** Kept from before windows: nothing reads it now. */
   pinned: boolean;
+  /** Opened by the person from the + menu, not by a reply: it isn't shown inline. */
+  added?: boolean;
   /** kind "shell": which interface it is, and its data. */
   shell?: ArtefactShell;
 };
@@ -69,8 +78,16 @@ export type ChatLabSession = {
   messages: ChatLabMessage[];
   /** Interfaces owned by turns in this thread. */
   artefacts: Record<string, ChatLabArtefact>;
-  /** Docked interface; null means normal full-chat layout. */
+  /** The interface the model sees and writes into: the window used last. */
   activeArtefactId: string | null;
+  /**
+   * Where Chat and each interface's window sit. An interface with no entry has
+   * no window: it lives in the reply that made it. Absent on threads from
+   * before windows, which get one the first time they open.
+   */
+  layout?: WorkspaceLayout;
+  /** The interface this turn's writes go to, fixed when the turn first writes. */
+  turnTarget?: { userMessageId: string; artefactId: string };
   /** The first message, sent once the session page mounts. */
   pendingMessage?: string;
   /** True until the generated short title arrives (or fails). */
@@ -112,20 +129,16 @@ type ChatLabState = {
       title: string;
       sourceUserMessageId?: string | null;
       libraryKind?: string;
+      shell?: ArtefactShell;
+      added?: boolean;
     },
   ) => string;
-  setArtefactPinned: (
-    sessionId: string,
-    artefactId: string,
-    pinned: boolean,
-  ) => void;
-  focusArtefact: (sessionId: string, artefactId: string) => void;
-  dismissArtefact: (sessionId: string) => void;
-  /**
-   * Before sending a turn: keep, keep-docked-only, or dismiss the active
-   * interface depending on relatedness + pin.
-   */
-  evaluateArtefactForTurn: (sessionId: string, text: string) => void;
+  /** Remove an interface from the thread, with its window. */
+  deleteArtefact: (sessionId: string, artefactId: string) => void;
+  /** The interface the model works on next; null for none. */
+  focusArtefact: (sessionId: string, artefactId: string | null) => void;
+  setLayout: (sessionId: string, layout: WorkspaceLayout) => void;
+  setTurnTarget: (sessionId: string, userMessageId: string, artefactId: string) => void;
   deleteSession: (id: string) => void;
   setSystemPrompt: (systemPrompt: string | null) => void;
 };
@@ -163,6 +176,36 @@ export const listSessionArtefacts = (
     return a.id.localeCompare(b.id);
   });
 };
+
+/** Chat alone, as the page. */
+export function chatOnlyLayout(now: number): WorkspaceLayout {
+  const layout = addEntry({ entries: {}, divider: 0.5 }, CHAT_WINDOW, true, now);
+  return applyLayoutChange(layout, { type: "move", id: CHAT_WINDOW, region: "main", order: 0 }, now).layout;
+}
+
+/** An interface large in the middle, with Chat in its sidebar. */
+export function interfaceFirstLayout(artefactId: string, now: number): WorkspaceLayout {
+  let layout = addEntry({ entries: {}, divider: 0.5 }, CHAT_WINDOW, true, now - 1);
+  layout = addEntry(layout, artefactId, false, now);
+  layout = applyLayoutChange(layout, { type: "move", id: artefactId, region: "main", order: 0 }, now).layout;
+  return applyLayoutChange(layout, { type: "move", id: CHAT_WINDOW, region: "left", order: 0 }, now - 1).layout;
+}
+
+/**
+ * The layout for a thread from before windows: Chat as the page, the interface
+ * that was docked beside it large, and the rest waiting in the strip.
+ */
+export function seedLayout(session: ChatLabSession): WorkspaceLayout {
+  const now = session.updatedAt;
+  const active = session.activeArtefactId;
+  let layout =
+    active && session.artefacts[active] ? interfaceFirstLayout(active, now) : chatOnlyLayout(now);
+  listSessionArtefacts(session).forEach((artefact, index) => {
+    if (layout.entries[artefact.id]) return;
+    layout = addEntry(layout, artefact.id, false, now - 1000 + index);
+  });
+  return layout;
+}
 
 function bindArtefactSources(
   session: ChatLabSession,
@@ -284,6 +327,8 @@ export const useChatLabStore = create<ChatLabState>()(
           };
           activeArtefactId = artefactId;
         }
+        // Picked on the home: the interface is the work, and Chat sits beside it.
+        const layout = activeArtefactId ? interfaceFirstLayout(activeArtefactId, now) : chatOnlyLayout(now);
         set((state) => ({
           sessions: {
             ...state.sessions,
@@ -293,6 +338,7 @@ export const useChatLabStore = create<ChatLabState>()(
               messages: [],
               artefacts,
               activeArtefactId,
+              layout,
               pendingMessage: firstMessage,
               isTitlePending: true,
               ...(options?.fromChatCard ? { fromChatCard: true } : {}),
@@ -440,6 +486,8 @@ export const useChatLabStore = create<ChatLabState>()(
                     libraryKind: input.libraryKind,
                     sourceUserMessageId: input.sourceUserMessageId ?? null,
                     pinned: false,
+                    ...(input.added ? { added: true } : {}),
+                    ...(input.shell ? { shell: input.shell } : {}),
                   },
                 },
                 activeArtefactId: artefactId,
@@ -451,24 +499,23 @@ export const useChatLabStore = create<ChatLabState>()(
         return artefactId;
       },
 
-      setArtefactPinned: (sessionId, artefactId, pinned) =>
+      deleteArtefact: (sessionId, artefactId) =>
         set((state) => {
           const session = state.sessions[sessionId];
-          const artefact = session?.artefacts[artefactId];
-          if (!session || !artefact) return state;
+          if (!session?.artefacts[artefactId]) return state;
+          const artefacts = { ...session.artefacts };
+          delete artefacts[artefactId];
+          const entries = { ...(session.layout?.entries ?? {}) };
+          delete entries[artefactId];
           return {
             sessions: {
               ...state.sessions,
               [sessionId]: {
                 ...session,
-                artefacts: {
-                  ...session.artefacts,
-                  [artefactId]: { ...artefact, pinned },
-                },
-                // Pinning also focuses so the dock stays visible.
-                activeArtefactId: pinned
-                  ? artefactId
-                  : session.activeArtefactId,
+                artefacts,
+                ...(session.layout ? { layout: { ...session.layout, entries } } : {}),
+                activeArtefactId:
+                  session.activeArtefactId === artefactId ? null : session.activeArtefactId,
                 updatedAt: Date.now(),
               },
             },
@@ -478,45 +525,37 @@ export const useChatLabStore = create<ChatLabState>()(
       focusArtefact: (sessionId, artefactId) =>
         set((state) => {
           const session = state.sessions[sessionId];
-          if (!session?.artefacts[artefactId]) return state;
+          if (!session || session.activeArtefactId === artefactId) return state;
+          if (artefactId && !session.artefacts[artefactId]) return state;
           return {
             sessions: {
               ...state.sessions,
-              [sessionId]: {
-                ...session,
-                activeArtefactId: artefactId,
-                updatedAt: Date.now(),
-              },
+              [sessionId]: { ...session, activeArtefactId: artefactId },
             },
           };
         }),
 
-      dismissArtefact: (sessionId) =>
+      // Placement only: it doesn't count as activity in the thread.
+      setLayout: (sessionId, layout) =>
         set((state) => {
           const session = state.sessions[sessionId];
-          if (!session?.activeArtefactId) return state;
-          const active = session.artefacts[session.activeArtefactId];
-          if (active?.pinned) return state;
+          if (!session || session.layout === layout) return state;
           return {
-            sessions: {
-              ...state.sessions,
-              [sessionId]: {
-                ...session,
-                activeArtefactId: null,
-                updatedAt: Date.now(),
-              },
-            },
+            sessions: { ...state.sessions, [sessionId]: { ...session, layout } },
           };
         }),
 
-      evaluateArtefactForTurn: (sessionId, text) => {
-        const session = get().sessions[sessionId];
-        const active = getActiveArtefact(session);
-        if (!session || !active) return;
-        if (isArtefactRelated(text, active)) return;
-        if (active.pinned) return;
-        get().dismissArtefact(sessionId);
-      },
+      setTurnTarget: (sessionId, userMessageId, artefactId) =>
+        set((state) => {
+          const session = state.sessions[sessionId];
+          if (!session) return state;
+          return {
+            sessions: {
+              ...state.sessions,
+              [sessionId]: { ...session, turnTarget: { userMessageId, artefactId } },
+            },
+          };
+        }),
 
       deleteSession: (id) =>
         set((state) => {

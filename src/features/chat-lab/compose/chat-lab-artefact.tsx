@@ -1,240 +1,62 @@
 import { useState } from "react";
-import { motion } from "motion/react";
-
 import {
+  EMPTY_SHELL_DATA,
+  InlineShell,
+  InlineSmall,
   InterfaceShell,
-  isChatShellKind,
   serializeMarkdownTable,
-  ShellAppIcon,
+  type InterfaceShellProps,
   type SearchShellData,
+  type ShellData,
+  type ShellKind,
   type TableShellData,
 } from "@/features/interface-shells";
-import { cn } from "@/shared/lib/css";
 import { useChatLabSession } from "../model/chat-lab-session";
+import { useChatLabStore, type ChatLabArtefact } from "../model/chat-lab-store";
 import {
-  getActiveArtefact,
-  useChatLabStore,
-  type ChatLabArtefact,
-  type ChatLabArtefactKind,
-} from "../model/chat-lab-store";
-import {
-  artefactDocument,
-  artefactSearch,
-  artefactTable,
-} from "../model/shell-adapters";
-import { MiniMoodboard } from "./mini-interfaces";
+  artefactLabel,
+  artefactOrdinal,
+  artefactShellKind,
+  flash,
+  isWindowOpen,
+  markInlineEdited,
+  openWindow,
+  useChatWorkbenchView,
+} from "../model/chat-lab-workbench";
+import { artefactDocument, artefactSearch, artefactTable } from "../model/shell-adapters";
 
-const EASE = [0.23, 1, 0.32, 1] as const;
-const SPRING = {
-  type: "spring" as const,
-  stiffness: 260,
-  damping: 30,
-  mass: 0.9,
+type ArtefactView = {
+  kind: ShellKind;
+  data: ShellData;
+  /** The model is writing to it. */
+  status?: "loading" | "idle";
+  onChange: (data: ShellData) => void;
+  onSearch?: (data: ShellData) => void;
+  onAsk: (text: string) => void;
 };
 
-const PURPLE = "#7c6fda";
-const BLUE = "#1a84ae";
-const ROSE = "#c87b9a";
-const GREEN = "#64b48f";
-
-/** Compact artefact mark for the chat header. Click jumps to its source turn. */
-export function ChatLabArtefactBadge({
-  kind: storedKind,
-  shell,
-  title,
-  className,
-  active = false,
-  onClick,
-}: {
-  kind: ChatLabArtefactKind;
-  /** A library interface's own kind, so the badge shows its icon. */
-  shell?: ChatLabArtefact["shell"];
-  title: string;
-  className?: string;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  const kind = storedKind === "shell" && shell ? shell.kind : storedKind;
-  const shellClass = cn(
-    "size-9 shrink-0 rounded-[10px] transition-[box-shadow,opacity]",
-    active ? "ring-2 ring-black/15 ring-offset-1" : "opacity-80 hover:opacity-100",
-    onClick && "cursor-pointer",
-    !isChatShellKind(kind) && "overflow-hidden",
-    className,
-  );
-  const preview = isChatShellKind(kind) ? (
-    <ShellAppIcon kind={kind} />
-  ) : (
-    <div className="size-[148px] origin-top-left scale-[0.243]">
-      <MiniMoodboard topic={title} active />
-    </div>
-  );
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        className={shellClass}
-        title={title}
-        aria-label={`Open ${title}`}
-        aria-pressed={active}
-        onClick={onClick}
-      >
-        {preview}
-      </button>
-    );
-  }
-
-  return (
-    <div className={shellClass} title={title} aria-hidden>
-      {preview}
-    </div>
-  );
-}
-
-function PinIcon({ pinned }: { pinned: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className="size-3.5"
-      fill={pinned ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.4"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8 1.75c1.1 0 2 .9 2 2v1.2l2.1.7c.4.14.65.55.55.96l-.55 2.2-1.85.7V13.5L8 12.25 5.75 13.5V9.5l-1.85-.7-.55-2.2a.75.75 0 0 1 .55-.96L6 4.95V3.75c0-1.1.9-2 2-2Z"
-      />
-    </svg>
-  );
-}
-
-function PinButton({
-  pinned,
-  onToggle,
-  className,
-}: {
-  pinned: boolean;
-  onToggle: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={pinned}
-      aria-label={pinned ? "Unpin interface" : "Pin interface"}
-      title={pinned ? "Unpin — hide when the chat moves on" : "Pin — keep this open"}
-      className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-[10px]",
-        "text-typography-secondary transition-colors",
-        "hover:bg-gray-6 hover:text-typography-primary",
-        "active:scale-[0.97]",
-        pinned && "bg-gray-6 text-typography-primary",
-        className,
-      )}
-    >
-      <PinIcon pinned={pinned} />
-    </button>
-  );
-}
-
-/** Morphing frame only — the shell inside draws the interface. */
-function ArtefactShell({
-  kind,
-  children,
-}: {
-  /** Matches the home card's layoutId so the card morphs into the panel. */
-  kind: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      layoutId={`chat-lab-artefact-${kind}`}
-      className={cn(
-        "relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[20px] bg-background-primary shadow-elevated",
-        "hairline [--hairline-radius:20px] [--hairline-color:var(--color-gray-3)] [--hairline-opacity:0.35]",
-      )}
-      transition={SPRING}
-    >
-      <motion.div
-        className="flex min-h-0 flex-1 flex-col"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.28, ease: EASE, delay: 0.2 }}
-      >
-        {children}
-      </motion.div>
-    </motion.div>
-  );
-}
-
-type PanelProps = {
-  sessionId: string;
-  artefact: ChatLabArtefact;
-  actions: React.ReactNode;
-};
-
-/** Any other library interface, at its large size, with edits kept on the artefact. */
-function LibraryPanel({ sessionId, artefact, actions }: PanelProps) {
+/**
+ * An interface as its shell sees it: the data to draw, and where edits go.
+ * A document, search and table are kept as text the model writes; every other
+ * kind keeps its shell's own data.
+ */
+function useArtefactView(sessionId: string, artefact: ChatLabArtefact): ArtefactView {
   const updateArtefact = useChatLabStore((state) => state.updateArtefact);
+  const isTarget = useChatLabStore(
+    (state) => state.sessions[sessionId]?.turnTarget?.artefactId === artefact.id,
+  );
   const { sendText, isGenerating } = useChatLabSession();
-  if (!artefact.shell) return null;
-  const shell = artefact.shell;
-  return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div className="absolute top-3 right-3 z-10">{actions}</div>
-      <InterfaceShell
-        {...({
-          kind: shell.kind,
-          size: "large",
-          surface: false,
-          data: shell.data,
-          onChange: (data: unknown) =>
-            updateArtefact(sessionId, { shell: { kind: shell.kind, data } as ChatLabArtefact["shell"] }, artefact.id),
-          // Questions asked in an interface (Reader) are answered in the thread.
-          onAsk: (text: string) => {
-            if (!isGenerating) void sendText(text);
-          },
-        } as Parameters<typeof InterfaceShell>[0])}
-      />
-    </div>
-  );
-}
+  const status = isGenerating && isTarget ? "loading" : "idle";
 
-function DocumentPanel({ sessionId, artefact, actions }: PanelProps) {
-  const updateArtefact = useChatLabStore((state) => state.updateArtefact);
-  const { isGenerating } = useChatLabSession();
-  return (
-    <InterfaceShell
-      kind="document"
-      size="large"
-      surface={false}
-      data={artefactDocument(artefact)}
-      status={isGenerating ? "loading" : "idle"}
-      actions={actions}
-      onChange={(next) =>
-        updateArtefact(sessionId, { title: next.title, content: next.body }, artefact.id)
-      }
-    />
-  );
-}
-
-function SearchPanel({ sessionId, artefact, actions }: PanelProps) {
-  const { sendText, isGenerating } = useChatLabSession();
-  const updateArtefact = useChatLabStore((state) => state.updateArtefact);
-  // Fields typed into the shell before the next search; the model's writes
-  // (a new query or filters) replace them.
-  const fromArtefact = () => ({
+  // Search: fields typed before the next search; the model's writes (a new
+  // query or filters) replace them.
+  const [draft, setDraft] = useState(() => ({
     query: artefact.title,
     filters: artefact.filters ?? [],
     queries: [] as string[],
     sources: [] as string[],
     project: undefined as string | undefined,
-  });
-  const [draft, setDraft] = useState(fromArtefact);
+  }));
   const syncKey = `${artefact.title}|${(artefact.filters ?? []).join(",")}`;
   const [syncedKey, setSyncedKey] = useState(syncKey);
   if (syncKey !== syncedKey) {
@@ -242,133 +64,184 @@ function SearchPanel({ sessionId, artefact, actions }: PanelProps) {
     setDraft((current) => ({ ...current, query: artefact.title, filters: artefact.filters ?? [] }));
   }
 
-  const data: SearchShellData = { ...artefactSearch(artefact, draft.query), ...draft };
+  // Table: a local copy keeps row and column ids stable while editing; the
+  // model's writes replace it.
+  const [table, setTable] = useState<TableShellData | null>(() =>
+    artefact.kind === "table" ? artefactTable(artefact) : null,
+  );
+  const [syncedContent, setSyncedContent] = useState(artefact.content);
+  if (artefact.kind === "table" && artefact.content !== syncedContent) {
+    setSyncedContent(artefact.content);
+    setTable(artefactTable(artefact));
+  }
 
-  const runSearch = (next: SearchShellData) => {
-    const q = next.query.trim();
-    if (!q || isGenerating) return;
-    updateArtefact(
-      sessionId,
-      { title: q, content: "", filters: next.filters },
-      artefact.id,
-    );
-    const lines = [
-      next.filters.length > 0 && `Active filters: ${next.filters.join(", ")}`,
-      next.queries.length > 0 &&
-        `Also search:\n${next.queries.map((item) => `- ${item}`).join("\n")}`,
-      next.sources?.length && `Look at these sites first: ${next.sources.join(", ")}`,
-    ].filter(Boolean);
-    void sendText(`Search the web for: ${q}${lines.length ? `\n\n${lines.join("\n\n")}` : ""}`);
+  // Questions asked in an interface (Reader) are answered in the thread.
+  const onAsk = (text: string) => {
+    if (!isGenerating) void sendText(text);
   };
 
-  return (
-    <InterfaceShell
-      kind="search"
-      size="large"
-      surface={false}
-      data={data}
-      status={isGenerating ? "loading" : "idle"}
-      actions={actions}
-      onChange={(next) =>
+  if (artefact.kind === "document") {
+    return {
+      kind: "document",
+      data: artefactDocument(artefact),
+      status,
+      onChange: (next) => {
+        const doc = next as ReturnType<typeof artefactDocument>;
+        updateArtefact(sessionId, { title: doc.title, content: doc.body }, artefact.id);
+      },
+      onAsk,
+    };
+  }
+
+  if (artefact.kind === "search") {
+    return {
+      kind: "search",
+      data: { ...artefactSearch(artefact, draft.query), ...draft },
+      status,
+      onChange: (data) => {
+        const next = data as SearchShellData;
         setDraft({
           query: next.query,
           filters: next.filters,
           queries: next.queries,
           sources: next.sources ?? [],
           project: next.project,
-        })
-      }
-      onSearch={runSearch}
-    />
-  );
-}
-
-function TablePanel({ sessionId, artefact, actions }: PanelProps) {
-  const updateArtefact = useChatLabStore((state) => state.updateArtefact);
-  const { isGenerating } = useChatLabSession();
-  // Local copy keeps row and column ids stable while editing; the model's
-  // writes replace it.
-  const [table, setTable] = useState<TableShellData>(() => artefactTable(artefact));
-  const [syncedContent, setSyncedContent] = useState(artefact.content);
-  if (artefact.content !== syncedContent) {
-    setSyncedContent(artefact.content);
-    setTable(artefactTable(artefact));
+        });
+      },
+      onSearch: (data) => {
+        const next = data as SearchShellData;
+        const q = next.query.trim();
+        if (!q || isGenerating) return;
+        updateArtefact(sessionId, { title: q, content: "", filters: next.filters }, artefact.id);
+        useChatLabStore.getState().focusArtefact(sessionId, artefact.id);
+        const lines = [
+          next.filters.length > 0 && `Active filters: ${next.filters.join(", ")}`,
+          next.queries.length > 0 && `Also search:\n${next.queries.map((item) => `- ${item}`).join("\n")}`,
+          next.sources?.length && `Look at these sites first: ${next.sources.join(", ")}`,
+        ].filter(Boolean);
+        void sendText(`Search the web for: ${q}${lines.length ? `\n\n${lines.join("\n\n")}` : ""}`);
+      },
+      onAsk,
+    };
   }
 
-  return (
-    <InterfaceShell
-      kind="table"
-      size="large"
-      surface={false}
-      data={{ ...table, title: table.title || artefact.title }}
-      status={isGenerating ? "loading" : "idle"}
-      actions={actions}
-      onChange={(next) => {
+  if (artefact.kind === "table" && table) {
+    return {
+      kind: "table",
+      data: { ...table, title: table.title || artefact.title },
+      status,
+      onChange: (data) => {
+        const next = data as TableShellData;
         const content = serializeMarkdownTable(next.columns, next.rows);
         setSyncedContent(content);
         setTable(next);
         updateArtefact(sessionId, { title: next.title, content }, artefact.id);
+      },
+      onAsk,
+    };
+  }
+
+  if (artefact.kind === "shell" && artefact.shell) {
+    const shell = artefact.shell;
+    return {
+      kind: shell.kind,
+      data: shell.data as ShellData,
+      status,
+      onChange: (data) =>
+        updateArtefact(sessionId, { shell: { kind: shell.kind, data } as ChatLabArtefact["shell"] }, artefact.id),
+      onAsk,
+    };
+  }
+
+  // A moodboard from before the library had one: its title is all it kept.
+  const kind = artefactShellKind(artefact);
+  return {
+    kind,
+    data: { ...structuredClone(EMPTY_SHELL_DATA[kind]), title: artefact.title } as ShellData,
+    onChange: () => {},
+    onAsk,
+  };
+}
+
+/** An interface in its window, at the size the window gives it. */
+export function ChatLabArtefactWindow({
+  sessionId,
+  artefact,
+  size,
+}: {
+  sessionId: string;
+  artefact: ChatLabArtefact;
+  size: InterfaceShellProps["size"];
+}) {
+  const view = useArtefactView(sessionId, artefact);
+  return (
+    <InterfaceShell
+      {...({
+        kind: view.kind,
+        size,
+        data: view.data,
+        surface: false,
+        // The window bar carries the glyph, so the shell leaves its own out.
+        mark: false,
+        ...(view.status ? { status: view.status } : {}),
+        onChange: view.onChange,
+        ...(view.onSearch ? { onSearch: view.onSearch } : {}),
+        onAsk: view.onAsk,
+      } as InterfaceShellProps)}
+    />
+  );
+}
+
+/**
+ * An interface in the reply that made it: inline medium, or inline small
+ * pointing at its window while that's open.
+ */
+export function ChatLabArtefactInline({
+  sessionId,
+  artefact,
+}: {
+  sessionId: string;
+  artefact: ChatLabArtefact;
+}) {
+  const view = useArtefactView(sessionId, artefact);
+  const ordinal = useChatLabStore((state) => artefactOrdinal(state.sessions[sessionId], artefact.id));
+  const open = useChatLabStore((state) => isWindowOpen(state.sessions[sessionId]?.layout, artefact.id));
+  const selected = useChatWorkbenchView((state) => state.inlineEditing === artefact.id);
+
+  if (open) {
+    return (
+      <InlineSmall
+        kind={view.kind}
+        data={view.data}
+        ordinal={ordinal}
+        action={`Open in ${artefactLabel(artefact)}${ordinal ? ` ${ordinal}` : ""}`}
+        onClick={() => {
+          useChatLabStore.getState().focusArtefact(sessionId, artefact.id);
+          flash(artefact.id);
+        }}
+      />
+    );
+  }
+
+  const select = () => {
+    markInlineEdited(artefact.id);
+    // Clicking into it is choosing to work on it.
+    useChatLabStore.getState().focusArtefact(sessionId, artefact.id);
+  };
+
+  return (
+    <InlineShell
+      kind={view.kind}
+      data={view.data}
+      selected={selected}
+      onSelect={select}
+      onChange={(data) => {
+        view.onChange(data);
+        select();
       }}
+      onOpen={() => flash(openWindow(sessionId, artefact.id, "support"))}
+      // Its content lines up with the reply's text.
+      className="-mx-6"
     />
-  );
-}
-
-function MoodboardBody({ title }: { title: string }) {
-  const palette = [PURPLE, BLUE, ROSE, GREEN, BLUE, PURPLE];
-
-  return (
-    <div className="relative min-h-0 flex-1 p-4 md:p-5">
-      <div className="grid h-full min-h-[220px] grid-cols-3 grid-rows-3 gap-2 md:gap-3">
-        {palette.map((color, i) => (
-          <div
-            key={i}
-            className={cn("rounded-[14px]", i === 0 && "col-span-2 row-span-2")}
-            style={{ backgroundColor: color }}
-          />
-        ))}
-      </div>
-      {title.trim() ? (
-        <div className="absolute bottom-6 left-6 max-w-[70%] truncate rounded-full bg-white/95 px-3 py-1.5 text-[12px] font-medium shadow-sm">
-          {title}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/** Expanded artefact panel — morphs from the matching shell on the home screen. */
-export function ChatLabArtefactPanel({ sessionId }: { sessionId: string }) {
-  const artefact = useChatLabStore((state) =>
-    getActiveArtefact(state.sessions[sessionId]),
-  );
-  const setArtefactPinned = useChatLabStore((state) => state.setArtefactPinned);
-
-  if (!artefact) return null;
-
-  const pin = (
-    <PinButton
-      pinned={artefact.pinned}
-      onToggle={() => setArtefactPinned(sessionId, artefact.id, !artefact.pinned)}
-    />
-  );
-  const panel = { sessionId, artefact, actions: pin };
-
-  return (
-    <ArtefactShell kind={artefact.kind === "shell" && artefact.shell ? artefact.shell.kind : artefact.kind}>
-      {artefact.kind === "shell" && <LibraryPanel key={artefact.id} {...panel} />}
-      {artefact.kind === "document" && <DocumentPanel key={artefact.id} {...panel} />}
-      {artefact.kind === "search" && <SearchPanel key={artefact.id} {...panel} />}
-      {artefact.kind === "table" && <TablePanel key={artefact.id} {...panel} />}
-      {artefact.kind === "moodboard" && (
-        <>
-          <PinButton
-            pinned={artefact.pinned}
-            onToggle={() => setArtefactPinned(sessionId, artefact.id, !artefact.pinned)}
-            className="absolute top-2.5 right-2.5 z-10"
-          />
-          <MoodboardBody title={artefact.title} />
-        </>
-      )}
-    </ArtefactShell>
   );
 }

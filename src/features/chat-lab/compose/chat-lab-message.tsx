@@ -22,7 +22,8 @@ import {
 import { ChatSourcesPopup, type ChatSource } from "./chat-lab-sources";
 import { reasoningText } from "../model/agent-activity";
 import { useChatLabSession } from "../model/chat-lab-session";
-import { getMessageText, type ChatLabMessage } from "../model/chat-lab-store";
+import { getMessageText, type ChatLabArtefact, type ChatLabMessage } from "../model/chat-lab-store";
+import { ChatLabArtefactInline } from "./chat-lab-artefact";
 import { AgentIsland } from "./agent-island";
 
 function sourcesFromMessage(message: ChatLabMessage): ChatSource[] {
@@ -98,11 +99,14 @@ function AgentThought({
 export function ChatLabMessageItem({
   message,
   isLatestAssistantMessage,
+  inline,
 }: {
   message: ChatLabMessage;
   isLatestAssistantMessage: boolean;
+  /** Interfaces this reply made, shown under its text. */
+  inline?: ChatLabArtefact[];
 }) {
-  const { isGenerating, isTextGenerating, regenerate } = useChatLabSession();
+  const { sessionId, isGenerating, isTextGenerating, regenerate } = useChatLabSession();
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const text = getMessageText(message);
   const sources = sourcesFromMessage(message);
@@ -127,7 +131,7 @@ export function ChatLabMessageItem({
     <ChatAssistantMessageLayout
       data-message-id={message.id}
       data-role="assistant"
-      className={cn(text ? "gap-4" : "gap-0")}
+      className={cn(text || inline?.length ? "gap-4" : "gap-0")}
     >
       <ChatAssistantFrame
         isActive={isLatestAssistantMessage && isGenerating}
@@ -147,6 +151,11 @@ export function ChatLabMessageItem({
             isStreaming={isStreaming}
           />
         )}
+        {inline?.map((artefact) => (
+          <div key={artefact.id} className="order-2 md:order-0">
+            <ChatLabArtefactInline sessionId={sessionId} artefact={artefact} />
+          </div>
+        ))}
       </ChatAssistantFrame>
 
       {isLatestAssistantMessage && !isGenerating && (
@@ -206,11 +215,12 @@ export function ChatAssistantFrame({
 }: React.PropsWithChildren<{ isActive: boolean; preload: boolean }>) {
   return (
     <div className="relative flex min-w-0 flex-col gap-4">
-      <aside className="order-1 md:absolute md:right-full md:top-0 md:order-0 md:mr-4 md:w-66.25">
+      {/* In a narrow Chat there's no gutter: the avatar sits above the reply. */}
+      <aside className="order-1 group-data-narrow/chat:static! group-data-narrow/chat:mr-0! group-data-narrow/chat:w-auto! md:absolute md:right-full md:top-0 md:order-0 md:mr-4 md:w-66.25">
         <ChatAiAvatar
           active={isActive}
           preload={preload}
-          className="pointer-events-none w-[32px] select-none md:absolute md:right-0 md:-top-4 md:w-[50px]"
+          className="pointer-events-none w-[32px] select-none group-data-narrow/chat:static! group-data-narrow/chat:w-[32px]! md:absolute md:right-0 md:-top-4 md:w-[50px]"
         />
       </aside>
       {children}

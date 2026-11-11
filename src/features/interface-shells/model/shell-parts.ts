@@ -34,7 +34,8 @@ export type ShellPartType =
   | "steps"
   | "format"
   | "persona"
-  | "facts";
+  | "facts"
+  | "choice";
 
 export type ShellPart = {
   key: string;
@@ -78,6 +79,7 @@ export const SHELL_PART_TYPE_HINT: Record<ShellPartType, string> = {
   steps: "Steps in order, each with an optional timer",
   format: "How a reply's text is laid out",
   persona: "Who replies",
+  choice: "One of the listed options",
   facts: "Short labelled values, such as Serves 12",
 };
 
@@ -137,18 +139,19 @@ export const SHELL_PARTS: Record<ShellKind, ShellPart[]> = {
     { key: "filters", label: "Filters", type: "tags", description: "Constraints such as open by 7am or seats 8." },
     { key: "places", label: "Places", type: "places", description: "Real places with a distance. Shortlisted ones are starred." },
   ],
-  timeline: [
-    { key: "title", label: "Title", type: "text", required: true, description: "What the timeline covers." },
-    { key: "events", label: "Events", type: "events", required: true, description: "What happened, each with a date (a year, YYYY-MM or YYYY-MM-DD) and a line of detail." },
-  ],
-  flowchart: [
-    { key: "title", label: "Title", type: "text", required: true, description: "The process." },
-    { key: "nodes", label: "Steps", type: "flow", required: true, description: "One start, the steps and yes/no decisions, and the ends." },
-    { key: "edges", label: "Paths", type: "flow", description: "Arrows between steps. A decision's two paths are labelled Yes and No." },
-  ],
-  mindmap: [
-    { key: "title", label: "Centre", type: "text", required: true, description: "The central topic." },
-    { key: "branches", label: "Branches", type: "branches", required: true, description: "Four to six main ideas, each with a few ideas of its own." },
+  chart: [
+    { key: "title", label: "Title", type: "text", required: true, description: "The central topic, what the timeline covers, or the process." },
+    {
+      key: "type",
+      label: "Type",
+      type: "choice",
+      required: true,
+      description: "Which chart fits what's asked: mindmap for ideas around a topic, timeline for events in order, flowchart for steps and decisions.",
+    },
+    { key: "branches", label: "Branches", type: "branches", description: "Mind map: four to six main ideas, each with a few ideas of its own." },
+    { key: "events", label: "Events", type: "events", description: "Timeline: what happened, each with a date (a year, YYYY-MM or YYYY-MM-DD) and a line of detail." },
+    { key: "nodes", label: "Steps", type: "flow", description: "Flowchart: one start, the steps and yes/no decisions, and the ends." },
+    { key: "edges", label: "Paths", type: "flow", description: "Flowchart: arrows between steps. A decision's two paths are labelled Yes and No." },
   ],
   guide: [
     { key: "title", label: "Title", type: "text", required: true, description: "What it makes or gets done." },

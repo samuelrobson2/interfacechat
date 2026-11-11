@@ -18,9 +18,7 @@ export const HOME_POSITIONS: Record<ChatShellKind, { x: number; y: number }> = {
   reader: { x: -760, y: -380 },
   map: { x: 760, y: -380 },
   moodboard: { x: -760, y: 380 },
-  timeline: { x: 760, y: 380 },
-  flowchart: { x: 0, y: -580 },
-  mindmap: { x: 0, y: 580 },
+  chart: { x: 760, y: 380 },
 };
 
 /** How far to pan so a tile sits in the middle; home when nothing is open. */

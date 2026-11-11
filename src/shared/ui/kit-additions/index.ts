@@ -22,6 +22,7 @@ export * from "./dataset-switch-panel";
 export * from "./draft-card";
 export * from "./floating-window";
 export * from "./connections-menu";
+export * from "./chat-tools";
 export * from "./interface-picker-menu";
 export * from "./publish-menu";
 export * from "./data-models-catalog";

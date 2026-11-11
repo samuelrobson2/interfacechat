@@ -144,7 +144,10 @@ export function HomeField({
   disabled,
   handingOff,
   onSubmit,
+  lift = 0,
 }: {
+  /** Pixels the middle sits above the container's, to clear what floats over the bottom. */
+  lift?: number;
   field: HomeFieldState;
   headline: React.ReactNode;
   disabled: boolean;
@@ -220,7 +223,7 @@ export function HomeField({
         className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
         style={{ x: dragX, y: dragY }}
       >
-      <motion.div className="absolute top-1/2 left-1/2 size-0" style={{ scale }}>
+      <motion.div className="absolute left-1/2 size-0" style={{ scale, top: `calc(50% - ${lift}px)` }}>
         <motion.div initial={false} animate={pan} transition={reduce ? { duration: 0 } : PAN} className="absolute top-0 left-0 size-0">
           <motion.div
             className="pointer-events-none absolute top-0 left-0 w-[640px] -translate-x-1/2 -translate-y-1/2 text-center"

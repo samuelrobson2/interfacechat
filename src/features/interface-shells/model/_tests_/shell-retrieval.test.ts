@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { chartTypeFor } from "../chart";
 import {
   SHELL_RETRIEVAL,
   copyShellRetrieval,
@@ -69,17 +70,89 @@ describe("shell retrieval", () => {
     ["Explain this paper on sleep spindles to me", "reader"],
     ["Summarise this report and show where the risks are", "reader"],
     ["Write a paper on sleep spindles", "document"],
-    ["Give me a timeline of the history of cinema", "timeline"],
-    ["Draw a decision tree for whether to reshoot", "flowchart"],
-    ["Brainstorm names for the production company", "mindmap"],
+    ["Give me a timeline of the history of cinema", "chart"],
+    ["Draw a decision tree for whether to reshoot", "chart"],
+    ["Brainstorm names for the production company", "chart"],
     ["A recipe for lemon drizzle cake, step by step", "guide"],
-    ["Make a mind map of ideas for the launch", "mindmap"],
+    ["Make a mind map of ideas for the launch", "chart"],
     ["How do I put together a flat-pack desk?", "guide"],
     ["How do I fix a leaking radiator?", "guide"],
     ["A 20-minute yoga workout for beginners", "guide"],
     ["Install a smart thermostat, step by step", "guide"],
   ])("generalises: %s goes to %s", (draft, kind) => {
     expect(routeShellDraft(draft).kind).toBe(kind);
+  });
+
+  it.each([
+    ["Give me a timeline of the history of cinema", "timeline"],
+    ["Draw a decision tree for whether to reshoot", "flowchart"],
+    ["Map out how we book a location, including what happens if it's not free", "flowchart"],
+    ["Brainstorm names for the production company", "mindmap"],
+    ["Make a mind map of ideas for the launch", "mindmap"],
+  ] as const)("picks the chart type: %s is a %s", (draft, type) => {
+    expect(chartTypeFor(draft)).toBe(type);
+  });
+
+  // Everyday phrasings that name no interface outright.
+  it.each([
+    ["Help me with my essays for uni applications", "document"],
+    ["I'm writing a cover letter for a design job", "document"],
+    ["Need a speech for my sister's wedding", "document"],
+    ["What's the latest news on electric cars", "search"],
+    ["Look for articles about sleep and memory", "search"],
+    ["Compare iPhone vs Pixel", "table"],
+    ["Comparing three laptops by price and battery", "table"],
+    ["Budget breakdown for the kitchen renovation", "table"],
+    ["Plan a trip to Japan for ten days", "schedule"],
+    ["Revision timetable for my exams", "schedule"],
+    ["Weekly meal plan for a family of four", "schedule"],
+    ["Help me organise my tasks for the house move", "tracker"],
+    ["What do I need to do before the wedding", "tracker"],
+    ["Shopping list for a dinner party", "tracker"],
+    ["Set up a meeting with the team next Tuesday", "calendar"],
+    ["What have I got on this week", "calendar"],
+    ["Summarise the attached contract", "reader"],
+    ["Go through the pdf and pull out the fees", "reader"],
+    ["Best restaurants in Lisbon", "map"],
+    ["Where can I get good coffee in Shoreditch", "map"],
+    ["Things to do in Rome this weekend", "map"],
+    ["cafés near the pier", "map"],
+    ["Diagram of how our onboarding process works", "chart"],
+    ["Brainstorming names for my bakery", "chart"],
+    ["The story of the Roman empire, key events", "chart"],
+    ["Easy dinner I can make in 20 minutes", "guide"],
+    ["How can I make sourdough bread at home", "guide"],
+    ["Stretches for a stiff lower back", "guide"],
+    ["Colour palette for a cosy living room", "moodboard"],
+    ["Outfit inspo for a summer wedding", "moodboard"],
+    ["I need pictures and colours for the brand look", "moodboard"],
+  ])("hears everyday wording: %s goes to %s", (draft, kind) => {
+    expect(routeShellDraft(draft).kind).toBe(kind);
+  });
+
+  it.each([
+    "What time does the ferry leave?",
+    "What does force majeure mean?",
+    "What day of the week is Christmas?",
+    "How far is Paris from London?",
+    "Is it going to rain tomorrow",
+    "I had a really long day today",
+    "Help me prepare for a job interview",
+    "Wedding planning",
+    "Make it shorter",
+  ])("stays quiet on %s", (draft) => {
+    expect(routeShellDraft(draft).kind).toBeNull();
+  });
+
+  it("needs two related words, or one beside a trigger", () => {
+    expect(shellKindScore("map", "a restaurant")).toBe(10);
+    expect(shellKindScore("map", "a restaurant in town")).toBe(20);
+    expect(shellKindScore("map", "restaurant near me")).toBe(30);
+  });
+
+  it("matches inflections one way: a plural trigger still needs the plural", () => {
+    expect(shellKindScore("table", "comparing")).toBe(20);
+    expect(chatFormatFor("a pro camera").format).toBeNull();
   });
 
   it("sends a greeting to chat, and leaves noise unrouted", () => {

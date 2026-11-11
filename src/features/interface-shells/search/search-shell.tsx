@@ -17,6 +17,7 @@ import { CONTENT_PANEL, PreviewBody, PreviewHead } from "../ui/shell-kit";
 import { resultDomain } from "../model/search-results";
 import type { SearchShellData, ShellProps } from "../model/shell-types";
 import { SearchAppIcon, ShellGlyph } from "../ui/shell-icons";
+import { useShellMark } from "../ui/shell-mark";
 import { ActionPill, AddChip, Kbd, ShellField, SoftChip } from "../ui/shell-fields";
 import {
   AutoTextarea,
@@ -116,16 +117,14 @@ function QueryField({
   onChange: (query: string) => void;
   onSubmit: () => void;
 }) {
+  const mark = useShellMark(large ? "large" : "medium-plus");
   const textClass = cn(
     "font-bureau font-normal text-typography-primary",
     large ? "text-[20px] leading-[1.35] tracking-[-0.2px]" : "text-[14px] leading-[1.35]",
   );
   return (
     <div className="flex min-w-0 flex-1 items-start gap-2">
-      <ShellGlyph
-        kind="search"
-        className={large ? "mt-0.5 size-6" : "mt-px size-4"}
-      />
+      {mark && <ShellGlyph kind="search" className={large ? "mt-0.5 size-6" : "mt-px size-4"} />}
       {editable ? (
         <AutoTextarea
           value={value}
@@ -568,7 +567,7 @@ export function SearchShell({
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
-      <div className="flex shrink-0 items-start gap-2 px-6 pt-6">
+      <div className="flex shrink-0 items-start gap-2 px-6 pt-3">
         <div className="flex min-w-0 flex-1 rounded-[16px] bg-gray-6 px-4 py-3">{query}</div>
         {actions}
       </div>

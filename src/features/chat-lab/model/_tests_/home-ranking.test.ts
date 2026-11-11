@@ -152,7 +152,7 @@ describe("rankHome", () => {
     const first = rankHome({ tiles, draft: "quarterly report" });
     const next = rankHome({
       tiles,
-      draft: "quarterly report: search and find papers on sleep and memory",
+      draft: "quarterly report: search and look up studies on sleep and memory",
       previous: first.memory,
     });
     expect(next.leader?.tileId).toBe("blank-search");

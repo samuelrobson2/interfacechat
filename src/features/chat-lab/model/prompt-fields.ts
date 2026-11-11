@@ -50,9 +50,7 @@ export const PROMPT_SEED: Record<ChatShellKind, string> = {
   reader: "Explain this document: ",
   map: "Show me places near ",
   moodboard: "Make a moodboard for ",
-  timeline: "Give me a timeline of ",
-  flowchart: "Make a flowchart of ",
-  mindmap: "Brainstorm ",
+  chart: "Brainstorm ",
   guide: "Give me a recipe for ",
 };
 

@@ -10,9 +10,7 @@ export const SHELL_KINDS = [
   "reader",
   "map",
   "moodboard",
-  "timeline",
-  "flowchart",
-  "mindmap",
+  "chart",
   "guide",
 ] as const;
 export type ShellKind = (typeof SHELL_KINDS)[number];
@@ -288,6 +286,27 @@ export type GuideShellData = ProjectSlot & {
   steps: GuideStep[];
 };
 
+/**
+ * What a Chart draws: ideas branching from a topic, events in order, or steps
+ * and decisions. The model picks it from what's asked; the person can switch.
+ */
+export const CHART_TYPES = ["mindmap", "timeline", "flowchart"] as const;
+export type ChartType = (typeof CHART_TYPES)[number];
+
+/**
+ * One interface for three kinds of chart. Each type's content is kept, so
+ * switching type never loses work: `branches` for a mind map, `events` for a
+ * timeline, `nodes` and `edges` for a flowchart. The title is shared.
+ */
+export type ChartShellData = ProjectSlot & {
+  title: string;
+  type: ChartType;
+  branches: MindmapNode[];
+  events: TimelineEvent[];
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+};
+
 export type ChatMessage = { id: string; role: "user" | "assistant"; text: string };
 
 /** How a chat reply's text is laid out. "plain" is an ordinary answer. */
@@ -317,9 +336,7 @@ export type ShellDataByKind = {
   reader: ReaderShellData;
   map: MapShellData;
   moodboard: MoodboardShellData;
-  timeline: TimelineShellData;
-  flowchart: FlowchartShellData;
-  mindmap: MindmapShellData;
+  chart: ChartShellData;
   guide: GuideShellData;
 };
 
@@ -339,6 +356,11 @@ export type ShellProps<D> = {
   status?: ShellStatus;
   /** Draw the shell's own surface; off when a host frame already draws one. */
   surface?: boolean;
+  /**
+   * Draw the glyph beside the title. Off by default at large, where the
+   * window's bar carries it; a host that frames other sizes can turn it off.
+   */
+  mark?: boolean;
   /** Host controls at the end of the large shell's toolbar (pin, close…). */
   actions?: React.ReactNode;
   className?: string;

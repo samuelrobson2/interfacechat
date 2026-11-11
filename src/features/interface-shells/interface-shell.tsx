@@ -7,9 +7,7 @@ import type {
 } from "./model/shell-types";
 import { SearchShell } from "./search/search-shell";
 import { CalendarShell } from "./more/calendar-shell";
-import { TimelineShell } from "./more/timeline-shell";
-import { FlowchartShell } from "./more/flowchart-shell";
-import { MindmapShell } from "./more/mindmap-shell";
+import { ChartShell } from "./more/chart-shell";
 import { GuideShell } from "./more/guide-shell";
 import { ChatShell } from "./more/chat-shell";
 import { MapShell } from "./more/map-shell";
@@ -18,6 +16,7 @@ import { ReaderShell } from "./more/reader-shell";
 import { ScheduleShell } from "./more/schedule-shell";
 import { TrackerShell } from "./more/tracker-shell";
 import { TableShell } from "./table/table-shell";
+import { ShellMarkContext } from "./ui/shell-mark";
 
 export type InterfaceShellProps<K extends ShellKind = ShellKind> = {
   [Kind in K]: ShellProps<ShellDataByKind[Kind]> & {
@@ -29,6 +28,14 @@ export type InterfaceShellProps<K extends ShellKind = ShellKind> = {
 
 /** One entry point for every interface in the library, at any size. */
 export function InterfaceShell(props: InterfaceShellProps) {
+  return (
+    <ShellMarkContext.Provider value={props.mark}>
+      <ShellBySize {...props} />
+    </ShellMarkContext.Provider>
+  );
+}
+
+function ShellBySize(props: InterfaceShellProps) {
   switch (props.kind) {
     case "chat":
       return <ChatShell {...props} />;
@@ -50,12 +57,8 @@ export function InterfaceShell(props: InterfaceShellProps) {
       return <MapShell {...props} />;
     case "moodboard":
       return <MoodboardShell {...props} />;
-    case "timeline":
-      return <TimelineShell {...props} />;
-    case "flowchart":
-      return <FlowchartShell {...props} />;
-    case "mindmap":
-      return <MindmapShell {...props} />;
+    case "chart":
+      return <ChartShell {...props} />;
     case "guide":
       return <GuideShell {...props} />;
   }

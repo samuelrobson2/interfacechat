@@ -2,7 +2,7 @@ import {
   SHELL_META,
   SHELL_ROUTE_FLOOR,
   shellKindScore,
-  shellRetrieval,
+  shellScoreBreakdown,
   type ChatShellKind,
 } from "@/features/interface-shells";
 import {
@@ -180,7 +180,9 @@ export const DETAIL_TERMS = 2;
 /** Words in the draft that say what it's about, not which interface it wants. */
 export function detailTerms(draft: string, kind: ChatShellKind) {
   const naming = new Set<string>();
-  for (const phrase of [...shellRetrieval(kind).triggers, SHELL_META[kind].label])
+  // Only the words that named the interface in this draft: "week" is detail in
+  // "a schedule for the launch week", even though "plan my week" is a trigger.
+  for (const phrase of [...shellScoreBreakdown(kind, draft).matchedTriggers, SHELL_META[kind].label])
     for (const term of contentTerms(phrase)) naming.add(term);
   return [...contentTerms(draft)].filter((term) => !naming.has(term));
 }

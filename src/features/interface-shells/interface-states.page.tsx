@@ -1,6 +1,9 @@
 import { Text } from "@/shared/ui/kit/text";
 import { cn } from "@/shared/lib/css";
 import { EditOverlay } from "./compose/edit-overlay";
+import { InlineMedium } from "./inline/inline-medium";
+import { InlineSmall } from "./inline/inline-small";
+import { hasInline } from "./inline/inline-summary";
 import { InterfaceShell, type InterfaceShellProps } from "./interface-shell";
 import { SHELL_FIXTURES } from "./model/shell-fixtures";
 import { contentFor, hasSize, SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES } from "./model/shell-meta";
@@ -29,18 +32,34 @@ const MIN_STAGE_WIDTH = 120;
 /** Sizes up to this wide share one stage height; bigger ones get their own. */
 const COMPACT_UP_TO = 480;
 
-type Column = { size: ShellSize; state: ShellState; label: string };
+type InlineSize = "small" | "medium";
 
-/** One column per size, and one per state where the size shows states. */
-const COLUMNS: Column[] = SHELL_SIZES.flatMap((size) =>
-  STATEFUL_SIZES.includes(size)
-    ? SHELL_STATES.map((state) => ({
-        size,
-        state,
-        label: `${SIZE_META[size].label} · ${STATE_META[state].label}`,
-      }))
-    : [{ size, state: contentFor(size, "empty"), label: SIZE_META[size].label }],
-);
+type Column = { size: ShellSize; state: ShellState; label: string; inline?: InlineSize };
+
+/** Inline columns share Large's size and state, so they need their own key. */
+const columnKey = (column: Column) => `${column.inline ? `inline-${column.inline}` : column.size}-${column.state}`;
+
+/** Inline sits in a chat reply, as wide as the chat's text. */
+const INLINE_WIDTH: Record<InlineSize, number> = { small: 420, medium: 520 };
+
+/**
+ * One column per size, and one per state where the size shows states, then
+ * the two inline sizes: how each interface sits in a chat reply. Large is
+ * always its own window.
+ */
+const COLUMNS: Column[] = [
+  ...SHELL_SIZES.flatMap((size) =>
+    STATEFUL_SIZES.includes(size)
+      ? SHELL_STATES.map((state) => ({
+          size,
+          state,
+          label: `${SIZE_META[size].label} · ${STATE_META[state].label}`,
+        }))
+      : [{ size, state: contentFor(size, "empty"), label: SIZE_META[size].label }],
+  ),
+  { size: "large", state: "history", label: "Inline · Small", inline: "small" },
+  { size: "large", state: "history", label: "Inline · Medium", inline: "medium" },
+];
 
 /** The library's order, with Chat last: it's the conversation, not a surface. */
 const ROW_KINDS: ShellKind[] = [
@@ -48,8 +67,10 @@ const ROW_KINDS: ShellKind[] = [
   ...SHELL_KINDS.filter((kind) => kind === "chat"),
 ];
 
-const stageWidth = (size: ShellSize) =>
-  Math.max(MIN_STAGE_WIDTH, SHELL_DIMENSIONS[size].width + STAGE_PADDING);
+const stageWidth = (column: Column) =>
+  column.inline
+    ? INLINE_WIDTH[column.inline] + STAGE_PADDING
+    : Math.max(MIN_STAGE_WIDTH, SHELL_DIMENSIONS[column.size].width + STAGE_PADDING);
 
 /** Compact sizes share the tallest compact height so they line up; larger ones fit themselves. */
 const COMPACT_HEIGHT =
@@ -61,7 +82,7 @@ const COMPACT_HEIGHT =
 const stageHeight = (size: ShellSize) =>
   Math.max(COMPACT_HEIGHT, SHELL_DIMENSIONS[size].height + STAGE_PADDING);
 
-const GRID_TEMPLATE = COLUMNS.map((column) => `${stageWidth(column.size)}px`).join(" ");
+const GRID_TEMPLATE = COLUMNS.map((column) => `${stageWidth(column)}px`).join(" ");
 
 const DOTS = {
   backgroundImage: "radial-gradient(circle at 1px 1px, rgba(26,23,24,0.07) 1px, transparent 0)",
@@ -71,6 +92,22 @@ const DOTS = {
 function Stage({ kind, column }: { kind: ShellKind; column: Column }) {
   // A size the interface doesn't come in leaves its cell empty, so the columns still line up.
   if (!hasSize(kind, column.size)) return <div aria-hidden />;
+  if (column.inline) {
+    // On white, as in a reply: no stage box behind it, because inline has none.
+    if (!hasInline(kind)) return <div aria-hidden />;
+    const data = SHELL_FIXTURES[kind].states[column.state];
+    return (
+      <div
+        aria-label={`${SHELL_META[kind].label}, ${column.label}`}
+        className="flex items-start justify-center pt-5"
+        style={{ height: stageHeight(column.size) }}
+      >
+        <div style={{ width: INLINE_WIDTH[column.inline] }}>
+          {column.inline === "small" ? <InlineSmall kind={kind} data={data} /> : <InlineMedium kind={kind} data={data} />}
+        </div>
+      </div>
+    );
+  }
   const { width, height: shellHeight } = SHELL_DIMENSIONS[column.size];
   const props = {
     kind,
@@ -113,7 +150,7 @@ function StatesRow({ kind }: { kind: ShellKind }) {
       </div>
       <div className="grid items-start gap-x-6" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
         {COLUMNS.map((column) => (
-          <Stage key={`${column.size}-${column.state}`} kind={kind} column={column} />
+          <Stage key={columnKey(column)} kind={kind} column={column} />
         ))}
       </div>
     </section>
@@ -134,7 +171,7 @@ function InterfaceStatesPage() {
           <div className="grid items-center gap-x-6" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
             {COLUMNS.map((column) => (
               <span
-                key={`${column.size}-${column.state}`}
+                key={columnKey(column)}
                 className="font-bureau text-[13px] text-typography-primary"
               >
                 {column.label}

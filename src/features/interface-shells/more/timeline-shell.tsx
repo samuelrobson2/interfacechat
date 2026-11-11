@@ -7,7 +7,8 @@ import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle } from "..
 import { ShellAppIcon } from "../ui/shell-icons";
 import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
-const LIME = "#6fa63a";
+/** The default event colour. Inline reuses it. */
+export const LIME = "#6fa63a";
 
 /** "1898", "2024-03" or "2024-03-05" as a number of years, for ordering and spacing. */
 function when(date: string) {
@@ -64,7 +65,7 @@ export function TimelineShell({
   className,
 }: ShellProps<TimelineShellData>) {
   const [selected, setSelected] = useState<string | null>(null);
-  if (size === "small") return <ShellAppIcon kind="timeline" className={className} />;
+  if (size === "small") return <ShellAppIcon kind="chart" className={className} />;
 
   const events = sorted(data.events);
   const ghost = events.length === 0;
@@ -74,7 +75,7 @@ export function TimelineShell({
     const at = positions(shown);
     return (
       <ShellSurface size={size} surface={surface} className={className}>
-        <PreviewHead kind="timeline" title={data.title} />
+        <PreviewHead kind="chart" title={data.title} />
         {/* Shapes, not words: a line with stops, and small event cards above and below it. */}
         <PreviewBody className="justify-center">
           <div className="relative mx-1 h-[78px]">
@@ -135,7 +136,7 @@ export function TimelineShell({
   if (!large) {
     return (
       <ShellSurface size={size} surface={surface} className={className}>
-        <ShellTitle kind="timeline" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+        <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
         <ShellBody size={size} className="gap-2">
           <ol className="relative flex flex-col gap-1.5 pl-1">
             <span className="absolute top-1.5 bottom-1.5 left-[9px] w-0.5 rounded-full bg-gray-3/25" />
@@ -207,7 +208,7 @@ export function TimelineShell({
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
-      <ShellTitle kind="timeline" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+      <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
       <CanvasBoard
         width={sceneWidth}
         height={SCENE_HEIGHT}

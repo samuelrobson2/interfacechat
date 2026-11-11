@@ -1,27 +1,15 @@
-import { useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TrashIcon } from "@/shared/assets/icons/general/Trash";
 import { ROUTES } from "@/shared/model/routes";
-import { ChatHeader, ChatHeadingMenuItem, ChatHeadingTitle } from "../pharos/chat";
-import { userMessageSentEvent } from "../pharos/chat/conversation/lib/chat-scroll-events";
+import { ChatHeadingMenuItem, ChatHeadingTitle } from "../pharos/chat";
 import { disposeChatLabChat } from "../model/chat-lab-runtime";
-import {
-  cleanTitle,
-  listSessionArtefacts,
-  useChatLabStore,
-} from "../model/chat-lab-store";
-import { ChatLabArtefactBadge } from "./chat-lab-artefact";
-import { ChatLabToolbar } from "./chat-lab-toolbar";
+import { cleanTitle, useChatLabStore } from "../model/chat-lab-store";
 
-/** Title stays centered. Toolbar icons sit on the page's right edge. */
-export function ChatLabHeading({ sessionId }: { sessionId: string }) {
+/** The thread's name and picture, centred in the workbench's top bar. Click the name to rename or delete. */
+export function ChatLabTitle({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
-  const session = useChatLabStore((state) => state.sessions[sessionId]);
-  const artefacts = useMemo(() => listSessionArtefacts(session), [session]);
-  const activeArtefactId = session?.activeArtefactId ?? null;
-  const title = session?.title;
-  const focusArtefact = useChatLabStore((state) => state.focusArtefact);
+  const title = useChatLabStore((state) => state.sessions[sessionId]?.title);
   const renameSession = useChatLabStore((state) => state.renameSession);
   const deleteSession = useChatLabStore((state) => state.deleteSession);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -37,60 +25,26 @@ export function ChatLabHeading({ sessionId }: { sessionId: string }) {
     navigate(ROUTES.CHAT_LAB);
   };
 
-  const handleArtefactClick = (artefactId: string, sourceUserMessageId: string | null) => {
-    focusArtefact(sessionId, artefactId);
-    if (sourceUserMessageId) {
-      userMessageSentEvent.emit(sourceUserMessageId);
-    }
-  };
-
   return (
     <>
-      <ChatHeader>
-        <div className="flex items-center gap-2.5">
-          {artefacts.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              {artefacts.map((artefact) => (
-                <ChatLabArtefactBadge
-                  key={artefact.id}
-                  kind={artefact.kind}
-                  shell={artefact.shell}
-                  title={artefact.title}
-                  active={artefact.id === activeArtefactId}
-                  onClick={() =>
-                    handleArtefactClick(
-                      artefact.id,
-                      artefact.sourceUserMessageId,
-                    )
-                  }
-                />
-              ))}
-            </div>
-          )}
-          <ChatHeadingTitle
-            title={cleanTitle(title ?? "") || "Untitled chat"}
-            renameLabel="Rename chat"
-            isEditing={isEditingTitle}
-            onStartEditing={() => setIsEditingTitle(true)}
-            onRename={handleRename}
-            onCancel={() => setIsEditingTitle(false)}
-          >
-            <ChatHeadingMenuItem onSelect={handleDelete}>
-              <TrashIcon
-                svgClasses="size-4 shrink-0"
-                pathClasses="stroke-icon-primary"
-              />
-              Delete chat
-            </ChatHeadingMenuItem>
-          </ChatHeadingTitle>
-        </div>
-      </ChatHeader>
-      {createPortal(
-        <div className="fixed top-0 right-4 z-40 flex h-[72px] items-center md:right-6 md:h-[52px]">
-          <ChatLabToolbar />
-        </div>,
-        document.body,
-      )}
+      <img
+        src={`https://picsum.photos/seed/chat-${sessionId}/96/96`}
+        alt=""
+        className="size-8 shrink-0 rounded-full object-cover"
+      />
+      <ChatHeadingTitle
+        title={cleanTitle(title ?? "") || "Untitled chat"}
+        renameLabel="Rename chat"
+        isEditing={isEditingTitle}
+        onStartEditing={() => setIsEditingTitle(true)}
+        onRename={handleRename}
+        onCancel={() => setIsEditingTitle(false)}
+      >
+        <ChatHeadingMenuItem onSelect={handleDelete}>
+          <TrashIcon svgClasses="size-4 shrink-0" pathClasses="stroke-icon-primary" />
+          Delete chat
+        </ChatHeadingMenuItem>
+      </ChatHeadingTitle>
     </>
   );
 }

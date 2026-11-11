@@ -5,9 +5,11 @@ import {
   ChatBubbleSuggestions,
   ChatComposerInput,
   ChatComposerShell,
+  ChatInputLayout,
   ChatSuggestionsBoundary,
   type BubbleSuggestionsVariant,
 } from "../pharos/chat";
+import { ChatComposerTools } from "@/shared/ui/kit-additions";
 import { ChatTurnSuggestions } from "../pharos/chat-feature/suggestions/compose/chat-turn-suggestions";
 import { chatLabQueryOptions } from "../model/chat-lab-api";
 import { useChatLabSession } from "../model/chat-lab-session";
@@ -19,8 +21,15 @@ import { findLatestMessage } from "../model/chat-lab-store";
  */
 export function ChatLabComposer({
   inputLayoutRef,
+  mode = "full",
 }: {
-  inputLayoutRef: (element: HTMLDivElement | null) => void;
+  inputLayoutRef?: (element: HTMLDivElement | null) => void;
+  /**
+   * "full" has the suggestion cards, and needs a wide Chat. "compact" is the
+   * input alone at the bottom of a narrower Chat. "floating" is the input on
+   * the page, while Chat is minimized.
+   */
+  mode?: "full" | "compact" | "floating";
 }) {
   const {
     sessionId,
@@ -79,12 +88,33 @@ export function ChatLabComposer({
 
   const suggestionsSlot = getSuggestionsSlot();
 
+  if (mode !== "full") {
+    const field = (
+      <ChatInputLayout className="pointer-events-auto shadow-[0_4px_16px_rgba(26,23,24,0.06)]">
+        <ChatComposerInput
+          leftActions={<ChatComposerTools />}
+          onSubmit={(text) => void sendText(text)}
+          onStop={() => void stop()}
+          isStoppable={isGenerating}
+          isSubmitDisabled={isGenerating}
+        />
+      </ChatInputLayout>
+    );
+    if (mode === "floating") return field;
+    return (
+      <div ref={inputLayoutRef} className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pt-4 pb-2">
+        <div className="mx-auto w-full max-w-[660px]">{field}</div>
+      </div>
+    );
+  }
+
   return (
     <ChatComposerShell
       ref={inputLayoutRef}
       input={(slotProps) => (
         <ChatComposerInput
           {...slotProps}
+          leftActions={<ChatComposerTools />}
           onSubmit={(text) => void sendText(text)}
           onStop={() => void stop()}
           isStoppable={isGenerating}

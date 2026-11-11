@@ -4,9 +4,21 @@ import {
   stepCountIs,
   streamText,
   tool,
+  type ToolSet,
   type UIMessage,
 } from "ai";
 import { z } from "zod";
+import {
+  CATALOGUE,
+  CATALOGUE_KINDS,
+  applyCatalogueOperations,
+  catalogueSummary,
+  isCatalogueKind,
+  operationSchema,
+  readCatalogueValue,
+  type CatalogueKind,
+  type CatalogueValue,
+} from "../src/features/interface-shells/model/shell-catalogue.js";
 import { chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT } from "./_chat-lab.js";
 import {
   apiKeyMissing,
@@ -20,11 +32,13 @@ import {
 // pharos backend. Requires OPENAI_API_KEY; OPENAI_CHAT_MODEL picks the model.
 export const maxDuration = 60;
 
-type InterfaceKind = "document" | "search" | "table" | "moodboard";
+type InterfaceKind = "document" | "search" | "table" | "moodboard" | "tracker";
 
 type ArtefactContext = {
   kind: InterfaceKind | "shell";
   title: string;
+  /** A catalogue interface's contents, as JSON in its schema's shape. */
+  value?: string;
   /** Active filter chips already on the search interface. */
   filters?: string[];
   /** kind "shell": which library interface is open, and its contents as JSON. */
@@ -41,7 +55,34 @@ type InterfaceCandidate = {
   opensAs: InterfaceKind;
 };
 
+/** A catalogue interface that's open: how to fill it and how to change part of it. */
+const catalogueSystemAddon = (kind: CatalogueKind, artefact: ArtefactContext) => {
+  const entry = CATALOGUE[kind];
+  const name = entry.label.toLowerCase();
+  const contents = artefact.value
+    ? `Its current contents, as JSON (list positions start at 0):\n${artefact.value}`
+    : "Its contents are too long to show here.";
+  const change = artefact.value
+    ? kind === "document"
+      ? "- To rename it, call update_interface with a replace on /title. To change the writing, call fill_document with the new body."
+      : `- To change part of it (a ${kind === "table" ? "cell, row or column" : "item, an owner, what's done"}, the title), call update_interface with the
+  fewest operations that do it. Don't resend the whole ${name} for a small change.
+  If update_interface returns an error, fix the path or value and call it again.`
+    : "";
+  return `
+The user has an open ${entry.label} interface titled "${artefact.title}". ${entry.description}
+${contents}
+
+Routing rules:
+- To write it or rewrite most of it, call ${entry.tool}. It appears in the ${name} as you write it.
+${change}
+${entry.guidance.map((line) => `- ${line}`).join("\n")}
+- Keep chat messages short: what you did, or a question. Do not paste the ${name} into chat.
+- If the user is just chatting, reply in chat only and skip the tools.`;
+};
+
 const artefactSystemAddon = (artefact: ArtefactContext) => {
+  if (isCatalogueKind(artefact.kind)) return catalogueSystemAddon(artefact.kind, artefact);
   if (artefact.kind === "shell") {
     return `
 The user has a ${artefact.label ?? "library"} interface titled "${artefact.title}" open beside the chat.
@@ -52,21 +93,6 @@ Routing rules:
 - Do not call write_interface or open_interface: this interface is edited by the user.
 - Answer in chat, referring to what's in it by name, and suggest concrete changes
   they can make (a task to move, an item to add) in a sentence or two.`;
-  }
-  if (artefact.kind === "document") {
-    return `
-The user has an open Document interface titled "${artefact.title}".
-
-Routing rules:
-- Work in stages: outline, then a section, then revise. Prefer updating one
-  stage at a time over dumping a finished paper.
-- When producing or revising the document itself, call write_interface with the
-  full markdown body for the current stage. Do not paste the full document into
-  the chat.
-- Keep chat messages short: questions, options, or what to decide next. Help
-  the user develop their own reasoning rather than picking wording or a
-  conclusion for them.
-- If the user is just chatting, reply in chat only and skip write_interface.`;
   }
   if (artefact.kind === "search") {
     const activeFilters =
@@ -97,24 +123,6 @@ Routing rules:
 - If the user is just chatting (not searching), reply in chat only and skip
   web_search and write_interface.`;
   }
-  if (artefact.kind === "table") {
-    return `
-The user has an open Table interface titled "${artefact.title}".
-
-Routing rules:
-- When building or revising the table, call write_interface with content as one
-  GitHub-flavoured markdown table: a header row, a --- separator row, then one
-  row per item. Always send the full table, not just the changed rows.
-- If the user listed columns (e.g. "Columns: Shot, Framing, Cast"), use exactly
-  those columns in that order. Otherwise choose a few clear columns.
-- Keep cells short (a few words). Repeat the same wording for categories so they
-  read as tags (e.g. "Wide", "Close-up").
-- For picture columns, put a markdown image in the cell: ![alt](https://…).
-  Only use real image URLs (from web_search); otherwise leave the cell empty.
-- Keep chat messages short: what you filled in or a clarifying question. Do not
-  paste the table into chat.
-- If the user is just chatting, reply in chat only and skip write_interface.`;
-  }
   return `
 The user has an open Moodboard interface titled "${artefact.title}".
 
@@ -135,18 +143,21 @@ const candidatesSystemAddon = (candidates: InterfaceCandidate[]) => {
     items.map((candidate, index) => `${index + 1}. id="${candidate.id}" (${candidate.label})${arrow(candidate)}: ${candidate.description}`).join("\n");
   const interfaceBlock = interfaces.length
     ? `
-Interfaces (surfaces to open beside the chat), retrieved for this turn:
+Interfaces (surfaces shown with your reply, which the user can move into a window), retrieved for this turn:
 ${list(interfaces, (c) => ` → opens as ${c.opensAs}`)}
 
 - If an interface clearly fits, call open_interface with that candidate's id and
   a short title for it. Prefer the listed candidates only.
-- Right after opening, call write_interface to seed the interface body (and
-  filters for search). Keep the chat reply short.
+- Right after opening, fill it. A Document, Table or Tracker has its own tool
+  (${CATALOGUE_KINDS.map((kind) => CATALOGUE[kind].tool).join(", ")}): it appears in the interface as you write it. For
+  anything else call write_interface with the body (and filters for search).
+  Keep the chat reply short.
 - For search, call web_search before write_interface, and write one result per
   line as "- [Title](https://source.url) — one-sentence finding".
-- For a table, write the content as one GitHub-flavoured markdown table (header
-  row, --- separator, one row per item, short cells).
-- Never open more than one interface in a single turn.`
+${CATALOGUE_KINDS.flatMap((kind) => CATALOGUE[kind].guidance.map((line) => `- ${CATALOGUE[kind].label}: ${line}`)).join("\n")}
+- Never open more than one interface in a single turn.
+- Don't say where the interface is on screen (no "side panel" or "on the right"):
+  the user places it. Refer to it by what it is, as in "the table".`
     : "";
   const formatBlock = formats.length
     ? `
@@ -248,6 +259,58 @@ export async function POST(req: Request) {
         })
       : null;
 
+  // Catalogue interfaces: the one that's open, or the ones this turn could open.
+  const openKind = artefact && isCatalogueKind(artefact.kind) ? artefact.kind : null;
+  const fillKinds: CatalogueKind[] = openKind
+    ? [openKind]
+    : artefact
+      ? []
+      : CATALOGUE_KINDS.filter((kind) => candidates.some((candidate) => candidate.layer !== "format" && candidate.opensAs === kind));
+  // What the open interface holds as this request goes on, so a later change is checked against it.
+  let current: CatalogueValue | null = null;
+  if (openKind && artefact?.value) {
+    try {
+      current = readCatalogueValue(openKind, JSON.parse(artefact.value));
+    } catch {
+      current = null;
+    }
+  }
+  const fillTools: ToolSet = Object.fromEntries(
+    fillKinds.map((kind) => [
+      CATALOGUE[kind].tool,
+      tool({
+        description: `Fill the ${CATALOGUE[kind].label} interface. ${CATALOGUE[kind].description} It is drawn as you write, so put the title first.`,
+        inputSchema: CATALOGUE[kind].schema,
+        execute: async (input: unknown) => {
+          const value = readCatalogueValue(kind, input);
+          if (!value) return { ok: false as const, error: "Nothing to fill." };
+          if (kind === openKind) current = value;
+          return { ok: true as const, filled: catalogueSummary(kind, value) };
+        },
+      }),
+    ]),
+  );
+  const updateTool: ToolSet =
+    openKind && current
+      ? {
+          update_interface: tool({
+            description: `Change part of the open ${CATALOGUE[openKind].label} without rewriting it: add, replace or remove at a path.`,
+            inputSchema: z.object({ operations: z.array(operationSchema).min(1) }),
+            execute: async ({ operations }) => {
+              if (!current) return { ok: false as const, error: "Nothing is open to change." };
+              const result = applyCatalogueOperations(openKind, current, operations);
+              if (!result.ok) return { ok: false as const, error: result.error };
+              current = result.value;
+              return { ok: true as const, now: catalogueSummary(openKind, result.value) };
+            },
+          }),
+        }
+      : {};
+  // Search and Moodboard are still written as text.
+  const needsWrite = artefact
+    ? !openKind && artefact.kind !== "shell"
+    : candidates.some((candidate) => candidate.layer !== "format" && !isCatalogueKind(candidate.opensAs));
+
   const started = logAiStart(
     "chat-lab",
     `${model} · ${messages.length} message(s)${artefact ? ` · ${artefact.kind}` : ""}${candidates.length ? ` · ${candidates.length} candidates` : ""}`,
@@ -257,14 +320,14 @@ export async function POST(req: Request) {
     model: openai.responses(model),
     tools: {
       web_search: openai.tools.webSearch({ searchContextSize: "low" }),
-      ...(artefact || candidates.length > 0
-        ? { write_interface: writeInterfaceTool }
-        : {}),
+      ...(needsWrite ? { write_interface: writeInterfaceTool } : {}),
+      ...fillTools,
+      ...updateTool,
       ...(!artefact && openInterfaceSchema
         ? {
             open_interface: tool({
               description:
-                "Open one retrieved interface for this turn. Skip this tool to stay in plain chat. Follow with write_interface to fill it.",
+                "Open one retrieved interface for this turn. Skip this tool to stay in plain chat. Follow with its fill tool, or write_interface, to fill it.",
               inputSchema: openInterfaceSchema,
               execute: async ({ id, title }) => {
                 const match = candidates.find((candidate) => candidate.id === id);

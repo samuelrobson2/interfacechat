@@ -1,19 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { href, useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useSessionStore } from "@/services/auth";
 import { ArrowDownIcon } from "@/shared/assets/icons/outlined/ArrowDown";
 import { CrossLargeIcon } from "@/shared/assets/icons/outlined/CrossLarge";
-import { useIsMobile } from "@/shared/lib/react/use-mobile";
 import { type PathParams, ROUTES } from "@/shared/model/routes";
 import { GradientText } from "@/shared/ui/gradient-text";
 import { Text } from "@/shared/ui/kit/text";
 import { HomeField } from "./compose/home-field";
 import type { StarterField } from "./compose/visual-starter-suggestions";
-import { ChatLabArtefactPanel } from "./compose/chat-lab-artefact";
+import { ChatLabArtefactWindow } from "./compose/chat-lab-artefact";
 import { ChatLabComposer } from "./compose/chat-lab-composer";
 import { ChatLabConversation } from "./compose/chat-lab-conversation";
-import { ChatLabHeading } from "./compose/chat-lab-heading";
+import { ChatLabTitle } from "./compose/chat-lab-heading";
 import {
   ChatComposerInput,
   ChatInputLayout,
@@ -32,7 +31,33 @@ import { isFillableKind, type ChatShellData } from "@/features/interface-shells"
 
 /** What a Chat card says, in the person's words: how the first reply is laid out, and who replies. */
 type ChatModes = { format?: string; persona?: string };
-import { getActiveArtefact, useChatLabStore, type ArtefactShell } from "./model/chat-lab-store";
+import { CHAT_WINDOW, useChatLabStore, type ArtefactShell } from "./model/chat-lab-store";
+import {
+  addInterface,
+  artefactLabel,
+  artefactWindowTitle,
+  clearInlineEditing,
+  clearPeek,
+  layoutOf,
+  preview,
+  redo,
+  removeWindow,
+  setWorkspaceWidth,
+  touch,
+  transact,
+  undo,
+  useChatWorkbenchView,
+  workbenchInstances,
+} from "./model/chat-lab-workbench";
+import {
+  ReplyPeek,
+  shellSizeFor,
+  WorkbenchSurface,
+  type LayoutEntry,
+  type Rect,
+  type WorkbenchHost,
+  type WorkbenchInstance,
+} from "@/features/workbench";
 import { titleOf, type KindData } from "./model/home-tiles";
 import { useHomeField, type HomeField as HomeFieldState } from "./model/use-home-field";
 import {
@@ -48,7 +73,6 @@ import {
   type VisualInterfaceKind,
 } from "./model/visual-interfaces";
 
-const EASE = [0.23, 1, 0.32, 1] as const;
 /** Brief beat so siblings/orb can fade before the shared-element morph. */
 const HANDOFF_MS = 140;
 const MORPH_SPRING = {
@@ -118,8 +142,10 @@ function StarterView({
       className="absolute inset-0 flex w-full flex-col items-center overflow-hidden"
       exit={{ opacity: 1, transition: { duration: 0.5 } }}
     >
-      <div className="relative w-full flex-1">
+      {/* The field is the whole page; the input floats over its bottom edge. */}
+      <div className="absolute inset-0">
         <HomeField
+          lift={HOME_INPUT_LIFT}
           field={field}
           disabled={isStarting}
           handingOff={handingOff}
@@ -133,10 +159,10 @@ function StarterView({
         />
       </div>
 
-      <ChatLayout className="w-full px-6 pb-8 md:w-[780px] md:px-0 md:pb-10">
+      <ChatLayout className="pointer-events-none absolute bottom-0 w-full px-6 pb-8 md:w-[780px] md:px-0 md:pb-10">
         <motion.div
           layoutId="chat-lab-composer"
-          className="w-full"
+          className="pointer-events-auto w-full"
           transition={MORPH_SPRING}
           animate={{ opacity: focused ? 0.55 : 1 }}
         >
@@ -165,21 +191,17 @@ function SessionView({ sessionId }: { sessionId: string }) {
   );
 }
 
-/** Past this length, a document docks beside chat instead of stacked below. */
-const DOCUMENT_SIDE_CHARS = 900;
+/** How far the home's middle sits above the page's, to clear the input. */
+const HOME_INPUT_LIFT = 70;
 
-function SessionViewInner({ sessionId }: { sessionId: string }) {
-  const isMobile = useIsMobile();
-  useChatLabSessionEffects(sessionId);
+/** Below this a Chat frame has no gutter for the avatar, and the reply fills the frame. */
+const NARROW_CHAT = 800;
+/** The suggestion cards need this much room beside the input. */
+const SUGGESTIONS_CHAT = 920;
+
+/** The conversation, as the body of the workbench's Chat frame. Its input is here while Chat is open. */
+function ChatPane({ width, open }: { width: number; open: boolean }) {
   const { isGenerating, isPending, stop } = useChatLabSession();
-  const artefact = useChatLabStore((state) =>
-    getActiveArtefact(state.sessions[sessionId]),
-  );
-  const hasArtefact = Boolean(artefact);
-  const sideBySide =
-    !isMobile &&
-    artefact?.kind === "document" &&
-    artefact.content.trim().length >= DOCUMENT_SIDE_CHARS;
   const {
     inputLayoutRef,
     conversationRef,
@@ -189,84 +211,25 @@ function SessionViewInner({ sessionId }: { sessionId: string }) {
     showScrollToBottom,
     handleScrollToBottom,
   } = useChatScroll();
-
+  const narrow = width < NARROW_CHAT;
   const showStopResponse = isGenerating && !isPending;
 
   return (
-    <ChatLayout className="relative flex h-dvh max-w-[1280px] flex-col overflow-hidden">
-      <motion.div
-        className="shrink-0"
-        initial={{ opacity: 0, y: -6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.32, ease: EASE, delay: 0.12 }}
-      >
-        <ChatLabHeading sessionId={sessionId} />
-      </motion.div>
+    <div className="group/chat relative h-full" data-narrow={narrow || undefined}>
+      <ChatLabConversation
+        className="h-full w-full"
+        conversationRef={conversationRef}
+        ref={conversationScrollRef}
+        contentClassName={narrow ? "md:w-full md:max-w-[660px] md:px-4" : undefined}
+        style={{ paddingTop: 16, paddingBottom: totalBottomPadding }}
+      />
 
-      <div
-        className={
-          hasArtefact
-            ? sideBySide
-              ? "grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-hidden px-4 pt-[72px] md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-6 md:px-6 md:pt-[56px]"
-              : "flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 pt-[72px] md:gap-4 md:px-6 md:pt-[56px]"
-            : "contents"
-        }
-        style={
-          hasArtefact
-            ? { paddingBottom: Math.max(totalBottomPadding - 24, 120) }
-            : undefined
-        }
-      >
-        <motion.div
-          className={
-            hasArtefact
-              ? sideBySide
-                ? "flex min-h-0 min-w-0 flex-col overflow-hidden"
-                : "flex max-h-[38%] min-h-0 w-full shrink-0 flex-col overflow-hidden"
-              : "contents"
-          }
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.36,
-            ease: EASE,
-            delay: hasArtefact ? 0.18 : 0.08,
-          }}
-        >
-          <ChatLabConversation
-            className="min-h-0 w-full flex-1"
-            conversationRef={conversationRef}
-            ref={conversationScrollRef}
-            contentClassName={
-              hasArtefact ? "md:w-full md:max-w-none px-0" : undefined
-            }
-            style={
-              hasArtefact
-                ? { paddingTop: 8, paddingBottom: 8 }
-                : {
-                    paddingTop: isMobile ? 88 : 75,
-                    paddingBottom: totalBottomPadding,
-                  }
-            }
-          />
-        </motion.div>
-
-        {hasArtefact && (
-          <div
-            className={
-              sideBySide
-                ? "flex min-h-0 min-w-0 flex-col overflow-hidden"
-                : "flex min-h-0 w-full flex-1 flex-col overflow-hidden"
-            }
-          >
-            <ChatLabArtefactPanel sessionId={sessionId} />
-          </div>
-        )}
-      </div>
-
-      <motion.div layoutId="chat-lab-composer" transition={MORPH_SPRING}>
-        <ChatLabComposer inputLayoutRef={inputLayoutRef} />
-      </motion.div>
+      {open && (
+        <ChatLabComposer
+          inputLayoutRef={inputLayoutRef}
+          mode={width >= SUGGESTIONS_CHAT ? "full" : "compact"}
+        />
+      )}
 
       {(showStopResponse || showScrollToBottom) && (
         <div
@@ -274,11 +237,7 @@ function SessionViewInner({ sessionId }: { sessionId: string }) {
           className="absolute left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-3"
         >
           {showScrollToBottom && (
-            <ChatPillButton
-              shape="icon-round"
-              onClick={handleScrollToBottom}
-              aria-label="Scroll to bottom"
-            >
+            <ChatPillButton shape="icon-round" onClick={handleScrollToBottom} aria-label="Scroll to bottom">
               <ArrowDownIcon svgClasses="size-6" />
             </ChatPillButton>
           )}
@@ -292,7 +251,126 @@ function SessionViewInner({ sessionId }: { sessionId: string }) {
           )}
         </div>
       )}
-    </ChatLayout>
+    </div>
+  );
+}
+
+/**
+ * A thread is a workbench: Chat is the page, and the interfaces it makes open
+ * beside it, minimize to the strip and move. See docs/workbench.md.
+ */
+function SessionViewInner({ sessionId }: { sessionId: string }) {
+  useChatLabSessionEffects(sessionId);
+  const { isGenerating, sendText } = useChatLabSession();
+  const session = useChatLabStore((state) => state.sessions[sessionId]);
+  const flashId = useChatWorkbenchView((state) => state.flashId);
+  const peek = useChatWorkbenchView((state) => (state.peek?.sessionId === sessionId ? state.peek : null));
+
+  // Threads from before the workbench get a layout the first time they're opened.
+  useEffect(() => {
+    layoutOf(sessionId);
+  }, [sessionId]);
+
+  // Escape puts a selected inline interface back: inline, and staying in the reply.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      clearInlineEditing();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const layout = session?.layout;
+  const artefacts = session?.artefacts;
+  const instances = useMemo(
+    () => (session && layout ? workbenchInstances(session, layout) : []),
+    // Only what's in the thread and where it sits changes the windows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [artefacts, layout],
+  );
+
+  const host = useMemo<WorkbenchHost>(() => {
+    const artefactOf = (id: string) => useChatLabStore.getState().sessions[sessionId]?.artefacts?.[id];
+    return {
+      touch: (id) => touch(sessionId, id),
+      labelOf: (id) => {
+        const artefact = artefactOf(id);
+        return artefact ? artefactLabel(artefact) : "Chat";
+      },
+      titleOf: (id) => {
+        const artefact = artefactOf(id);
+        return artefact ? artefactWindowTitle(artefact) : "Chat";
+      },
+    };
+    // Read through the store at call time; this keeps titles fresh on render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, artefacts]);
+
+  if (!session || !layout) return null;
+  const chatOpen = layout.entries[CHAT_WINDOW]?.presentation !== "minimized";
+
+  const renderBody = (instance: WorkbenchInstance, entry: LayoutEntry, rect: Rect | undefined) => {
+    if (instance.id === CHAT_WINDOW) return <ChatPane width={rect?.width ?? 0} open={chatOpen} />;
+    const artefact = session.artefacts?.[instance.id];
+    if (!artefact) return null;
+    return (
+      <ChatLabArtefactWindow
+        key={artefact.id}
+        sessionId={sessionId}
+        artefact={artefact}
+        size={shellSizeFor(entry, rect)}
+      />
+    );
+  };
+
+  /** Large layouts sit 24px in, cards 16px; Chat follows its own padding. */
+  const insetFor = (instance: WorkbenchInstance, entry: LayoutEntry, rect: Rect | undefined) => {
+    if (instance.id === CHAT_WINDOW) return (rect?.width ?? 0) < 520 ? 8 : 16;
+    return shellSizeFor(entry, rect) === "large" ? 24 : 16;
+  };
+
+  /** A change asked for on something highlighted: the person's turn, about that interface. */
+  const sendHighlightEdit = (instance: WorkbenchInstance, quote: string, instruction: string) => {
+    if (isGenerating) return;
+    if (instance.id !== CHAT_WINDOW) useChatLabStore.getState().focusArtefact(sessionId, instance.id);
+    void sendText(quote ? `${instruction}: “${quote}”` : instruction);
+  };
+
+  return (
+    <WorkbenchSurface
+      className="h-dvh w-full"
+      instances={instances}
+      layout={layout}
+      chatId={CHAT_WINDOW}
+      host={host}
+      transact={(change) => transact(sessionId, change)}
+      preview={(change) => preview(sessionId, change)}
+      undo={() => undo(sessionId)}
+      redo={() => redo(sessionId)}
+      onWidth={setWorkspaceWidth}
+      title={<ChatLabTitle sessionId={sessionId} />}
+      onAdd={(kind) => addInterface(sessionId, kind)}
+      onRemove={(id) => removeWindow(sessionId, id)}
+      renderBody={renderBody}
+      insetFor={insetFor}
+      onHighlightEdit={sendHighlightEdit}
+      flashId={flashId}
+      floating={
+        <>
+          {peek && (
+            <ReplyPeek
+              text={peek.text}
+              onOpen={() => {
+                clearPeek();
+                transact(sessionId, { type: "open", id: CHAT_WINDOW });
+              }}
+            />
+          )}
+          <ChatLabComposer mode="floating" />
+        </>
+      }
+    />
   );
 }
 

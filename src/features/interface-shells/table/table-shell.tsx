@@ -8,6 +8,7 @@ import {
   type TableShellData,
 } from "../model/shell-types";
 import { ShellGlyph, TableAppIcon } from "../ui/shell-icons";
+import { useShellMark } from "../ui/shell-mark";
 import { ShellFooter } from "../ui/shell-meta";
 import {
   Bar,
@@ -346,6 +347,7 @@ export function TableShell({
   className,
 }: ShellProps<TableShellData>) {
   const editable = Boolean(onChange);
+  const mark = useShellMark(size);
 
   if (size === "small") return <TableAppIcon className={className} />;
 
@@ -359,7 +361,7 @@ export function TableShell({
 
   const titleField = (large: boolean) => (
     <div className="flex min-w-0 items-center gap-2">
-      <ShellGlyph kind="table" className={large ? "size-6" : "size-4"} />
+      {mark && <ShellGlyph kind="table" className={large ? "size-6" : "size-4"} />}
       {titleInput(large)}
     </div>
   );
