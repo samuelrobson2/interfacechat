@@ -52,6 +52,7 @@ export {
   SHELL_ROUTE_FLOOR,
   copyShellRetrieval,
   routeShellDraft,
+  scoreProfile,
   setShellRetrieval,
   shellAvoidScore,
   shellKindScore,

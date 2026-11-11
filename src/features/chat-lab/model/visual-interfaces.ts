@@ -2,9 +2,10 @@ import {
   CHART_TYPE_META,
   catalogueFields,
   isCatalogueKind,
-  shellAvoidScore,
+  SHELL_ROUTE_FLOOR,
+  scoreProfile,
+  shellKindScore,
   shellPartsSummary,
-  shellQueryMatchScore,
   shellRetrieval,
   CHAT_FORMAT_META,
   chatFormatRetrieval,
@@ -49,10 +50,12 @@ export type VisualInterface = {
   description: string;
   /** Seed text dropped into the composer when the empty shell is clicked. */
   seed: string;
-  /** Loose keywords that point a typed prompt at this interface. */
+  /**
+   * Keywords for an interface the library doesn't score (Blog, Email, Code…),
+   * and to choose between items that share one (Chart's types, Table and
+   * Spreadsheet). Library interfaces are scored by their retrieval profile.
+   */
   match: RegExp;
-  /** Higher wins when several matchers fire. */
-  priority: number;
   /** Shown in the idle orbit before anything is typed. */
   ambient?: boolean;
 };
@@ -63,7 +66,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Document",
     description: "Long-form writing: papers, essays, reports, memos",
     seed: "Write a paper on ",
-    priority: 40,
     ambient: true,
     match:
       /\b(write|draft|compose)\b.*\b(paper|document|essay|report|memo)\b|\b(a |an |the )?(paper|document|essay|report|memo)\b.*\b(on|about|regarding)\b/i,
@@ -73,7 +75,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Moodboard",
     description: "Visual collage of references, colors, and aesthetic direction",
     seed: "Make a moodboard for ",
-    priority: 55,
     ambient: true,
     match: /\b(mood\s*board|moodboard|collage|inspiration board|aesthetic board)\b/i,
   },
@@ -82,7 +83,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Blog post",
     description: "Blog or newsletter article with a clear voice",
     seed: "Write a blog post about ",
-    priority: 50,
     match: /\b(blog(\s*post)?|newsletter)\b/i,
   },
   {
@@ -90,7 +90,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Search",
     description: "Web search with filters and a list of findings",
     seed: "Search for ",
-    priority: 45,
     ambient: true,
     match:
       /\b(search|find|look\s*up|query)\b|\b(papers|research|studies|sources)\b.*\b(on|about|for)\b/i,
@@ -100,7 +99,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Email",
     description: "Draft an email or reply",
     seed: "Draft an email about ",
-    priority: 50,
     match: /\b(email|e-mail|mail|inbox|reply to)\b/i,
   },
   {
@@ -108,7 +106,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Spreadsheet",
     description: "Tabular data, budgets, or structured rows",
     seed: "Build a spreadsheet for ",
-    priority: 48,
     match: /\b(spreadsheet|workbook|excel|csv|budget sheet)\b/i,
   },
   {
@@ -116,7 +113,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Chart",
     description: "Visualize numbers as a chart or dashboard",
     seed: "Chart the data for ",
-    priority: 47,
     match:
       /\b(chart|graph|plot|visualize|visualise|dashboard)\b|\b(bar|line|pie)\s*(chart|graph)\b/i,
   },
@@ -125,7 +121,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Calendar",
     description: "Schedule, agenda, or meeting plan",
     seed: "Plan a calendar for ",
-    priority: 50,
     match: /\b(calendar|schedule|agenda|timeline of events|book a meeting)\b/i,
   },
   {
@@ -133,7 +128,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Code",
     description: "Write or debug code and scripts",
     seed: "Write code for ",
-    priority: 52,
     match:
       /\b(code|script|function|api|refactor|debug|typescript|python|javascript|sql)\b/i,
   },
@@ -142,7 +136,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Slides",
     description: "Presentation deck or pitch slides",
     seed: "Make slides about ",
-    priority: 50,
     match: /\b(slides?|deck|presentation|pitch)\b/i,
   },
   {
@@ -150,7 +143,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Checklist",
     description: "Todo list or prioritized task checklist",
     seed: "Make a checklist for ",
-    priority: 46,
     match: /\b(checklist|todo|to-?do|task list|prioriti[sz]e)\b/i,
   },
   {
@@ -158,7 +150,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Outline",
     description: "Structure or table of contents before writing",
     seed: "Outline ",
-    priority: 42,
     match: /\b(outline|structure|skeleton|table of contents)\b/i,
   },
   {
@@ -166,7 +157,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Image",
     description: "Generate or describe a picture / illustration",
     seed: "Generate an image of ",
-    priority: 54,
     match:
       /\b(image|illustration|picture|photo|render|draw|generate (an? )?(image|picture|illustration))\b/i,
   },
@@ -175,7 +165,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Map",
     description: "Places, routes, or geographic layout",
     seed: "Map out ",
-    priority: 48,
     match: /\b(map|geography|locations?|route|directions)\b/i,
   },
   {
@@ -183,7 +172,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Reader",
     description: "Understand or find things in a document someone already has",
     seed: "Explain this document: ",
-    priority: 48,
     match: /\b(review this|explain this|summari[sz]e this|this (paper|contract|agreement|pdf|document|lease|report)|highlight the|flag (anything|the))\b/i,
   },
   {
@@ -191,7 +179,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Schedule",
     description: "Tasks across hours and days, as a Gantt",
     seed: "Build a schedule for ",
-    priority: 47,
     match: /\b(gantt|call sheet|hour by hour|shoot schedule|run of show)\b/i,
   },
   {
@@ -199,7 +186,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Explainer",
     description: "Teach a topic in clear sections",
     seed: "Explain ",
-    priority: 46,
     match: /\b(explain(?! this)|teach me|walk me through|help me understand|eli5)\b/i,
   },
   {
@@ -207,7 +193,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Pros & cons",
     description: "Weigh the benefits and drawbacks of a choice",
     seed: "What are the pros and cons of ",
-    priority: 48,
     match: /\b(pros and cons|pros|cons|trade-?offs|worth it|weigh up)\b/i,
   },
   {
@@ -215,7 +200,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Ranked list",
     description: "Options in order, with a reason for each",
     seed: "Rank ",
-    priority: 47,
     match: /\b(rank|ranked|ranking|prioriti[sz]e|top (three|five|3|5))\b/i,
   },
   {
@@ -223,7 +207,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Flowchart",
     description: "A process with steps and decisions",
     seed: "Make a flowchart of ",
-    priority: 47,
     match: /\b(flow ?chart|decision tree|workflow)\b/i,
   },
   {
@@ -231,7 +214,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Mind map",
     description: "Ideas branching from a central topic",
     seed: "Brainstorm ",
-    priority: 47,
     match: /\b(mind ?map|brainstorm|spider diagram)\b/i,
   },
   {
@@ -239,7 +221,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Guide",
     description: "A recipe or how-to to follow step by step",
     seed: "Give me a recipe for ",
-    priority: 47,
     match: /\b(recipe|ingredients|step[- ]by[- ]step|how do i|instructions for)\b/i,
   },
   {
@@ -247,7 +228,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Social post",
     description: "Short social post or thread",
     seed: "Write a social post about ",
-    priority: 49,
     match: /\b(tweet|twitter|x\.com|linkedin|instagram|social post|thread)\b/i,
   },
   {
@@ -255,7 +235,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Timeline",
     description: "Chronological sequence of events",
     seed: "Build a timeline of ",
-    priority: 47,
     match: /\b(timeline|chronolog|history of|sequence of events)\b/i,
   },
   {
@@ -263,7 +242,6 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Kanban",
     description: "Project board with columns and cards",
     seed: "Make a kanban board for ",
-    priority: 51,
     match: /\b(kanban|scrum board|project board|pipeline board)\b/i,
   },
   {
@@ -271,9 +249,8 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Table",
     description: "Comparison or data table",
     seed: "Make a table of ",
-    priority: 49,
     match:
-      /\b(table|tabulate|shot\s*list|comparison|compare .+ by|matrix|tracker|inventory|grid of|list of .+ with (columns|their))\b/i,
+      /\b(table|tabulate|shot\s*list|comparison|compare .+ by|matrix|inventory|grid of|list of .+ with (columns|their))\b/i,
   },
 ];
 
@@ -408,52 +385,48 @@ const STOPWORDS = new Set([
   "regarding",
 ]);
 
-/** Asking for rows and columns beats incidental words (a film "script" isn't code). */
-const TABULAR_CUES = /\b(shot\s*list|table|tabulate|columns?|rows?)\b/i;
+/** A keyword for an interface the library doesn't score counts as one trigger would. */
+const KEYWORD_POINTS = 20;
+/** Between items that share a library interface, their own words decide. */
+const OWN_WORD_POINTS = 4;
 
 /**
- * Retrieve the top library interfaces for a user turn. Cheap lexical + regex
- * ranking — the LLM then chooses among these or stays in plain chat.
+ * How strongly a draft asks for this item, on the library's scale: the same
+ * score the chat home routes by, so a thread and the home agree.
+ */
+function itemScore(item: VisualInterface, text: string): number {
+  const format = CHAT_FORMAT_OF[item.id];
+  // One point short of the same evidence for an interface, as on the home.
+  if (format) return Math.max(0, scoreProfile(chatFormatRetrieval(format), text).total - 1);
+  const libraryKind = libraryKindOf(item.id);
+  if (!libraryKind) return item.match.test(text) ? KEYWORD_POINTS : 0;
+  const own = SHARED_LIBRARY_KINDS.has(libraryKind) && item.match.test(text) ? OWN_WORD_POINTS : 0;
+  return shellKindScore(libraryKind, text) + own;
+}
+
+/** Every item the draft gives any evidence for, best first. */
+function rankInterfaces(draft: string) {
+  const text = draft.trim();
+  if (!text) return [];
+  return VISUAL_INTERFACES.map((item) => ({ item, score: itemScore(item, text) }))
+    .filter((entry) => entry.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        // On a tie, the library interface itself before its variants (Table before Spreadsheet).
+        Number(libraryKindOf(b.item.id) === b.item.id) - Number(libraryKindOf(a.item.id) === a.item.id),
+    );
+}
+
+/**
+ * Retrieve the top library interfaces for a user turn, scored as the chat home
+ * scores them. The model then chooses among these or stays in plain chat.
  */
 export function retrieveInterfaces(
   draft: string,
   limit = 5,
 ): InterfaceCandidate[] {
-  const text = draft.trim();
-  if (!text) return [];
-
-  const isDrafting = /\b(write|draft|compose)\b/i.test(text);
-  const isLookup = /\b(search|find|look\s*up|query)\b/i.test(text);
-  const isTabular = TABULAR_CUES.test(text);
-  const words = text
-    .toLowerCase()
-    .split(/[^a-z0-9+#]+/)
-    .filter((word) => word.length > 2 && !STOPWORDS.has(word));
-
-  const scored = VISUAL_INTERFACES.map((item) => {
-    let score = 0;
-    if (item.match.test(text)) score += item.priority;
-    if (item.id === "search" && isDrafting && !isLookup) score -= 30;
-    if (item.id === "document" && isDrafting) score += 12;
-    if (item.id === "search" && isLookup) score += 12;
-    if (item.id === "table" && isTabular) score += 12;
-
-    const libraryKind = libraryKindOf(item.id);
-    const profile = libraryProfile(item.id);
-    const haystack = `${item.id} ${item.label} ${profile?.description ?? item.description} ${
-      profile?.queries.join(" ") ?? ""
-    }`.toLowerCase();
-    for (const word of words) {
-      if (haystack.includes(word)) score += 6;
-    }
-    if (libraryKind)
-      score += shellQueryMatchScore(libraryKind, text) - shellAvoidScore(libraryKind, text);
-    if (item.ambient) score += 2;
-    return { item, score };
-  })
-    // Need more than the ambient +2 bump so plain chat ("hi") stays chat-only.
-    .filter((entry) => entry.score > 2)
-    .sort((a, b) => b.score - a.score);
+  const scored = rankInterfaces(draft);
 
   // No library signal → no candidates; the model just chats.
   const picked = scored.slice(0, limit).map((entry) => entry.item);
@@ -548,6 +521,11 @@ const LIBRARY_KIND: Partial<Record<VisualInterfaceKind, ShellKind>> = {
   moodboard: "moodboard",
 };
 
+/** Library interfaces more than one item opens, such as Chart. */
+const SHARED_LIBRARY_KINDS = new Set(
+  Object.values(LIBRARY_KIND).filter((kind, index, all) => all.indexOf(kind) !== index),
+);
+
 function libraryKindOf(kind: VisualInterfaceKind): ShellKind | null {
   return LIBRARY_KIND[kind] ?? null;
 }
@@ -560,38 +538,14 @@ function libraryProfile(kind: VisualInterfaceKind) {
 }
 
 /**
- * Pick the interface a draft is aiming at. Drafting verbs beat lookup when both
- * could match ("write a paper on AI" → document; "search for papers on AI" →
- * search).
+ * The interface a draft is asking for, if it clearly asks for one: the best
+ * scored item that clears the floor the chat home routes by.
  */
 export function matchVisualInterface(
   draft: string,
 ): VisualInterfaceKind | null {
-  const text = draft.trim();
-  if (!text) return null;
-
-  const isDrafting = /\b(write|draft|compose)\b/i.test(text);
-  const isLookup = /\b(search|find|look\s*up|query)\b/i.test(text);
-  const isTabular = TABULAR_CUES.test(text);
-
-  let best: { id: VisualInterfaceKind; score: number } | null = null;
-  for (const item of VISUAL_INTERFACES) {
-    if (!item.match.test(text)) continue;
-    let score = item.priority;
-    if (item.id === "search" && isDrafting && !isLookup) score -= 30;
-    if (item.id === "document" && isDrafting) score += 12;
-    if (item.id === "search" && isLookup) score += 12;
-    if (item.id === "table" && isTabular) score += 12;
-    if (!best || score > best.score) best = { id: item.id, score };
-  }
-
-  let queryBest: { id: VisualInterfaceKind; score: number } | null = null;
-  for (const kind of ["document", "search", "table"] as const) {
-    const score = shellQueryMatchScore(kind, text);
-    if (score >= 24 && (!queryBest || score > queryBest.score)) queryBest = { id: kind, score };
-  }
-  if (queryBest && (!best || queryBest.score > best.score)) return queryBest.id;
-  return best?.id ?? null;
+  const best = rankInterfaces(draft)[0];
+  return best && best.score >= SHELL_ROUTE_FLOOR ? best.item.id : null;
 }
 
 /** Exactly three shells: the ambient set, with a non-ambient match swapping in. */

@@ -115,6 +115,8 @@ The approach follows how models pick tools and skills from a large library.
    - **Example queries** count when the draft shares most of an example's words.
 
    It matches whole words, allowing for inflections: "compare" also catches "comparing" and "essay" catches "essays". This is one-way, so a listed plural such as "pros" still needs the plural. Accents are ignored ("cafés" is "cafes"). An interface beats a chat format on equal evidence, so "best restaurants in Lisbon" is a map.
+
+   The chat home and a thread use the same scores, so they agree: "make a tracker" is a Tracker in both. In a thread the top five go to the model as candidates. The same score decides whether a follow-up asks for a different interface from the one open. Blog, Email, Code, Slides, Kanban and a plain Chart have no library profile yet, so a thread finds them by keyword, worth one trigger.
 2. **The model chooses from at most five candidates.** For each candidate, the model sees the description, the Not for line, the typed parts, up to four examples and up to three near misses. It then either opens one candidate (with `open_interface`, or by filling it straight away) or answers in chat. It never sees the whole library, which keeps its choice sharp as the library grows. It never opens more than one interface in a turn.
 3. **A chosen card skips step 2.** If the chat home's card was suggested or chosen when you sent, that interface opens directly with the card's fields, and the model does not re-pick.
 
@@ -182,7 +184,7 @@ To add an interface to the catalogue: add its schema and entry, teach `chat-lab/
 | Parts | `interface-shells/model/shell-parts.ts` |
 | Fixtures | `interface-shells/model/shell-fixtures*.ts`: the empty, suggestion and history content. |
 | Chat formats and assistants | `interface-shells/model/chat-formats.ts` |
-| Matcher | `chat-lab/model/visual-interfaces.ts` (candidates for the model) and `chat-lab/model/home-ranking.ts` (the chat home). |
+| Matcher | `interface-shells/model/shell-retrieval.ts` scores; `chat-lab/model/visual-interfaces.ts` turns them into the model's candidates, and `chat-lab/model/home-ranking.ts` into the chat home's cards. |
 
 To add an interface:
 
