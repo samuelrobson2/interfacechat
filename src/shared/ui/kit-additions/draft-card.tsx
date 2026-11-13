@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import { ChatGradientFrame } from "@/services/chat";
+import { ChatGradientFrame } from "@/shared/ui/chat-gradient-frame";
 import { cn } from "@/shared/lib/css";
 import { Text } from "@/shared/ui/kit/text";
 

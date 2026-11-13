@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 
 import {
   InterfaceShell,
+  isP0Kind,
   LinkableDataContext,
   SHELL_FIXTURES,
   SHELL_META,
@@ -21,10 +22,11 @@ import {
   type ToolbarDataByKind,
   type ToolbarKind,
 } from "./model/generate-tools";
-import { describeUse, type ToolValue } from "./model/tool-spec";
+import { describeUse, type ToolSpec, type ToolValue } from "./model/tool-spec";
 import { suggestValues } from "./model/suggest-values";
+import { blankFollowUp, blanksStillOpen, rewriteDocument, runTool } from "./model/toolbar-api";
 import { toolbarFixture } from "./model/toolbar-fixtures";
-import { useGeneratedTools } from "./model/use-generated-tools";
+import { useGeneratedTools, type ToolSource } from "./model/use-generated-tools";
 import { GenerativeToolbar, TOOLS_ATTRIBUTE } from "./ui/generative-toolbar";
 
 /**
@@ -32,7 +34,24 @@ import { GenerativeToolbar, TOOLS_ATTRIBUTE } from "./ui/generative-toolbar";
  * then tools generated for what's in it now. The generated ones are read off
  * the interface as it stands (and off any text selected in it), so editing
  * changes what's offered. Every choice lives in the URL.
+ *
+ * With Model on, the tools come from `/api/toolbar-tools`, and any tool the
+ * client can't apply by itself is carried out by `/api/toolbar-run`: edits to
+ * the interface's data (with Undo) and/or a reply. Only P0 interfaces show.
  */
+
+/** P0 only: Diagram and Canvas come later. */
+const KINDS = TOOLBAR_KINDS.filter(isP0Kind);
+const SOURCES = ["model", "rules"] as const satisfies readonly ToolSource[];
+
+/** What filling a blank asks the rewrite for: not a toolbar tool, but the same route. */
+const FILL_TOOL: ToolSpec = {
+  type: "action",
+  id: "fill-blank",
+  label: "Fill a blank",
+  detail: "Rewrite what depends on the answer",
+  icon: "sparkles",
+};
 
 /** Tracker reads as Checklist here; the rest keep their library names (Chart is Diagram). */
 const kindLabel = (kind: ToolbarKind) => (kind === "tracker" ? "Checklist" : SHELL_META[kind].label);
@@ -158,47 +177,143 @@ function Segmented<T extends string>({
   );
 }
 
-type Note = { id: number; text: string; undo?: boolean };
+type Note = { id: number; text: string; undo?: boolean; reply?: string; working?: boolean };
 
-function ToolbarLab<K extends ToolbarKind>({ kind, content }: { kind: K; content: Content }) {
+function ToolbarLab<K extends ToolbarKind>({ kind, content, source }: { kind: K; content: Content; source: ToolSource }) {
   const reduceMotion = useReducedMotion() ?? false;
   const [data, setData] = useState(() => startingData(kind, content));
   const [previous, setPrevious] = useState<ToolbarDataByKind[K] | null>(null);
   const [note, setNote] = useState<Note | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const selection = useSelectionIn(stage);
-  const { tools, placed, status, regenerate } = useGeneratedTools(kind, data, { selection }, TOOL_COUNT);
+  const { tools, placed, status, from, error, timing, regenerate, pin, dismiss: dismissTool } = useGeneratedTools(
+    kind,
+    data,
+    { selection },
+    TOOL_COUNT,
+    source,
+  );
   // Suggested values (a filter, a tone, a column) sit among the real ones, outlined, until added or dismissed.
   const [dismissed, setDismissed] = useState<Partial<Record<SuggestedGroup, string[]>>>({});
   const suggested = status === "ready" ? suggestValues(kind, data, dismissed) : undefined;
   const dismiss = (group: SuggestedGroup, value: string) =>
     setDismissed((current) => ({ ...current, [group]: [...(current[group] ?? []), value] }));
 
-  // Notes clear themselves; a newer one replaces the timer.
+  // Notes clear themselves (not while working, or while showing a reply); a newer one replaces the timer.
   useEffect(() => {
-    if (!note) return;
+    if (!note || note.working || note.reply) return;
     const timer = window.setTimeout(() => setNote(null), 4000);
     return () => window.clearTimeout(timer);
   }, [note]);
 
+  type Data = ToolbarDataByKind[K];
+  type Outcome = { data: Data | null; reply: string | null; summary: string };
+
+  /** Show the model's work as it lands, with a note that becomes its summary (and Undo) once it's done. */
+  const carryOut = useCallback((before: Data, label: string, use: string, work: Promise<Outcome>) => {
+    const id = Date.now();
+    setNote({ id, text: `Working · ${use}`, working: true });
+    work
+      .then((result) => {
+        const changed = result.data && JSON.stringify(result.data) !== JSON.stringify(before);
+        // A streamed rewrite may have shown part of a change it then took back.
+        setData(changed ? result.data! : before);
+        if (changed) setPrevious(before);
+        setNote((current) =>
+          current?.id === id
+            ? {
+                id,
+                text: changed ? result.summary || use : result.reply ? use : `No change · ${use}`,
+                undo: !!changed,
+                reply: result.reply ?? undefined,
+              }
+            : current,
+        );
+      })
+      .catch((reason: unknown) => {
+        setData(before);
+        setNote((current) =>
+          current?.id === id
+            ? { id, text: `Couldn't ${label.toLowerCase()} · ${reason instanceof Error ? reason.message : reason}` }
+            : current,
+        );
+      });
+  }, []);
+
+  /**
+   * A Document's body, rewritten in place and streamed: edits to the paragraphs
+   * the tool changes, and any blanks it leaves, which join the document's own.
+   */
+  const rewrite = useCallback(
+    (before: Data, tool: GeneratedTool<unknown> | ToolSpec, value: ToolValue, request?: string): Promise<Outcome> => {
+      const doc = before as ToolbarDataByKind["document"];
+      const withBody = (body: string, blanks: ToolbarDataByKind["document"]["blanks"]) =>
+        ({ ...doc, body, blanks: { ...doc.blanks, ...blanks } }) as Data;
+      return rewriteDocument(doc, tool, value, selection, (body, blanks) => setData(withBody(body, blanks)), undefined, request).then(
+        (result) => ({ ...result, data: result.text === null ? null : withBody(result.text, result.blanks) }),
+      );
+    },
+    [selection],
+  );
+
   const run = useCallback(
-    (tool: GeneratedTool<ToolbarDataByKind[K]>, value: ToolValue) => {
+    (tool: GeneratedTool<Data>, value: ToolValue) => {
       // Each tool's apply takes its own type's value; the toolbar hands back the matching one.
-      const apply = tool.apply as
-        | ((data: ToolbarDataByKind[K], value: ToolValue) => ToolbarDataByKind[K])
-        | undefined;
+      const apply = tool.apply as ((data: Data, value: ToolValue) => Data) | undefined;
       const next = apply?.(data, value);
       const use = describeUse(tool, value);
+      // Used, it's the person's: it stays, at this value, and the model leaves it alone.
+      pin(tool.id, value);
       if (next && JSON.stringify(next) !== JSON.stringify(data)) {
         setPrevious(data);
         setData(next);
         setNote({ id: Date.now(), text: `Applied · ${use}`, undo: true });
-      } else {
-        setNote({ id: Date.now(), text: `Would ask the model · ${use}` });
+        return;
       }
+      // Anything the client can't do by itself, the model carries out.
+      // Either way the edits stream in and land as they arrive.
+      const work =
+        kind === "document"
+          ? rewrite(data, tool as GeneratedTool<unknown>, value)
+          : runTool(kind, data, tool, value, selection, (next) => setData(next)).then((result) => ({
+              ...result,
+              summary: result.skipped ? `${result.summary} (${result.skipped} edit${result.skipped === 1 ? "" : "s"} didn't fit)` : result.summary,
+            }));
+      carryOut(data, tool.label, use, work);
     },
-    [data],
+    [data, kind, selection, pin, rewrite, carryOut],
   );
+
+  /**
+   * A blank just filled: rewrite what depends on it. One the writing stopped
+   * at carries on with what was being done when it was left.
+   */
+  const followBlank = useCallback(
+    (next: Data, key: string) => {
+      const doc = next as ToolbarDataByKind["document"];
+      const blanks = doc.blanks ?? {};
+      const blank = blanks[key];
+      if (!blank?.value) return;
+      // Asked together, answered together: carry on once the last of them is in.
+      const open = blanksStillOpen(blanks, key);
+      if (open.length) {
+        setNote({ id: Date.now(), text: `${open.length} more to answer: ${open.map((other) => blanks[other]!.ask).join(", ")}` });
+        return;
+      }
+      const keys = Object.keys(blanks).filter((other) => other === key || (blanks[other]!.request === blank.request && blanks[other]!.value));
+      carryOut(next, "fill that in", keys.map((other) => blanks[other]!.value).join(", "), rewrite(next, FILL_TOOL, undefined, blankFollowUp(blanks, keys, doc.body)));
+    },
+    [rewrite, carryOut],
+  );
+
+  /** Edits from the interface; on a Document, a blank filled or changed is followed up. */
+  const change = (next: Data) => {
+    const before = (data as ToolbarDataByKind["document"]).blanks ?? {};
+    const after = (next as ToolbarDataByKind["document"]).blanks ?? {};
+    const filled = kind === "document" ? Object.keys(after).find((key) => after[key]?.value && after[key]?.value !== before[key]?.value) : undefined;
+    setData(next);
+    if (filled) followBlank(next, filled);
+  };
 
   const undo = () => {
     if (!previous) return;
@@ -219,6 +334,7 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content }: { kind: K; content
       popoverSide="bottom"
       onRun={run}
       onRegenerate={regenerate}
+      onDismiss={(tool) => dismissTool(tool.id)}
       className={SCROLL_ROW}
     />
   );
@@ -242,6 +358,7 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content }: { kind: K; content
                 count={set.length}
                 popoverSide="bottom"
                 onRun={run}
+                onDismiss={(tool) => dismissTool(tool.id)}
                 wrap
               />,
             ],
@@ -266,7 +383,7 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content }: { kind: K; content
                 suggestions,
                 suggested,
                 onDismissSuggestion: dismiss,
-                onChange: (next: ToolbarDataByKind[K]) => setData(next),
+                onChange: change,
               } as InterfaceShellProps)}
             />
           </LinkableDataContext.Provider>
@@ -281,9 +398,24 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content }: { kind: K; content
               initial={reduceMotion ? false : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, transition: { duration: 0.1 } }}
-              className="flex max-w-[720px] items-center gap-3 rounded-full bg-gray-6 py-2 pr-2 pl-4 font-bureau text-[13px] text-typography-primary"
+              className={cn(
+                "flex max-w-[720px] gap-3 bg-gray-6 py-2 pr-2 pl-4 font-bureau text-[13px] text-typography-primary",
+                note.reply ? "flex-col items-start rounded-[20px] pr-4 pb-3" : "items-center rounded-full",
+              )}
             >
-              <span className="truncate">{note.text}</span>
+              <div className="flex w-full min-w-0 items-center gap-3">
+                <span className={cn("truncate", note.working && "animate-pulse")}>{note.text}</span>
+                {note.reply && (
+                  <button
+                    type="button"
+                    onClick={() => setNote(null)}
+                    className="ml-auto cursor-pointer text-[12px] text-typography-secondary hover:text-typography-primary"
+                  >
+                    Close
+                  </button>
+                )}
+              </div>
+              {note.reply && <p className="whitespace-pre-wrap text-[13px] leading-[1.5] text-typography-secondary">{note.reply}</p>}
               {note.undo && previous && (
                 <button
                   type="button"
@@ -301,9 +433,15 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content }: { kind: K; content
               animate={{ opacity: 1 }}
               className="font-bureau text-[13px] text-typography-secondary"
             >
-              {selection
-                ? `Tools for “${selection.length > 40 ? `${selection.slice(0, 39)}…` : selection}”`
-                : "Edit the interface or select text in it, and the generated tools change to fit."}
+              {error && source === "model"
+                ? `The model couldn't make tools, so these are from the rules · ${error.slice(0, 120)}`
+                : selection
+                  ? `${from === "model" ? "Model" : "Rules"} · tools for “${selection.length > 40 ? `${selection.slice(0, 39)}…` : selection}”`
+                  : `${from === "model" ? "Model" : "Rules"}${
+                      from === "model" && timing?.firstMs != null
+                        ? ` · first tool in ${(timing.firstMs / 1000).toFixed(1)}s, all in ${(timing.ms / 1000).toFixed(1)}s`
+                        : ""
+                    } · edit the interface or select text in it, and the tools change to fit.`}
             </motion.span>
           )}
         </AnimatePresence>
@@ -314,8 +452,9 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content }: { kind: K; content
 
 function GenerativeToolbarPage() {
   const [params, setParams] = useSearchParams();
-  const kind = pick(params.get("kind"), TOOLBAR_KINDS, "document");
+  const kind = pick(params.get("kind"), KINDS, "document");
   const content = pick(params.get("content"), CONTENTS, "filled");
+  const source = pick(params.get("tools"), SOURCES, "model");
 
   const set = (key: string, value: string) =>
     setParams(
@@ -337,8 +476,8 @@ function GenerativeToolbarPage() {
           <Text color="secondary" className="max-w-[680px]">
             Every large interface has a toolbar under its title: its own standard tools, then tools generated
             for what's in it now (chips, sliders, 2×2s, choices and toggles). A suggestion about one part of an
-            interface sits beside it: Search's in its filters, a Table's by its rows and columns, a Diagram's or
-            Canvas's on the board. Dashboard and Article connect to data from the Data menu and run their code in a sandbox.
+            interface sits beside it: Search's in its filters, a Table's by its rows and columns, Generator's in its
+            prompt. With Model on, the model makes the tools and carries them out. P0 interfaces only.
           </Text>
         </header>
 
@@ -346,7 +485,7 @@ function GenerativeToolbarPage() {
           <div className="flex flex-col gap-1.5">
             <span className="font-bureau text-[12px] text-typography-secondary">Interface</span>
             <div role="radiogroup" aria-label="Interface" className="flex flex-wrap gap-1.5">
-              {TOOLBAR_KINDS.map((option) => (
+              {KINDS.map((option) => (
                 <button
                   key={option}
                   type="button"
@@ -375,10 +514,17 @@ function GenerativeToolbarPage() {
             format={(option) => (option === "filled" ? "Filled" : "Empty")}
             onChange={(option) => set("content", option)}
           />
+          <Segmented
+            label="Tools from"
+            value={source}
+            options={SOURCES}
+            format={(option) => (option === "model" ? "Model" : "Rules")}
+            onChange={(option) => set("tools", option)}
+          />
         </div>
 
         {/* A new kind or starting content is a fresh interface, so its edits don't carry over. */}
-        <ToolbarLab key={`${kind}-${content}`} kind={kind} content={content} />
+        <ToolbarLab key={`${kind}-${content}-${source}`} kind={kind} content={content} source={source} />
       </div>
     </div>
   );

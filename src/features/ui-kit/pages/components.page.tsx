@@ -564,7 +564,7 @@ function ComponentsPage() {
               rightActions={
                 <>
                   <ChatComposerMicButton />
-                  <ChatComposerSendButton active={bigTyping} shimmer />
+                  <ChatComposerSendButton active={bigTyping} />
                 </>
               }
             />
@@ -595,12 +595,6 @@ function ComponentsPage() {
               <ChatComposerSendButton active />
               <Text variant="label" color="secondary">
                 active
-              </Text>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <ChatComposerSendButton active shimmer />
-              <Text variant="label" color="secondary">
-                shimmer
               </Text>
             </div>
           </div>

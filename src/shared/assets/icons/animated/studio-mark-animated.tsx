@@ -2,7 +2,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { AnimatedIconProps } from "./types";
 import { useIconActiveAnimation } from "./use-icon-active-animation";
 
-const COMETS = [
+// Each comet flies in from (x[0], y[0]) to rest; mutable arrays, as Motion keyframes want.
+const COMETS: { d: string; x: number[]; y: number[] }[] = [
   {
     d: "M23.28 4.26L11.62 20.71A1.2 1.2 0 0 0 13.38 22.31L28.70 9.21A3.7 3.7 0 0 0 23.28 4.26Z",
     x: [4, 0],
@@ -18,7 +19,7 @@ const COMETS = [
     x: [3, 0],
     y: [3, 0],
   },
-] as const;
+];
 
 const DOTS: [cx: number, cy: number][] = [
   [3.5, 16.5],

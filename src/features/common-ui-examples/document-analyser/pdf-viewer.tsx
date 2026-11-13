@@ -12,6 +12,10 @@ pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const PAGE_WIDTH = 700;
 
+// The page's offset within the scroll container is captured with the rects, so
+// the overlay never reads DOM refs during render.
+type PlacedHighlight = Highlight & { pageLeft: number; pageTop: number };
+
 // Generic pdf viewer with quote-based reference highlighting. Any document
 // works as a plain viewer; passing `quotes` (verbatim strings expected to
 // appear in the PDF's text) additionally boxes and auto-scrolls to them —
@@ -27,7 +31,17 @@ export function PdfHighlightViewer({
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pagesReady, setPagesReady] = useState(0);
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [highlights, setHighlights] = useState<PlacedHighlight[]>([]);
+
+  // Reset the page/highlight state as soon as the viewer is pointed at a
+  // different file (adjusted during render, not in an effect).
+  const [shownFile, setShownFile] = useState(file);
+  if (file !== shownFile) {
+    setShownFile(file);
+    setNumPages(0);
+    setPagesReady(0);
+    setHighlights([]);
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
@@ -36,7 +50,7 @@ export function PdfHighlightViewer({
   const scrolledQuoteRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const found: Highlight[] = [];
+    const found: PlacedHighlight[] = [];
     for (const quote of quotes) {
       for (let page = 1; page <= numPages; page++) {
         const textLayer = textLayerRefs.current.get(page);
@@ -44,11 +58,18 @@ export function PdfHighlightViewer({
         if (!textLayer || !pageEl) continue;
         const rects = findQuoteRects(textLayer, pageEl, quote);
         if (rects.length) {
-          found.push({ quote, page, rects });
+          found.push({
+            quote,
+            page,
+            rects,
+            pageLeft: pageEl.offsetLeft,
+            pageTop: pageEl.offsetTop,
+          });
           break;
         }
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- measures the rendered PDF text layer, which only exists after commit
     setHighlights(found);
   }, [quotes, pagesReady, numPages]);
 
@@ -67,11 +88,8 @@ export function PdfHighlightViewer({
     container.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }, [activeQuote, highlights]);
 
-  // Reset once the viewer is pointed at a different file.
+  // Drop the old file's DOM bookkeeping once it is pointed at a different file.
   useEffect(() => {
-    setNumPages(0);
-    setPagesReady(0);
-    setHighlights([]);
     pageRefs.current.clear();
     textLayerRefs.current.clear();
     readyPages.current.clear();
@@ -138,10 +156,8 @@ export function PdfHighlightViewer({
       {pdfPages}
       {/* Highlight overlay — a separate layer over the pages, so updating it
           never re-renders (and re-paints) the PDF. */}
-      {highlights.flatMap((h) => {
-        const pageEl = pageRefs.current.get(h.page);
-        if (!pageEl) return [];
-        return h.rects.map((rect, idx) => (
+      {highlights.flatMap((h) =>
+        h.rects.map((rect, idx) => (
           <div
             key={`${h.quote}-${idx}`}
             className={cn(
@@ -149,14 +165,14 @@ export function PdfHighlightViewer({
               h.quote === activeQuote ? "opacity-70" : "opacity-40",
             )}
             style={{
-              left: pageEl.offsetLeft + rect.left - 1,
-              top: pageEl.offsetTop + rect.top - 1,
+              left: h.pageLeft + rect.left - 1,
+              top: h.pageTop + rect.top - 1,
               width: rect.width + 2,
               height: rect.height + 2,
             }}
           />
-        ));
-      })}
+        )),
+      )}
     </div>
   );
 }

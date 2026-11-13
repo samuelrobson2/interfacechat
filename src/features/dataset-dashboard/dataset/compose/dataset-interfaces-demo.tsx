@@ -6,7 +6,7 @@ import { Text } from "@/shared/ui/kit/text";
 import { toast } from "@/shared/ui/kit/sonner-toast";
 import { useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { ChatItemCard } from "@/features/chat-workspace/ui/chat-item-card";
+import { ChatItemCard } from "@/features/chat-workspace";
 import type { MockDatasetInterface } from "../../datasets/model/datasets-mock-data";
 import {
   PLACEHOLDER_INTERFACES,

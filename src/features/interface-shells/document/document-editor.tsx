@@ -24,6 +24,7 @@ import {
   numberedIndices,
   parseBlocks,
   parseInline,
+  resolveBlanks,
   plainInline,
   renderedToRawOffset,
   serializeBlocks,
@@ -32,6 +33,7 @@ import {
 } from "../model/markdown-blocks";
 import type { DocumentShellData, ShellStatus, ShellSuggestions } from "../model/shell-types";
 import { SHELL_TITLE_LARGE } from "../ui/shell-kit";
+import { DocBlankSlot } from "./doc-blank";
 import {
   copyText,
   downloadText,
@@ -102,10 +104,30 @@ const BLOCK_PLACEHOLDER: Record<BlockType, string> = {
 
 const isList = (type: BlockType) => type === "bullet" || type === "numbered";
 
-function InlineText({ text }: { text: string }) {
+function InlineText({
+  text,
+  blanks,
+  onFill,
+}: {
+  text: string;
+  blanks?: DocumentShellData["blanks"];
+  /** Given when the document is editable: fills a blank by key. */
+  onFill?: (key: string, value: string) => void;
+}) {
   return (
     <>
       {parseInline(text).map((segment, i) => {
+        if (segment.blank !== undefined) {
+          const key = segment.blank;
+          return (
+            <DocBlankSlot
+              key={i}
+              blank={blanks?.[key]}
+              editable={Boolean(onFill)}
+              onFill={onFill ? (value) => onFill(key, value) : undefined}
+            />
+          );
+        }
         if (segment.bold) {
           return (
             <strong key={i} className="font-semibold">
@@ -221,25 +243,6 @@ const Divider = ({ density }: { density: EditorDensity }) => (
   />
 );
 
-function BulletHint({ onPress, compact }: { onPress: () => void; compact?: boolean }) {
-  return (
-    <button
-      type="button"
-      {...fieldEvents}
-      onClick={(event) => {
-        stopFieldEvent(event);
-        onPress();
-      }}
-      className={cn(
-        "text-left font-bureau font-light text-typography-secondary",
-        compact ? "text-[13px] leading-[1.4]" : "text-[15px] leading-[1.45]",
-      )}
-    >
-      Add additional context
-    </button>
-  );
-}
-
 function LengthField({
   value,
   editable,
@@ -289,7 +292,7 @@ export function DocumentEditor({
   actions?: React.ReactNode;
   /** Large only: tools generated for this document, after the formatting ones. */
   tools?: React.ReactNode;
-  /** Large only: suggestions after the writing (`end`) and by the word count (`footer`). */
+  /** Large: suggestions by the word count (`footer`). Medium plus: the request's open choices (`brief`). */
   suggestions?: ShellSuggestions;
   className?: string;
 }) {
@@ -408,7 +411,13 @@ export function DocumentEditor({
     focusBlock(at.block.id, 0);
   };
 
-  const asMarkdown = () => [data.title.trim() && `# ${data.title.trim()}`, serializeBlocks(blocks)].filter(Boolean).join("\n\n");
+  const asMarkdown = () =>
+    [data.title.trim() && `# ${data.title.trim()}`, resolveBlanks(serializeBlocks(blocks), data.blanks)].filter(Boolean).join("\n\n");
+  const fillBlank = (key: string, value: string) => {
+    const blank = data.blanks?.[key];
+    if (!blank || !onChange) return;
+    onChange({ ...data, blanks: { ...data.blanks, [key]: { ...blank, value } } });
+  };
 
   const handleKeyDown = (
     event: React.KeyboardEvent<HTMLTextAreaElement>,
@@ -540,20 +549,8 @@ export function DocumentEditor({
   const numbers = numberedIndices(blocks);
   const focusedBlock = blocks.find((block) => block.id === (focusedId ?? lastFocusedId));
   const isEmpty = blocks.length === 1 && !blocks[0]?.text && !data.title;
-  const hasList = blocks.some((block) => isList(block.type));
-  const showBulletHint = editable && !hasList;
   const editingEmpty = isEmpty && focusedId !== null;
 
-  const startContext = () => {
-    const empty = blocks.length === 1 && !blocks[0]?.text ? blocks[0] : null;
-    if (empty) {
-      focusBlock(empty.id, 0);
-      return;
-    }
-    const paragraph = newBlock("paragraph");
-    commit([...blocks, paragraph]);
-    focusBlock(paragraph.id, 0);
-  };
   const words = countWords(blocks);
 
   // The formatting buttons are the document's standard tools.
@@ -739,9 +736,7 @@ export function DocumentEditor({
     );
     const showPlaceholder = !block.text && (focused || (isEmpty && index === 0));
     const placeholder =
-      isEmpty && index === 0 && block.type === "paragraph"
-        ? "Add additional context"
-        : BLOCK_PLACEHOLDER[block.type];
+      BLOCK_PLACEHOLDER[block.type];
     const marker =
       block.type === "bullet" ? "•" : block.type === "numbered" ? `${numbers.get(block.id)}.` : null;
 
@@ -815,7 +810,13 @@ export function DocumentEditor({
                   : undefined
               }
             >
-              {showPlaceholder ? placeholder : block.text ? <InlineText text={block.text} /> : "\u200b"}
+              {showPlaceholder ? (
+                placeholder
+              ) : block.text ? (
+                <InlineText text={block.text} blanks={data.blanks} onFill={editable ? fillBlank : undefined} />
+              ) : (
+                "\u200b"
+              )}
             </div>
           )}
         </div>
@@ -880,8 +881,12 @@ export function DocumentEditor({
           )}
         >
           <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
-            {isEmpty && !editingEmpty ? null : blocks.map(renderBlock)}
-            {showBulletHint && !editingEmpty && <BulletHint compact onPress={startContext} />}
+            {/* With choices showing and nothing written yet, the empty first line would only leave a gap above them. */}
+            {(isEmpty && !editingEmpty) || (suggestions?.brief && blocks.length === 1 && !blocks[0]?.text && !focusedId)
+              ? null
+              : blocks.map(renderBlock)}
+            {/* On the chat home: what the request leaves open, as choices, instead of asking them to think of context. */}
+            {suggestions?.brief}
           </div>
         </div>
         <ShellFooter
@@ -908,7 +913,6 @@ export function DocumentEditor({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="w-full max-w-[728px] px-6 pt-5 pb-16">
           {isEmpty && !editingEmpty ? null : blocks.map(renderBlock)}
-          {showBulletHint && !editingEmpty && <BulletHint onPress={startContext} />}
         </div>
       </div>
       <div

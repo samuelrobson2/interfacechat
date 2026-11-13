@@ -12,6 +12,17 @@ import {
 import type { FC, ReactNode } from "react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
+type StateMachineInput = ReturnType<typeof useStateMachineInput>;
+
+// Rive state machine inputs are mutable objects that must be set via direct
+// property assignment — this is the intended Rive API. Keeping the write in a
+// module-level helper means the component never mutates a hook's return value.
+const setInputValue = (input: StateMachineInput, value: boolean) => {
+  if (input) {
+    input.value = value;
+  }
+};
+
 // Delays Rive initialization by one frame so that React Strict Mode's
 // immediate unmount cycle never creates a WebGL2 context. Only the
 // second (real) mount will initialise, avoiding context exhaustion.
@@ -276,21 +287,12 @@ export const Persona: FC<PersonaProps> = memo(
     const speakingInput = useStateMachineInput(rive, stateMachine, "speaking");
     const asleepInput = useStateMachineInput(rive, stateMachine, "asleep");
 
-    // Rive state machine inputs are mutable objects that must be set via direct
-    // property assignment — this is the intended Rive API, not a React anti-pattern.
+    // Push the current state into the Rive state machine inputs
     useEffect(() => {
-      if (listeningInput) {
-        listeningInput.value = state === "listening";
-      }
-      if (thinkingInput) {
-        thinkingInput.value = state === "thinking";
-      }
-      if (speakingInput) {
-        speakingInput.value = state === "speaking";
-      }
-      if (asleepInput) {
-        asleepInput.value = state === "asleep";
-      }
+      setInputValue(listeningInput, state === "listening");
+      setInputValue(thinkingInput, state === "thinking");
+      setInputValue(speakingInput, state === "speaking");
+      setInputValue(asleepInput, state === "asleep");
     }, [state, listeningInput, thinkingInput, speakingInput, asleepInput]);
 
     const Component = source.hasModel ? PersonaWithModel : PersonaWithoutModel;

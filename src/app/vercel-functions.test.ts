@@ -33,7 +33,7 @@ describe("Vercel serverless functions", () => {
     const rule = (vercel.rewrites as { source: string; destination: string }[]).find(
       (r) => r.destination === "/api/ai/:action",
     );
-    const listed = rule?.source.match(/^\/api\/:action\((.+)\)$/)?.[1].split("|").sort();
+    const listed = rule?.source.match(/^\/api\/:action\((.+)\)$/)?.[1]?.split("|").sort();
     expect(listed).toEqual(aiActions);
   });
 

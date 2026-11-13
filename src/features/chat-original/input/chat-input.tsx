@@ -2,7 +2,7 @@ import {
   ChatComposerSendButton,
   ChatComposerStopButton,
   ChatTextareaComposer,
-} from "@/services/chat/_ui/chat-input-composer";
+} from "@/services/chat";
 import { CrossLargeIcon } from "@/shared/assets/icons/outlined/CrossLarge";
 import { cn } from "@/shared/lib/css";
 import {

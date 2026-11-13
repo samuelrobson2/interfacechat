@@ -1,4 +1,4 @@
-import { ChatSuggestionCard } from "@/services/chat/_ui/chat-suggestion-card";
+import { VisualizeSuggestionCard as ChatSuggestionCard } from "@/services/chat";
 import { useInputStore } from "../../_model/store/input-store";
 import {
   type SuggestionsOrientation,

@@ -12,9 +12,9 @@ const keys: (keyof Shape)[] = ["width", "height", "radius", "iconY"];
 
 /** Retargets from the current size and keeps its velocity if the target changes. */
 export function useMorphSpring(
-  surface: RefObject<HTMLDivElement | null>,
-  icon: RefObject<HTMLSpanElement | null>,
-  layout: RefObject<HTMLDivElement | null>,
+  surfaceRef: RefObject<HTMLDivElement | null>,
+  iconRef: RefObject<HTMLSpanElement | null>,
+  layoutRef: RefObject<HTMLDivElement | null>,
   target: Shape,
 ) {
   const reduced = useRef(false);
@@ -35,15 +35,15 @@ export function useMorphSpring(
       const current = position.current;
       const scaleX = current.width / 328;
       const scaleY = current.height / 236;
-      if (surface.current) {
-        surface.current.style.transform = `scale(${scaleX}, ${scaleY})`;
-        surface.current.style.borderRadius = `${current.radius / scaleX}px / ${current.radius / scaleY}px`;
+      if (surfaceRef.current) {
+        surfaceRef.current.style.transform = `scale(${scaleX}, ${scaleY})`;
+        surfaceRef.current.style.borderRadius = `${current.radius / scaleX}px / ${current.radius / scaleY}px`;
       }
-      if (icon.current) {
-        icon.current.style.transform = `translate(14px, ${current.iconY}px)`;
+      if (iconRef.current) {
+        iconRef.current.style.transform = `translate(14px, ${current.iconY}px)`;
       }
-      if (layout.current) {
-        layout.current.style.height = `${current.height}px`;
+      if (layoutRef.current) {
+        layoutRef.current.style.height = `${current.height}px`;
       }
     };
     const tick = (time: number) => {
@@ -84,7 +84,7 @@ export function useMorphSpring(
     } else if (!frame.current) {
       frame.current = requestAnimationFrame(tick);
     }
-  }, [target.width, target.height, target.radius, target.iconY, surface, icon, layout]);
+  }, [target.width, target.height, target.radius, target.iconY, surfaceRef, iconRef, layoutRef]);
 
   // React style updates drop imperative motion. Put the current pose back
   // after every render so the icon stays shifted and the slot keeps its height.
@@ -92,15 +92,15 @@ export function useMorphSpring(
     const current = position.current;
     const scaleX = current.width / 328;
     const scaleY = current.height / 236;
-    if (surface.current) {
-      surface.current.style.transform = `scale(${scaleX}, ${scaleY})`;
-      surface.current.style.borderRadius = `${current.radius / scaleX}px / ${current.radius / scaleY}px`;
+    if (surfaceRef.current) {
+      surfaceRef.current.style.transform = `scale(${scaleX}, ${scaleY})`;
+      surfaceRef.current.style.borderRadius = `${current.radius / scaleX}px / ${current.radius / scaleY}px`;
     }
-    if (icon.current) {
-      icon.current.style.transform = `translate(14px, ${current.iconY}px)`;
+    if (iconRef.current) {
+      iconRef.current.style.transform = `translate(14px, ${current.iconY}px)`;
     }
-    if (layout.current) {
-      layout.current.style.height = `${current.height}px`;
+    if (layoutRef.current) {
+      layoutRef.current.style.height = `${current.height}px`;
     }
   });
 

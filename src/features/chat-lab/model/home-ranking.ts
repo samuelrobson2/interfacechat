@@ -84,7 +84,8 @@ const STOPWORDS = new Set(
 export function contentTerms(text: string): Set<string> {
   const terms = new Set<string>();
   for (const raw of text.toLowerCase().split(/[^a-z0-9]+/)) {
-    if (raw.length < 3 || STOPWORDS.has(raw)) continue;
+    // Short words say little, but a short code with a digit ("q3", "h1", "5g") names something.
+    if ((raw.length < 3 && !(raw.length === 2 && /\d/.test(raw))) || STOPWORDS.has(raw)) continue;
     terms.add(
       raw.length > 3 && raw.endsWith("s") && !raw.endsWith("ss")
         ? raw.slice(0, -1)

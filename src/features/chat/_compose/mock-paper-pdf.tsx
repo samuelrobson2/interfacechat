@@ -20,7 +20,15 @@ const PDF_URL = `${BASE}/attention-is-all-you-need.pdf`;
 const PAGE_WIDTH = 700;
 
 type Rect = { left: number; top: number; width: number; height: number };
-type Highlight = { quote: string; page: number; rects: Rect[] };
+// `pageLeft`/`pageTop` are the page's offset within the scroll container,
+// captured alongside the rects so the overlay never reads DOM refs in render.
+type Highlight = {
+  quote: string;
+  page: number;
+  rects: Rect[];
+  pageLeft: number;
+  pageTop: number;
+};
 
 const normalize = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -138,11 +146,18 @@ export function PaperPdfPanel({
         if (!textLayer || !pageEl) continue;
         const rects = findQuoteRects(textLayer, pageEl, quote);
         if (rects.length) {
-          found.push({ quote, page, rects });
+          found.push({
+            quote,
+            page,
+            rects,
+            pageLeft: pageEl.offsetLeft,
+            pageTop: pageEl.offsetTop,
+          });
           break;
         }
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- measures the rendered PDF text layer, which only exists after commit
     setHighlights(found);
   }, [quotes, pagesReady, numPages]);
 
@@ -250,10 +265,8 @@ export function PaperPdfPanel({
         {/* Highlight overlay — a separate layer over the pages, so updating it
             never re-renders the PDF (which caused the flashing). Each rect is
             positioned by its page's offset within the scroll container. */}
-        {highlights.flatMap((h) => {
-          const pageEl = pageRefs.current.get(h.page);
-          if (!pageEl) return [];
-          return h.rects.map((rect, idx) => (
+        {highlights.flatMap((h) =>
+          h.rects.map((rect, idx) => (
             <div
               key={`${h.quote}-${idx}`}
               className={cn(
@@ -261,14 +274,14 @@ export function PaperPdfPanel({
                 h.quote === activeQuote ? "opacity-70" : "opacity-40",
               )}
               style={{
-                left: pageEl.offsetLeft + rect.left - 1,
-                top: pageEl.offsetTop + rect.top - 1,
+                left: h.pageLeft + rect.left - 1,
+                top: h.pageTop + rect.top - 1,
                 width: rect.width + 2,
                 height: rect.height + 2,
               }}
             />
-          ));
-        })}
+          )),
+        )}
       </div>
     </aside>
   );

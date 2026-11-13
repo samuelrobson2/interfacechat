@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 /**
  * Bumps a counter when `active` transitions from false → true so motion
@@ -6,14 +6,13 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useIconActiveAnimation(active?: boolean) {
   const [tick, setTick] = useState(0);
-  const wasActive = useRef(false);
+  const [wasActive, setWasActive] = useState(false);
 
-  useEffect(() => {
-    if (active && !wasActive.current) {
-      setTick((value) => value + 1);
-    }
-    wasActive.current = !!active;
-  }, [active]);
+  // Track the previous `active` during render rather than in an effect.
+  if (!!active !== wasActive) {
+    setWasActive(!!active);
+    if (active) setTick((value) => value + 1);
+  }
 
   return tick;
 }

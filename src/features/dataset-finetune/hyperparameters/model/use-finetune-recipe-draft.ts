@@ -86,10 +86,9 @@ export function useFinetuneRecipeDraft(
   const [isDirty, setIsDirty] = useState(false);
   const draftRef = useRef(localDraft);
 
-  const draft = useMemo(() => {
-    if (!isDirty && step?.serverDraft) return step.serverDraft;
-    return localDraft;
-  }, [isDirty, localDraft, step?.serverDraft]);
+  // Plain selection between two existing objects — no memo needed.
+  const draft =
+    !isDirty && step?.serverDraft ? step.serverDraft : localDraft;
 
   useEffect(() => {
     if (!step?.serverDraft || isDirty) return;

@@ -149,3 +149,37 @@
     #3e4a5e 100%
   );
 }
+
+/* Text in the AI stroke's hues: a guess, or a blank waiting to be filled.
+ * The stroke's own stops are too light to read as text on white, so each is
+ * mixed toward gray-5 until it is. `text-gradient-ai-shimmer` pans it slowly,
+ * for a value that's still being worked out. */
+@utility text-gradient-ai {
+  background-image: linear-gradient(
+    100deg,
+    color-mix(in oklab, var(--gradient-ai-rose) 62%, var(--color-gray-5)) 0%,
+    color-mix(in oklab, var(--gradient-ai-blue) 80%, var(--color-gray-5)) 38%,
+    color-mix(in oklab, var(--gradient-ai-lavender) 58%, var(--color-gray-5)) 62%,
+    color-mix(in oklab, var(--gradient-ai-rose) 62%, var(--color-gray-5)) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes ai-text-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@utility text-gradient-ai-shimmer {
+  animation: ai-text-shimmer 4s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}

@@ -79,7 +79,7 @@ describe("useSignup", () => {
     expect(errorResult.current.errorMessage).toBe(errorMessage);
   });
 
-  it("should navigate to notify email page on successful signup", () => {
+  it("should navigate to notify email page on successful signup", async () => {
     const mockOnSuccess = vi.fn();
     const signupData = { email: "test@example.com", password: "password123" };
 
@@ -92,13 +92,39 @@ describe("useSignup", () => {
 
     renderHook(() => useSignup());
 
-    // Simulate successful signup
-    act(() => {
-      mockOnSuccess(null, { body: signupData });
+    // Simulate successful signup; onSuccess is async (it waits for the caller's own onSuccess first).
+    await act(async () => {
+      await mockOnSuccess(null, { body: signupData });
     });
 
     expect(mockNavigate).toHaveBeenCalledWith(
       `${ROUTES.NOTIFY_EMAIL}?email=${encodeURIComponent(signupData.email)}`
     );
+  });
+
+  it("should wait for the caller's onSuccess before navigating", async () => {
+    const mockOnSuccess = vi.fn();
+    let finish: () => void = () => {};
+    const callerOnSuccess = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+
+    vi.mocked(publicRqClient.useMutation).mockImplementation((_method, _url, options) => {
+      if (options?.onSuccess) mockOnSuccess.mockImplementation(options.onSuccess);
+      return createMockMutation();
+    });
+
+    renderHook(() => useSignup({ onSuccess: callerOnSuccess }));
+
+    let done: Promise<unknown> = Promise.resolve();
+    act(() => {
+      done = mockOnSuccess(null, { body: { email: "a@b.co", password: "x" } });
+    });
+    expect(callerOnSuccess).toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finish();
+      await done;
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 });

@@ -10,6 +10,7 @@ import { contentFor, hasSize, SHELL_META, SIZE_META, STATE_META, STATEFUL_SIZES 
 import {
   SHELL_DIMENSIONS,
   SHELL_KINDS,
+  P1_KINDS,
   SHELL_SIZES,
   SHELL_STATES,
   type ShellKind,
@@ -60,9 +61,6 @@ const COLUMNS: Column[] = [
   { size: "large", state: "history", label: "Inline · Small", inline: "small" },
   { size: "large", state: "history", label: "Inline · Medium", inline: "medium" },
 ];
-
-/** Built after P0: the rest of the library is P0. */
-const P1_KINDS: ShellKind[] = ["calendar", "guide", "moodboard", "map", "chart"];
 
 /**
  * Rows by priority, each in the library's order, with Chat last in P0: it's

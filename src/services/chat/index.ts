@@ -34,7 +34,10 @@ export {
   ChatInlineComposer,
   ChatTextareaComposer,
 } from "./_ui/chat-input-composer";
-export { ChatSuggestionCard as VisualizeSuggestionCard } from "./_ui/chat-suggestion-card";
+export {
+  ChatSuggestionCard as VisualizeSuggestionCard,
+  ChatSuggestionsSection,
+} from "./_ui/chat-suggestion-card";
 
 // Sam-ideas chat categories + legacy UI kit
 export * from "./model/chat-categories";

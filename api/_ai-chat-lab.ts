@@ -13,6 +13,7 @@ import {
   CATALOGUE_KINDS,
   applyCatalogueOperations,
   catalogueSummary,
+  FILL_TOOL_KIND,
   isCatalogueKind,
   operationSchema,
   readCatalogueValue,
@@ -20,6 +21,7 @@ import {
   type CatalogueValue,
 } from "../src/features/interface-shells/model/shell-catalogue.js";
 import { chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT } from "./_chat-lab.js";
+import { compactArtifactHistory } from "../src/features/chat-lab/model/artifact-history.js";
 import {
   apiKeyMissing,
   configError,
@@ -68,8 +70,9 @@ const PART_WORDS: Record<CatalogueKind, string> = {
 const catalogueSystemAddon = (kind: CatalogueKind, artefact: ArtefactContext) => {
   const entry = CATALOGUE[kind];
   const name = entry.label.toLowerCase();
+  // The contents themselves go at the end of the prompt (`artefactContents`), so this stays the same while it changes.
   const contents = artefact.value
-    ? `Its current contents, as JSON (list positions start at 0):\n${artefact.value}`
+    ? "Its current contents are given at the end of the conversation, as JSON (list positions start at 0). Only that version counts; earlier versions in the conversation are left out."
     : "Its contents are too long to show here.";
   const change = artefact.value
     ? kind === "document"
@@ -90,13 +93,27 @@ ${entry.guidance.map((line) => `- ${line}`).join("\n")}
 - If the user is just chatting, reply in chat only and skip the tools.`;
 };
 
+/**
+ * The open interface's current contents, sent after the conversation rather
+ * than in the system prompt: they change as the person and the model edit,
+ * and everything before them can stay a cached prefix.
+ */
+const artefactContents = (artefact: ArtefactContext): string | null => {
+  if (isCatalogueKind(artefact.kind) && artefact.value) {
+    return `The open ${CATALOGUE[artefact.kind].label} "${artefact.title}", as it is now (JSON, list positions start at 0):\n${artefact.value}`;
+  }
+  if (artefact.kind === "shell") {
+    return `The open ${artefact.label ?? "library"} interface "${artefact.title}", as it is now (JSON):\n${artefact.snapshot ?? "{}"}`;
+  }
+  return null;
+};
+
 const artefactSystemAddon = (artefact: ArtefactContext) => {
   if (isCatalogueKind(artefact.kind)) return catalogueSystemAddon(artefact.kind, artefact);
   if (artefact.kind === "shell") {
     return `
 The user has a ${artefact.label ?? "library"} interface titled "${artefact.title}" open beside the chat.
-They edit it directly. Its current contents, as JSON:
-${artefact.snapshot ?? "{}"}
+They edit it directly. Its current contents are given at the end of the conversation, as JSON.
 
 Routing rules:
 - Do not call write_interface or open_interface: this interface is edited by the user.
@@ -368,7 +385,14 @@ export async function POST(req: Request) {
           : 2,
     ),
     system: fullSystem,
-    messages: await convertToModelMessages(messages),
+    messages: [
+      // Only the latest version of each interface stays in context (see artifact-history.ts).
+      ...compactArtifactHistory(await convertToModelMessages(messages), {
+        writes: { ...FILL_TOOL_KIND, write_interface: "write" },
+        open: openKind ?? (artefact && artefact.kind !== "shell" ? "write" : null),
+      }),
+      ...(artefact && artefactContents(artefact) ? [{ role: "system" as const, content: artefactContents(artefact)! }] : []),
+    ],
     providerOptions: {
       openai: {
         reasoningEffort: "low",

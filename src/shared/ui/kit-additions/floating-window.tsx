@@ -43,11 +43,26 @@ export interface FloatingWindowProps {
   // the window). The underlying drag rect is preserved underneath, so clearing
   // the override restores exactly where the user left it.
   rectOverride?: WinRect;
-  children: (move: {
-    onPointerDown: (e: React.PointerEvent) => void;
-    onPointerMove: (e: React.PointerEvent) => void;
-    onPointerUp: (e: React.PointerEvent) => void;
-  }) => React.ReactNode;
+  children: (move: MoveHandlers) => React.ReactNode;
+}
+
+type MoveHandlers = {
+  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: (e: React.PointerEvent) => void;
+};
+
+// Calls the `children` render prop from its own component so the drag handlers
+// (which read refs) are handed over as props: they only run from pointer
+// events, never while rendering.
+function MoveHandleSlot({
+  render,
+  move,
+}: {
+  render: FloatingWindowProps["children"];
+  move: MoveHandlers;
+}) {
+  return render(move);
 }
 
 export function FloatingWindow({
@@ -129,11 +144,14 @@ export function FloatingWindow({
       }}
       className="absolute"
     >
-      {children(
-        locked
-          ? { onPointerDown: noop, onPointerMove: noop, onPointerUp: noop }
-          : { onPointerDown: begin("move"), onPointerMove, onPointerUp },
-      )}
+      <MoveHandleSlot
+        render={children}
+        move={
+          locked
+            ? { onPointerDown: noop, onPointerMove: noop, onPointerUp: noop }
+            : { onPointerDown: begin("move"), onPointerMove, onPointerUp }
+        }
+      />
       {!locked &&
         WIN_RESIZE.filter(
           (hdl) => !autoHeight || hdl.mode === "e" || hdl.mode === "w",

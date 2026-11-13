@@ -1,7 +1,7 @@
 import {
-  ChatSuggestionCard,
+  VisualizeSuggestionCard as ChatSuggestionCard,
   ChatSuggestionsSection,
-} from "@/services/chat/_ui/chat-suggestion-card";
+} from "@/services/chat";
 import { cn } from "@/shared/lib/css";
 import { Skeleton } from "@/shared/ui/kit/skeleton";
 import { useStarterSuggestions } from "../model/use-suggestions";

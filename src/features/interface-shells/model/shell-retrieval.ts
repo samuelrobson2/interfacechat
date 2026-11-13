@@ -86,6 +86,14 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Write an interactive article with a slider",
     ],
     triggers: [
+      "document",
+      "doc",
+      "google doc",
+      // Writing what goes on the slides; there's no Slides interface yet.
+      "presentation",
+      "slides",
+      "slide deck",
+      "deck",
       "paper",
       "essay",
       "report",
@@ -1266,16 +1274,57 @@ export type ShellScore = {
   matchedHints: string[];
 };
 
+/** Past this, a draft with line breaks may be a request with something pasted under it. */
+const MATERIAL_MIN = 240;
+/** A request is a line or a short paragraph; a closing line ("This was our proposal") counts as part of it. */
+const ASK_MAX = 300;
+const CLOSING_MAX = 160;
+
+/**
+ * A draft split into what's being asked and what's pasted with it. "Help me
+ * write the parts of the presentation:" followed by a page of assignment
+ * text asks for writing; the "literature review" and "data sources" in the
+ * page are what it's about, not what to open. A short draft is all request.
+ */
+export function splitRequest(draft: string): { ask: string; material: string } {
+  const text = draft.trim();
+  if (text.length < MATERIAL_MIN || !text.includes("\n")) return { ask: draft, material: "" };
+  const paragraphs = text.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const first = paragraphs[0] ?? "";
+  const line = text.split("\n")[0]?.trim() ?? "";
+  // A request before the paste leads into it ("…we can start with:", "Can you check this?").
+  const leadsIn = (part: string) => part.length <= ASK_MAX && /[:?]$/.test(part);
+  const opening = leadsIn(first) ? first : leadsIn(line) ? line : "";
+  const last = paragraphs.length > 1 ? paragraphs.at(-1)! : "";
+  const closing = last.length <= CLOSING_MAX && last !== first ? last : "";
+  // Neither: a short first paragraph is still the likeliest request; else there's no telling, so score it all.
+  const ask = [opening || (!closing && first.length <= ASK_MAX ? first : ""), closing].filter(Boolean).join("\n");
+  if (!ask) return { ask: draft, material: "" };
+  let material = text;
+  for (const part of ask.split("\n")) material = material.replace(part, "");
+  return { ask, material: material.trim() };
+}
+
 export function scoreProfile(profile: ShellRetrieval, draft: string): ShellScore {
-  const matchedTriggers = phraseHits(profile.triggers, draft);
+  const { ask, material } = splitRequest(draft);
+  const matchedTriggers = phraseHits(profile.triggers, ask);
   const triggers = Math.min(matchedTriggers.length, 2) * TRIGGER_POINTS;
+  // A trigger only in the pasted material says what it's about, not what to open: it counts as a hint.
+  const pastedTriggers = material
+    ? phraseHits(profile.triggers, material).filter((trigger) => !matchedTriggers.includes(trigger))
+    : [];
   // A hint already inside a matched trigger ("list" in "packing list") adds nothing.
-  const matchedHints = phraseHits(profile.hints ?? [], draft).filter(
-    (hint) => !matchedTriggers.some((trigger) => ` ${trigger} `.includes(` ${hint} `)),
-  );
+  const matchedHints = [
+    ...pastedTriggers,
+    ...phraseHits(profile.hints ?? [], ask),
+    ...(material ? phraseHits(profile.hints ?? [], material) : []),
+  ]
+    .filter((hint, index, all) => all.indexOf(hint) === index)
+    .filter((hint) => !matchedTriggers.some((trigger) => ` ${trigger} `.includes(` ${hint} `)));
   const hints = Math.min(matchedHints.length, 2) * HINT_POINTS;
-  const queries = similarity(profile.queries, draft);
-  const avoid = similarity(profile.avoidQueries, draft);
+  // Example prompts are compared with the request alone: a page of pasted text would match too much.
+  const queries = similarity(profile.queries, ask);
+  const avoid = similarity(profile.avoidQueries, ask);
   return {
     total: Math.max(0, triggers + hints + queries - avoid),
     triggers,

@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { X } from "lucide-react";
 
-import { EMPTY_SHELL_DATA, InterfaceShell, SHELL_DIMENSIONS } from "@/features/interface-shells";
+import { EMPTY_SHELL_DATA, InterfaceShell, SHELL_DIMENSIONS, type ShellSuggestions } from "@/features/interface-shells";
+import { PromptChoices } from "./prompt-choices";
 import { cn } from "@/shared/lib/css";
 import { HOME_POSITIONS, panTo } from "../model/home-layout";
 import type { HomeTile, KindData } from "../model/home-tiles";
@@ -38,11 +39,13 @@ function Shell({
   size,
   onChange,
   onSubmit,
+  suggestions,
 }: {
   value: KindData;
   size: "medium" | "medium-plus";
   onChange?: (next: KindData) => void;
   onSubmit?: () => void;
+  suggestions?: ShellSuggestions;
 }) {
   return (
     <InterfaceShell
@@ -52,6 +55,7 @@ function Shell({
         data: value.data,
         onChange: onChange && ((data: unknown) => onChange({ kind: value.kind, data } as KindData)),
         onSubmit,
+        suggestions,
       } as Parameters<typeof InterfaceShell>[0])}
     />
   );
@@ -117,6 +121,14 @@ function FieldTile({
           size={open ? "medium-plus" : "medium"}
           onChange={open && card?.editable ? field.edit : undefined}
           onSubmit={open ? onSubmit : undefined}
+          suggestions={
+            open && card?.editable
+              ? {
+                  // Inside the card: what the request leaves open, with the guesses it'll go with.
+                  brief: <PromptChoices choices={field.choices} thinking={field.choicesThinking} onPick={field.pickChoice} />,
+                }
+              : undefined
+          }
         />
         {open && (
           <button

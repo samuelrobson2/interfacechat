@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowUpRight, Minus } from "lucide-react";
 import { useMorphSpring } from "./use-morph-spring";
@@ -89,15 +96,19 @@ export function ChatLiveActivity({
         ? { width: Math.min(236, width), height: 52, radius: 26, iconY: 18 }
         : { width, height: 236, radius: 24, iconY: 18 };
 
-  const onViewChangeRef = useRef(onViewChange);
-  onViewChangeRef.current = onViewChange;
+  // Always calls the latest `onViewChange`, but only fires when `view` changes.
+  const emitViewChange = useEffectEvent((next: ActivityView) => {
+    onViewChange?.(next);
+  });
   useEffect(() => {
-    onViewChangeRef.current?.(view);
+    emitViewChange(view);
   }, [view]);
 
-  const initialShape = useRef(shape);
-  const initialScaleX = initialShape.current.width / 328;
-  const initialScaleY = initialShape.current.height / 236;
+  // The first-render pose seeds the surface's inline style; the spring takes
+  // over imperatively from there, so this is captured once and never updated.
+  const [initialShape] = useState(shape);
+  const initialScaleX = initialShape.width / 328;
+  const initialScaleY = initialShape.height / 236;
   useMorphSpring(surface, iconLayer, root, shape);
 
   return (
@@ -121,7 +132,7 @@ export function ChatLiveActivity({
         aria-hidden
         style={{
           transform: `scale(${initialScaleX}, ${initialScaleY})`,
-          borderRadius: `${initialShape.current.radius / initialScaleX}px / ${initialShape.current.radius / initialScaleY}px`,
+          borderRadius: `${initialShape.radius / initialScaleX}px / ${initialShape.radius / initialScaleY}px`,
         }}
       />
       {plated && (

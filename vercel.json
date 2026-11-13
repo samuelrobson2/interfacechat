@@ -12,7 +12,7 @@
       "destination": "/attention-is-all-you-need.pdf"
     },
     {
-      "source": "/api/:action(chat-lab|chat-lab-icon|chat-lab-suggestions|chat-lab-title|generate|interface-fill|visualize)",
+      "source": "/api/:action(chat-lab|chat-lab-icon|chat-lab-suggestions|chat-lab-title|generate|interface-fill|prompt-choices|toolbar-rewrite|toolbar-run|toolbar-tools|visualize)",
       "destination": "/api/ai/:action"
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

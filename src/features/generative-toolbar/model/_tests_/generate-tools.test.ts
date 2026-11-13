@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { generateTools, TOOLBAR_KINDS } from "../generate-tools";
 import { toolbarFixture } from "../toolbar-fixtures";
 import { toolSpecSchema } from "../tool-spec";
+import { STANDARD_TOOLS } from "../standard-tools";
 
 /** The stand-in generator has to keep to the contract the model will be held to. */
 describe("generateTools", () => {
@@ -27,5 +28,17 @@ describe("generateTools", () => {
   it("offers controls, not only actions, on a filled document", () => {
     const tools = generateTools("document", toolbarFixture("document", "history"), { selection: null });
     expect(tools.slice(0, 2).map((tool) => tool.type)).toEqual(["grid", "slider"]);
+  });
+
+  it("never suggests what the interface's own toolbar already does", () => {
+    for (const kind of TOOLBAR_KINDS) {
+      const taken = new Set(STANDARD_TOOLS[kind].flatMap((tool) => tool.jobs));
+      for (const state of ["empty", "suggestion", "history"] as const) {
+        const tools = generateTools(kind, toolbarFixture(kind, state) as never, { selection: null });
+        for (const tool of tools) expect(tool.jobs?.filter((job) => taken.has(job)) ?? [], `${kind} · ${tool.id}`).toEqual([]);
+      }
+    }
+    const search = generateTools("search", toolbarFixture("search", "history"), { selection: null });
+    expect(search.map((tool) => tool.id)).not.toContain("recency");
   });
 });

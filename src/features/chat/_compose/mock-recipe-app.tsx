@@ -105,7 +105,10 @@ function ServingsStepper({
 // the parent gives it a `key`, so each step starts fresh.
 function StepTimer({ seconds }: { seconds: number }) {
   const [remaining, setRemaining] = useState(seconds);
-  const [running, setRunning] = useState(false);
+  const [started, setStarted] = useState(false);
+  const done = remaining === 0;
+  // Reaching zero stops the timer without needing a state update of its own.
+  const running = started && !done;
 
   useEffect(() => {
     if (!running) return;
@@ -116,19 +119,14 @@ function StepTimer({ seconds }: { seconds: number }) {
     return () => clearInterval(id);
   }, [running]);
 
-  useEffect(() => {
-    if (remaining === 0) setRunning(false);
-  }, [remaining]);
-
-  const done = remaining === 0;
   const label = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
 
   const handleClick = () => {
     if (done) {
       setRemaining(seconds);
-      setRunning(true);
+      setStarted(true);
     } else {
-      setRunning((r) => !r);
+      setStarted(!running);
     }
   };
 

@@ -234,6 +234,9 @@ export function parsePrompt<K extends ChatShellKind>(
   const topicStart = Math.min(frame.end, prompt.length);
   const nextClause = clauses.find((clause) => clause.span.start >= topicStart);
   let topicEnd = nextClause ? nextClause.span.start : prompt.length;
+  // The topic is the first sentence's; what follows (a brief added from the card's choices) isn't the title.
+  const sentenceEnd = prompt.slice(topicStart).search(/[.!?](?:\s|$)/);
+  if (sentenceEnd >= 0) topicEnd = Math.min(topicEnd, topicStart + sentenceEnd);
   while (topicEnd > topicStart && /[\s.,;!?]/.test(prompt[topicEnd - 1]!))
     topicEnd -= 1;
   const topic = prompt.slice(topicStart, topicEnd);

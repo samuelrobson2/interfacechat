@@ -19,8 +19,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 export type InlineCitationProps = ComponentProps<"span">;
@@ -155,30 +155,30 @@ export const InlineCitationCarouselIndex = ({
   ...props
 }: InlineCitationCarouselIndexProps) => {
   const api = useCarouselApi();
-  const [current, setCurrent] = useState(0);
-  const [count, setCount] = useState(0);
 
-  const syncState = useCallback(() => {
-    if (!api) {
-      return;
-    }
-    setCount(api.scrollSnapList().length);
-    setCurrent(api.selectedScrollSnap() + 1);
-  }, [api]);
-
-  useEffect(() => {
-    if (!api) {
-      return;
-    }
-
-    syncState();
-
-    api.on("select", syncState);
-
-    return () => {
-      api.off("select", syncState);
-    };
-  }, [api, syncState]);
+  // Read the carousel position straight from the embla API, re-rendering on "select"
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (!api) {
+        return () => {};
+      }
+      api.on("select", onChange);
+      return () => {
+        api.off("select", onChange);
+      };
+    },
+    [api]
+  );
+  const current = useSyncExternalStore(
+    subscribe,
+    () => (api ? api.selectedScrollSnap() + 1 : 0),
+    () => 0
+  );
+  const count = useSyncExternalStore(
+    subscribe,
+    () => (api ? api.scrollSnapList().length : 0),
+    () => 0
+  );
 
   return (
     <div

@@ -23,7 +23,8 @@ export function ChatSurfaceFrame({
   pressScale?: number;
 }) {
   const isSharedLayout = Boolean(layoutId) && !asChild;
-  const Comp = asChild ? Slot : isSharedLayout ? motion.div : "div";
+  // One of three element types; the motion-only props are added only when it is motion.div.
+  const Comp: React.ElementType = asChild ? Slot : isSharedLayout ? motion.div : "div";
 
   return (
     <Comp

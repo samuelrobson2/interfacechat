@@ -1,0 +1,21 @@
+help me write the parts of the presentation which we can start with:
+
+Please prepare a presentation and submit your slides before class (before 2PM PT) on bCourses under the assignment, “Project Presentation”. 
+
+- 10 minute presentation + questions
+- There should be one submission per group. Please submit your slides before class on the day that you’re presenting.
+- All team members are expected to be there in person, participate in the presentation, and will receive the same grade.
+
+You are not expected to have your project completed by the project presentation. By the project presentation, you should have a very clear idea of the problem you’re solving, have implemented most of your methods, and have some preliminary results. Your presentation should cover similar aspects to the Presenter role presentation:
+
+- (1 min) The problem: what problem is your work trying to solve? Why is this problem important?
+- (2 min) Prior work: provide a brief literature review to situate this work in the context of papers that came before it - this could include papers from the class or other papers. How does your work build on existing work, and how does it address something existing work does not?
+- (3-4 min) Methods: what is your approach to the problem? Methods may include data sources, data processing, data collection, ML methods, statistical methods, qualitative methods, theoretical methods, etc. If time permits, feel free to spend more time here than you would in a Presenter role presentation on how you implemented these methods (e.g., engineering infrastructure), since here you’re all doing hands-on work and it may be helpful to get a little more in-the-weeds. 
+- (2-3 min) Preliminary results: what are your preliminary results? These could be results from the first set of model experiments, pilot results from surveys, etc. 
+
+
+
+**Grading:&#x20;**&#x59;ou will be graded based on the clarity of the presentation, whether you cover all the aspects described above, time management, question answering, and the amount of progress you’ve made by your presentation (again, I don’t expect you to have completed your project by this point, but substantial progress should have been made by the presentation date). All team members are expected to be there in person, participate in the presentation, and will receive the same grade.
+
+
+This was our proposal

@@ -19,6 +19,10 @@ export const SHELL_KINDS = [
 ] as const;
 export type ShellKind = (typeof SHELL_KINDS)[number];
 
+/** Built after P0: the rest of the library is P0. */
+export const P1_KINDS: readonly ShellKind[] = ["calendar", "guide", "moodboard", "map", "chart"];
+export const isP0Kind = (kind: ShellKind) => !P1_KINDS.includes(kind);
+
 /** Every interface can sit on the chat home and open beside a conversation. */
 export const CHAT_SHELL_KINDS = SHELL_KINDS;
 export type ChatShellKind = ShellKind;
@@ -59,10 +63,34 @@ type ProjectSlot = {
 
 export type DocumentShellData = ProjectSlot & {
   title: string;
-  /** Markdown: headings, paragraphs, lists and quotes. */
+  /** Markdown: headings, paragraphs, lists and quotes. A `{{key}}` in it is a blank, from `blanks`. */
   body: string;
   /** Target length, e.g. "~1,500 words". */
   length?: string;
+  /** Slots the model left for the person instead of making something up, by key. */
+  blanks?: Record<string, DocBlank>;
+};
+
+/**
+ * A blank: a slot inside a sentence where the model would otherwise have had
+ * to invent or quietly assume something. The person fills it with a click,
+ * and what depends on it is rewritten from there.
+ */
+export type DocBlank = {
+  /** The question, a few words: "How many guests?". */
+  ask: string;
+  /** only_you: a fact only they know; unsure: real candidates the model can't choose between; yours: theirs to work out or say. */
+  kind: "only_you" | "unsure" | "yours";
+  /** Answers to click, each reading naturally in the sentence in place of the blank. */
+  options: string[];
+  /** One to three words shown in the empty blank: "how many". */
+  placeholder: string;
+  /** Filled in by the person. */
+  value?: string;
+  /** The writing stopped here until it's filled; filling it carries on with `request`. */
+  wait?: boolean;
+  /** What was being done when it was left, so filling it can carry on: "Write the opening". */
+  request?: string;
 };
 
 export type SearchResult = {
@@ -477,7 +505,8 @@ export type SuggestedValues = Partial<Record<SuggestedGroup, string[]>>;
  * Suggested values (a filter, a tone, a column) are a separate thing: see
  * SuggestedValues, drawn among the real ones.
  */
-export const SUGGESTION_PLACES = ["toolbar", "footer", "days", "prompt", "board"] as const;
+/** Where a suggestion can sit. `brief` is the medium plus card's body: what a request typed on the chat home leaves open. */
+export const SUGGESTION_PLACES = ["toolbar", "footer", "days", "prompt", "board", "brief"] as const;
 export type SuggestionPlace = (typeof SUGGESTION_PLACES)[number];
 export type ShellSuggestions = Partial<Record<Exclude<SuggestionPlace, "toolbar">, React.ReactNode>>;
 

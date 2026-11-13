@@ -38,6 +38,7 @@ export function searchTools(data: SearchShellData): GeneratedTool<SearchShellDat
     {
       type: "choice",
       id: "recency",
+      jobs: ["time-filter"],
       label: "When",
       detail: "How recent the results must be",
       icon: "calendar",
@@ -138,6 +139,7 @@ export function scheduleTools(data: ScheduleShellData): GeneratedTool<ScheduleSh
       {
         type: "slider",
         id: "days",
+      jobs: ["day-count"],
         label: "Days",
         detail: "How long the plan runs",
         icon: "sliders",
@@ -168,6 +170,7 @@ export function scheduleTools(data: ScheduleShellData): GeneratedTool<ScheduleSh
     {
       type: "choice",
       id: "start",
+      jobs: ["shift-times"],
       label: "Start",
       detail: `Days run ${hourLabel(from)} to ${hourLabel(to)}`,
       icon: "clock",

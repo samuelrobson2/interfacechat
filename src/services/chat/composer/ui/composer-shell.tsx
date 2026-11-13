@@ -136,7 +136,7 @@ export function ChatComposerShell({
           className="absolute"
           style={layout.suggestions}
         >
-          {suggestions("row")}
+          {suggestions?.("row")}
         </div>
 
         <div

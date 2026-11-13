@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import type { SuggestionPlace } from "@/features/interface-shells";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   generateTools,
   type GeneratedTool,
@@ -7,68 +6,141 @@ import {
   type ToolbarKind,
   type ToolContext,
 } from "./generate-tools";
-import { PER_PLACE, placeOf } from "./tool-places";
+import { describeChanges, streamToolDiff } from "./toolbar-api";
+import { placeOf } from "./tool-places";
+import { applyDiff, clearUnpinned, dismissTool, emptyTable, pinTool, visibleTools, type ToolTable } from "./tool-table";
+import type { ToolValue } from "./tool-spec";
 
-/** How long the content has to sit still before the toolbar rethinks. */
-const SETTLE_MS = 500;
-/** The stand-in for the model's round trip. */
+/** How long the content has to sit still before the toolbar rethinks. The first look goes almost at once. */
+const SETTLE_MS = { rules: 500, model: 900, first: 120 } as const;
+/** The rules' stand-in for a model round trip. */
 const THINK_MS = 700;
 
 export type ToolbarStatus = "generating" | "ready";
+/** Where the tools come from: the model, or the hand-written rules that stand in for it. */
+export type ToolSource = "model" | "rules";
+export type ToolTiming = { ms: number; firstMs: number | null };
 
-type Placed<D> = Partial<Record<Exclude<SuggestionPlace, "toolbar">, GeneratedTool<D>[]>>;
-
-/** Each regenerate slides a window along the list, wrapping, so a new mix shows. */
+/** Each regenerate slides a window along the rules' list, wrapping, so a new mix shows. */
 function windowOf<T>(items: T[], size: number, round: number) {
   const start = items.length > size ? (round * size) % items.length : 0;
   return [...items.slice(start), ...items.slice(0, start)].slice(0, size);
 }
 
+/** The rules' answer as a table: the person's pinned tools, then the rules' current set. */
+function rulesTable<D>(kind: ToolbarKind, table: ToolTable<D>, all: GeneratedTool<D>[], count: number, round: number) {
+  const toolbar = all.filter((tool) => placeOf(kind, tool) === "toolbar");
+  const beside = all.filter((tool) => placeOf(kind, tool) !== "toolbar");
+  let next = emptyTable<D>();
+  for (const row of Object.values(table.rows).filter((row) => row.pinned || row.dismissed).sort((a, b) => a.order - b.order)) {
+    next = { rows: { ...next.rows, [row.tool.id]: { ...row, order: next.next } }, next: next.next + 1 };
+  }
+  for (const tool of [...windowOf(toolbar, count, round), ...beside]) next = applyDiff(kind, next, { add: [tool] });
+  return next;
+}
+
 /**
- * The tools for an interface as it is right now: `tools` for the toolbar,
- * and `placed` for the ones that sit beside the part they act on. Any change
- * to the content or the selection waits for a pause, then shows the toolbar
- * thinking before the new set lands — as it would with a model behind it.
- * Regenerate shows the next tools in the list rather than the same ones.
+ * The toolbar's tools for an interface as it is right now. It holds a table
+ * of every tool suggested so far (`tool-table.ts`); any change to the content
+ * or the selection waits for a pause, then asks for changes to that table,
+ * and merges each as it streams in. So tools arrive one by one, a changed tool
+ * updates in place, and the rest keep their places.
+ *
+ * - `pin` marks a tool as the person's once used: the model leaves it alone.
+ * - `dismiss` closes a tool for good: the model won't offer it again.
+ * - `regenerate` clears every open tool and asks for others.
+ * - With `source: "rules"`, or when the model can't be reached, the
+ *   hand-written rules fill the table instead, and `error` says why.
  */
 export function useGeneratedTools<K extends ToolbarKind>(
   kind: K,
   data: ToolbarDataByKind[K],
   context: ToolContext,
   count: number,
+  source: ToolSource = "rules",
 ) {
   type D = ToolbarDataByKind[K];
+  const [table, setTable] = useState<ToolTable<D>>(emptyTable);
   const [status, setStatus] = useState<ToolbarStatus>("generating");
-  const [landed, setLanded] = useState<{ tools: GeneratedTool<D>[]; placed: Placed<D> }>({ tools: [], placed: {} });
+  const [error, setError] = useState<string | null>(null);
+  const [from, setFrom] = useState<ToolSource>(source);
+  const [timing, setTiming] = useState<ToolTiming | null>(null);
+  // Bumped by regenerate, so the effect asks again even when nothing else changed.
   const [round, setRound] = useState(0);
+  const [avoid, setAvoid] = useState<string[]>([]);
   const selection = context.selection;
 
-  // What the model would come back with now.
-  const next = useMemo(() => {
-    const all = generateTools(kind, data, { selection });
-    const toolbar: GeneratedTool<D>[] = [];
-    const placed: Placed<D> = {};
-    for (const tool of all) {
-      const place = placeOf(kind, tool);
-      if (place === "toolbar") toolbar.push(tool);
-      else (placed[place] ??= []).push(tool);
-    }
-    for (const place of Object.keys(placed) as (keyof Placed<D>)[]) placed[place] = windowOf(placed[place]!, PER_PLACE, round);
-    return { tools: windowOf(toolbar, count, round), placed };
-  }, [kind, data, selection, count, round]);
+  // Read when a call goes out, not a reason to make one.
+  const tableRef = useRef(table);
+  useEffect(() => {
+    tableRef.current = table;
+  }, [table]);
+  const asked = useRef(false);
+  // The data the table was last brought up to date for, so the next call can say what changed.
+  const judged = useRef<D | null>(null);
+
+  // The rules' set: instant, and the fallback when the model can't be reached.
+  const rules = useMemo(() => generateTools(kind, data, { selection }), [kind, data, selection]);
 
   useEffect(() => {
-    // While typing, the current tools stay; only once things settle does it think.
-    const think = window.setTimeout(() => setStatus("generating"), SETTLE_MS);
-    const land = window.setTimeout(() => {
-      setLanded(next);
+    const controller = new AbortController();
+    const fallBack = () => {
+      setTable((current) => rulesTable(kind, current, rules, count, round));
+      setFrom("rules");
       setStatus("ready");
-    }, SETTLE_MS + THINK_MS);
-    return () => {
-      window.clearTimeout(think);
-      window.clearTimeout(land);
     };
-  }, [next]);
+    const delay = source === "rules" ? SETTLE_MS.rules : asked.current ? SETTLE_MS.model : SETTLE_MS.first;
+    const timer = window.setTimeout(() => {
+      asked.current = true;
+      setStatus("generating");
+      if (source === "rules") {
+        window.setTimeout(() => !controller.signal.aborted && fallBack(), THINK_MS);
+        return;
+      }
+      const changes = judged.current && Object.keys(tableRef.current.rows).length ? describeChanges(judged.current, data) : undefined;
+      streamToolDiff(
+        kind,
+        data,
+        { table: tableRef.current, selection, avoid, changes, count, signal: controller.signal },
+        {
+          onDiff: (diff) => {
+            setTable((current) => applyDiff(kind, current, diff));
+            setFrom("model");
+          },
+          onDone: setTiming,
+        },
+      )
+        .then(() => {
+          if (controller.signal.aborted) return;
+          judged.current = data;
+          setError(null);
+          setStatus("ready");
+        })
+        .catch((reason: unknown) => {
+          if (controller.signal.aborted) return;
+          setError(reason instanceof Error ? reason.message : String(reason));
+          // Keep what the model already gave; the rules only fill an empty bar.
+          if (Object.keys(tableRef.current.rows).length) setStatus("ready");
+          else fallBack();
+        });
+    }, delay);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+    // `rules` changes with kind, data and selection; avoid only matters with the round that set it.
+  }, [rules, source, count, round]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { ...landed, status, regenerate: () => setRound((value) => value + 1) };
+  const regenerate = useCallback(() => {
+    const { table: kept, cleared } = clearUnpinned(tableRef.current);
+    setTable(kept);
+    setAvoid(cleared);
+    setRound((value) => value + 1);
+  }, []);
+
+  const pin = useCallback((id: string, value?: ToolValue) => setTable((current) => pinTool(current, id, value)), []);
+  const dismiss = useCallback((id: string) => setTable((current) => dismissTool(current, id)), []);
+
+  const shown = useMemo(() => visibleTools(kind, table, count), [kind, table, count]);
+  return { ...shown, status, from, error, timing, regenerate, pin, dismiss };
 }

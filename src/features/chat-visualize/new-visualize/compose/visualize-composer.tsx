@@ -4,7 +4,7 @@ import {
   ChatComposerDropdownAction,
   ChatComposerSendButton,
   ChatTextareaComposer,
-} from "@/services/chat/_ui/chat-input-composer";
+} from "@/services/chat";
 import { UploadIcon } from "@/shared/assets/icons/outlined/Upload";
 import {
   NEW_DATASET_RETURN_TO,

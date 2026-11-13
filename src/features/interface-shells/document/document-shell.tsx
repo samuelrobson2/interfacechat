@@ -142,6 +142,7 @@ export function DocumentShell({
           onChange={onChange}
           onSubmit={onSubmit}
           status={status}
+          suggestions={suggestions}
         />
       </ShellSurface>
     );

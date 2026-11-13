@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ShellDataByKind, ChatShellKind } from "@/features/interface-shells";
+import { SHELL_META, type ShellDataByKind, type ChatShellKind } from "@/features/interface-shells";
 import { useChatLabStore } from "./chat-lab-store";
 import {
   EMPTY_MEMORY,
@@ -9,6 +9,7 @@ import {
   type HomeRankingMemory,
 } from "./home-ranking";
 import { collectHomeTiles, libraryTiles, type HomeTile, type KindData } from "./home-tiles";
+import { usePromptChoices } from "./prompt-choices";
 import { applyCardEdit, parsePrompt, reframePrompt } from "./prompt-fields";
 
 /** A chosen tile holds the middle until most of what was typed when it was chosen is gone. */
@@ -133,6 +134,10 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     };
   }, [leader, tile, draft, extras]);
 
+  // The few choices the request leaves open, for the card that's open (Document, for now).
+  const choiceKind = card?.editable ? card.interface.kind : null;
+  const choices = usePromptChoices(choiceKind, choiceKind ? SHELL_META[choiceKind].label : "", draft);
+
   const choose = (tileId: string, nextDraft: string) => {
     setDismissed(false);
     setChosen({ tileId, anchor: nextDraft });
@@ -157,6 +162,15 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
       if (extras?.tileId !== picked.id) setExtras(null);
       choose(picked.id, nextDraft);
       return null;
+    },
+    /** What the open card's request leaves open: at most three, each with options and a guess. */
+    choices: choices.shown,
+    choicesThinking: choices.thinking,
+    /** Settle a choice: its phrase goes into the prompt, in the one sentence the choices write. */
+    pickChoice(key: string, labels: string[]) {
+      const next = choices.pick(key, labels, draft);
+      if (next !== draft) setDraft(next);
+      if (card) choose(card.leader.tileId, next);
     },
     /** Grow a hinted card and lock it, as Tab does. */
     promote() {

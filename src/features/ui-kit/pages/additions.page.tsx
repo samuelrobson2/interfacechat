@@ -22,10 +22,10 @@ import {
   versionHistoryMock,
 } from "@/shared/ui/kit-additions";
 import {
-  CustomFollowupTextarea,
-  FollowupBackButton,
-  FollowupSuggestionButton,
-} from "@/features/chat/suggestions/ui/chat-followup-suggestions";
+  SuggestionsCustomFollowupTextarea as CustomFollowupTextarea,
+  SuggestionsFollowupBackButton as FollowupBackButton,
+  SuggestionsFollowupSuggestionButton as FollowupSuggestionButton,
+} from "@/features/chat";
 import {
   ChatComposerSendButton,
   ChatInlineComposer,
@@ -302,9 +302,6 @@ function ChatComposerCompositeDemo() {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="How can we help you?"
-        frameThickness={0.5}
-        blurAmount={0}
-        fillClassName="bg-gray-2"
         frameClassName="h-[100px] w-full shadow-[0_4px_6px_rgba(26,23,24,0.15)]"
         rightActions={
           <ChatComposerSendButton

@@ -1,4 +1,3 @@
-import { useLogout, useSessionStore } from "@/services/auth";
 import { DevDocsIcon } from "@/shared/assets/icons/general/DevDocs";
 import { LogOutIcon } from "@/shared/assets/icons/general/LogOut";
 import { PlansIcon } from "@/shared/assets/icons/general/Plans";
@@ -56,15 +55,25 @@ function MenuRow({
  * a small menu open in place — the same expand interaction the global menu uses
  * on hover — revealing the account details and actions (Billing, Settings,
  * Developer Docs, Log Out). Controlled so the panel can react (e.g. minimise
- * Recents to make room).
+ * Recents to make room). Session data (photo, log out) is passed in by the
+ * caller, e.g. from `useSessionStore` and `useLogout` in `@/services/auth`.
  */
 export function SidebarProfileMenu({
   displayName,
   open,
   onOpenChange,
   expanded = true,
+  photo,
+  onLogout,
+  isLoggingOut = false,
 }: {
   displayName: string;
+  /** The user's profile photo URL, if any. */
+  photo?: string;
+  /** Logs the user out (e.g. `useLogout().handleLogout`). */
+  onLogout: () => void;
+  /** True while a log out is in flight; further clicks are ignored. */
+  isLoggingOut?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /**
@@ -73,11 +82,6 @@ export function SidebarProfileMenu({
    */
   expanded?: boolean;
 }) {
-  const user = useSessionStore((state) => state.user);
-  const { handleLogout, isPending } = useLogout();
-
-  const photo = user?.profile?.profile_photo ?? undefined;
-
   return (
     <div className="flex w-full flex-col">
       {/* Grows open above the profile row. */}
@@ -108,7 +112,7 @@ export function SidebarProfileMenu({
             <MenuRow
               icon={<LogOutIcon svgClasses="size-5" />}
               label="Log Out"
-              onClick={() => !isPending && handleLogout()}
+              onClick={() => !isLoggingOut && onLogout()}
             />
           </div>
         </div>

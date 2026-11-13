@@ -17,6 +17,7 @@ import { canvasTools } from "./generate-tools-canvas";
 import { diagramTools } from "./generate-tools-diagram";
 import { generatorTools, scheduleTools, searchTools } from "./generate-tools-more";
 import { articleTools, dashboardTools } from "./generate-tools-apps";
+import { withoutStandard } from "./standard-tools";
 
 export type { GeneratedTool, ToolContext, ToolIcon };
 
@@ -349,6 +350,7 @@ function tableActions(
     tools.push({
       type: "action",
       id: `sort-${sortBy.id}`,
+      jobs: ["sort"],
       label: `Sort by ${sortBy.label}`,
       detail: `${new Set(data.rows.map((row) => row.cells[sortBy.id])).size} kinds of ${sortBy.label.toLowerCase()}`,
       icon: "sort",
@@ -537,6 +539,7 @@ function trackerActions(
     tools.push({
       type: "action",
       id: "sort-due",
+      jobs: ["sort"],
       label: "Sort by due date",
       detail: next?.due ? `Next up: ${clip(next.label, 24)} · ${next.due}` : "Soonest first",
       icon: "sort",
@@ -806,6 +809,7 @@ function tableControls(data: TableShellData, { selection }: ToolContext): Genera
     {
       type: "choice",
       id: "sort",
+      jobs: ["sort"],
       label: "Sort",
       detail: "Reorder the rows",
       icon: "sort",
@@ -944,8 +948,9 @@ export function generateTools<K extends ToolbarKind>(
   data: ToolbarDataByKind[K],
   context: ToolContext,
 ): GeneratedTool<ToolbarDataByKind[K]>[] {
-  return (GENERATORS[kind] as (data: ToolbarDataByKind[K], context: ToolContext) => GeneratedTool<ToolbarDataByKind[K]>[])(
+  const tools = (GENERATORS[kind] as (data: ToolbarDataByKind[K], context: ToolContext) => GeneratedTool<ToolbarDataByKind[K]>[])(
     data,
     context,
   );
+  return withoutStandard(kind, tools);
 }

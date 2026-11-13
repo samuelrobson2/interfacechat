@@ -1,9 +1,12 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { chartTypeFor } from "../chart";
 import {
   SHELL_RETRIEVAL,
   copyShellRetrieval,
   routeShellDraft,
+  splitRequest,
   setShellRetrieval,
   shellKindScore,
   chatFormatFor,
@@ -74,6 +77,9 @@ describe("shell retrieval", () => {
     ["Explain this paper on sleep spindles to me", "reader"],
     ["Summarise this report and show where the risks are", "reader"],
     ["Write a paper on sleep spindles", "document"],
+    ["Make a document about the launch plan", "document"],
+    ["Start a doc for the team offsite", "document"],
+    ["Summarise this document", "reader"],
     ["Give me a timeline of the history of cinema", "chart"],
     ["Draw a decision tree for whether to reshoot", "chart"],
     ["Brainstorm names for the production company", "chart"],
@@ -178,5 +184,25 @@ describe("shell retrieval", () => {
     expect(shellKindScore("document", "Find a paper on heat")).toBe(20);
     setShellRetrieval("document", { ...base, avoidQueries: ["Find a paper on heat"] });
     expect(shellKindScore("document", "Find a paper on heat")).toBe(0);
+  });
+});
+
+describe("a request with something pasted under it", () => {
+  // A real draft: one line asking for writing, then a page of assignment text full of research words.
+  const assignment = readFileSync(join(__dirname, "pasted-assignment.txt"), "utf8");
+  const pasted = assignment.slice(assignment.indexOf("Please prepare"), assignment.lastIndexOf("This was our proposal")).trim();
+
+  it("reads the request, not the pasted words", () => {
+    expect(routeShellDraft(assignment).kind).toBe("document");
+    expect(splitRequest(assignment).ask).toBe("help me write the parts of the presentation which we can start with:\nThis was our proposal");
+  });
+
+  it("still lets the request pick another interface", () => {
+    expect(routeShellDraft(`Find sources that back up the methods in this:\n\n${pasted}`).kind).toBe("search");
+    expect(routeShellDraft(`${pasted}\n\nMake a checklist of everything this asks for`).kind).toBe("tracker");
+  });
+
+  it("leaves short drafts as they were", () => {
+    expect(splitRequest("Write a paper on coral reefs")).toEqual({ ask: "Write a paper on coral reefs", material: "" });
   });
 });

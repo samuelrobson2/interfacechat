@@ -21,6 +21,19 @@ function getTickerStartValue(rawValue: string) {
   return Number(0).toFixed(getTickerDecimalPlaces(rawValue));
 }
 
+/** What to show the moment the inputs change, before any animation frame. */
+function getImmediateDisplayValue(
+  value: string,
+  enabled: boolean,
+  hasInteracted: boolean,
+): string {
+  if (!enabled || hasInteracted) return value;
+  const normalizedValue = value.trim();
+  if (normalizedValue === "") return "";
+  if (!Number.isFinite(Number(normalizedValue))) return normalizedValue;
+  return getTickerStartValue(normalizedValue);
+}
+
 export function useNumericTicker({
   value,
   enabled,
@@ -28,34 +41,33 @@ export function useNumericTicker({
   value: string;
   enabled: boolean;
 }) {
-  const [displayValue, setDisplayValue] = useState(value);
-  const hasInteractedRef = useRef(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [displayValue, setDisplayValue] = useState(() =>
+    getImmediateDisplayValue(value, enabled, false),
+  );
   const rafIdRef = useRef(0);
+
+  // Snap to the start (or final) value as soon as the inputs change — adjusted
+  // during render; the animation frames below count up from there.
+  const [source, setSource] = useState({ value, enabled });
+  if (source.value !== value || source.enabled !== enabled) {
+    setSource({ value, enabled });
+    setDisplayValue(getImmediateDisplayValue(value, enabled, hasInteracted));
+  }
 
   useEffect(() => {
     cancelAnimationFrame(rafIdRef.current);
     rafIdRef.current = 0;
 
-    if (!enabled || hasInteractedRef.current) {
-      setDisplayValue(value);
-      return;
-    }
+    if (!enabled || hasInteracted) return;
 
     const normalizedValue = value.trim();
-    if (normalizedValue === "") {
-      setDisplayValue("");
-      return;
-    }
+    if (normalizedValue === "") return;
 
     const target = Number(normalizedValue);
-    if (!Number.isFinite(target)) {
-      setDisplayValue(normalizedValue);
-      return;
-    }
+    if (!Number.isFinite(target)) return;
 
     const decimalPlaces = getTickerDecimalPlaces(normalizedValue);
-    setDisplayValue(getTickerStartValue(normalizedValue));
-
     const startedAt = performance.now();
 
     const tick = (now: number) => {
@@ -79,10 +91,10 @@ export function useNumericTicker({
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = 0;
     };
-  }, [enabled, value]);
+  }, [enabled, value, hasInteracted]);
 
   const handleUserInteraction = () => {
-    hasInteractedRef.current = true;
+    setHasInteracted(true);
     cancelAnimationFrame(rafIdRef.current);
     rafIdRef.current = 0;
     setDisplayValue(value);

@@ -21,6 +21,7 @@ import {
   UserRound,
   UsersRound,
   type LucideIcon,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRef, useState } from "react";
@@ -512,6 +513,7 @@ export function GenerativeToolbar<D>({
   count,
   onRun,
   onRegenerate,
+  onDismiss,
   size = "md",
   popoverSide = "top",
   wrap = false,
@@ -527,6 +529,8 @@ export function GenerativeToolbar<D>({
   onRun: Run<D>;
   /** Omit where the set is one of several, such as suggestions beside part of an interface. */
   onRegenerate?: () => void;
+  /** Closes a tool for good (× on hover); omit for no ×. */
+  onDismiss?: (tool: GeneratedTool<D>) => void;
   size?: ToolSize;
   /** Which way a tool's popover (the 2×2) opens. */
   popoverSide?: "top" | "bottom";
@@ -555,19 +559,8 @@ export function GenerativeToolbar<D>({
       )}
     >
       <AnimatePresence mode="popLayout" initial={false}>
-        {generating
-          ? Array.from({ length: count }, (_, index) => (
-              <motion.div
-                key={`skeleton-${index}`}
-                initial={reduceMotion ? false : { opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                transition={{ duration: 0.2, delay: index * 0.04 }}
-              >
-                <ToolSkeleton style={style} size={size} index={index} />
-              </motion.div>
-            ))
-          : tools.map((tool, index) => (
+        {/* Tools stay while it thinks; changes stream in one by one. Placeholders hold only the empty slots. */}
+        {tools.map((tool, index) => (
               <motion.div
                 key={tool.id}
                 layout={!reduceMotion}
@@ -577,11 +570,11 @@ export function GenerativeToolbar<D>({
                     : { opacity: 0, y: column ? 0 : 4, x: column ? -4 : 0, filter: "blur(2px)" }
                 }
                 animate={{ opacity: 1, y: 0, x: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                transition={{ duration: 0.28, ease: EASE, delay: index * 0.05 }}
-                className="shrink-0"
+                exit={{ opacity: 0, filter: "blur(2px)", transition: { duration: 0.16 } }}
+                transition={{ duration: 0.28, ease: EASE, delay: Math.min(index, 2) * 0.03 }}
+                className="group/tool relative shrink-0"
               >
-                {/* A regenerated tool with new values starts fresh, not where the old one was left. */}
+                {/* A tool changed under its key (a new label or value) starts fresh, in the same place. */}
                 <ToolControl
                   key={JSON.stringify(tool)}
                   tool={tool}
@@ -590,6 +583,29 @@ export function GenerativeToolbar<D>({
                   side={popoverSide}
                   onRun={onRun}
                 />
+                {onDismiss && (
+                  <button
+                    type="button"
+                    aria-label={`Dismiss ${tool.label}`}
+                    title="Don't suggest this"
+                    onClick={() => onDismiss(tool)}
+                    className="absolute -top-1 -right-1 z-10 grid size-4.5 cursor-pointer place-items-center rounded-full bg-background-primary text-typography-secondary opacity-0 shadow-[0_1px_3px_rgba(26,23,24,0.18)] transition-opacity group-hover/tool:opacity-100 hover:text-typography-primary focus-visible:opacity-100"
+                  >
+                    <X className="size-2.5" strokeWidth={2.25} />
+                  </button>
+                )}
+              </motion.div>
+            ))}
+        {generating &&
+          Array.from({ length: Math.max(0, count - tools.length) }, (_, index) => (
+              <motion.div
+                key={`skeleton-${index}`}
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                transition={{ duration: 0.2, delay: index * 0.04 }}
+              >
+                <ToolSkeleton style={style} size={size} index={tools.length + index} />
               </motion.div>
             ))}
       </AnimatePresence>

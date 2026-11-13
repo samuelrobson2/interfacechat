@@ -24,7 +24,8 @@ function generatorValues(data: ToolbarDataByKind["generator"]): SuggestedValues 
 
 function searchValues(data: ToolbarDataByKind["search"]): SuggestedValues {
   const local = has(data.query, /\b(near|in|cafés?|cafes?|restaurants?|roasters?|shops?|bars?)\b/);
-  return { filters: local ? ["Reviews", "Open late", "Past year"] : ["Past year", "Primary sources", "News"] };
+  // Not times or types: Search's own Time and Type pickers already offer those.
+  return { filters: local ? ["Reviews", "Open late", "Independent"] : ["Primary sources", "Peer-reviewed", "Expert takes"] };
 }
 
 function tableValues(data: ToolbarDataByKind["table"]): SuggestedValues {

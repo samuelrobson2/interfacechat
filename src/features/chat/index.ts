@@ -24,3 +24,11 @@ export {
   ChatUserMessage,
   ChatUserMessageLayout,
 } from "./message/ui/chat-user-message";
+
+// The suggestions-row variants of the follow-up controls (distinct styling from
+// the `_ui/chat-followup-buttons` ones above), shown in the UI kit.
+export {
+  CustomFollowupTextarea as SuggestionsCustomFollowupTextarea,
+  FollowupBackButton as SuggestionsFollowupBackButton,
+  FollowupSuggestionButton as SuggestionsFollowupSuggestionButton,
+} from "./suggestions/ui/chat-followup-suggestions";

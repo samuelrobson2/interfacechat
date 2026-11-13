@@ -39,18 +39,18 @@ function TotalChart({
   const percentage =
     totalMax > 0 ? Math.min(100, (totalUsed / totalMax) * 100) : 0;
 
-  const arcs = React.useMemo(() => {
-    let offset = 0;
-    return sortedSegments
-      .filter((s) => s.value > 0)
-      .map((segment) => {
-        const ratio = totalMax > 0 ? segment.value / totalMax : 0;
-        const arcLength = CIRCUMFERENCE * Math.min(1, ratio);
-        const result = { ...segment, arcLength, offset };
-        offset += arcLength;
-        return result;
-      });
-  }, [sortedSegments, totalMax]);
+  // Each arc starts where the previous one ended.
+  const arcs: Array<
+    (typeof sortedSegments)[number] & { arcLength: number; offset: number }
+  > = [];
+  let offset = 0;
+  for (const segment of sortedSegments) {
+    if (!(segment.value > 0)) continue;
+    const ratio = totalMax > 0 ? segment.value / totalMax : 0;
+    const arcLength = CIRCUMFERENCE * Math.min(1, ratio);
+    arcs.push({ ...segment, arcLength, offset });
+    offset += arcLength;
+  }
 
   return (
     <Card

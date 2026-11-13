@@ -138,10 +138,20 @@ export type InlineSegment = {
   code?: boolean;
   strike?: boolean;
   href?: string;
+  /** A `{{key}}` blank: drawn as a slot, filled from the document's `blanks`. */
+  blank?: string;
 };
 
 const INLINE =
-  /\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)|~~([^~]+)~~/g;
+  /\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)|~~([^~]+)~~|\{\{([a-z0-9][a-z0-9_-]*)\}\}/g;
+
+/** A blank in a document's body. */
+export const BLANK_TOKEN = /\{\{([a-z0-9][a-z0-9_-]*)\}\}/g;
+
+/** The body with every blank read as its answer, or "…" while it's empty: for copying, counting and previews. */
+export function resolveBlanks(text: string, blanks: Record<string, { value?: string }> | undefined) {
+  return text.replace(BLANK_TOKEN, (_, key: string) => blanks?.[key]?.value ?? "…");
+}
 
 export function parseInline(raw: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
@@ -151,7 +161,7 @@ export function parseInline(raw: string): InlineSegment[] {
     if (index > cursor) {
       segments.push({ text: raw.slice(cursor, index), rawStart: cursor });
     }
-    const [, bold, italicStar, italicUnderscore, code, linkText, href, strike] = match;
+    const [, bold, italicStar, italicUnderscore, code, linkText, href, strike, blank] = match;
     if (bold !== undefined) {
       segments.push({ text: bold, rawStart: index + 2, bold: true });
     } else if (italicStar !== undefined || italicUnderscore !== undefined) {
@@ -166,6 +176,9 @@ export function parseInline(raw: string): InlineSegment[] {
       segments.push({ text: linkText, rawStart: index + 1, href });
     } else if (strike !== undefined) {
       segments.push({ text: strike, rawStart: index + 2, strike: true });
+    } else if (blank !== undefined) {
+      // A slot, not text: it takes no caret positions.
+      segments.push({ text: "", rawStart: index + match[0].length, blank });
     }
     cursor = index + match[0].length;
   }

@@ -91,3 +91,4 @@ export { ALL as APP_ALL, columnsOf, runQuery } from "./apps/app-query";
 export * from "./apps/app-types";
 export { appToCatalogue, catalogueToApp } from "./apps/app-catalogue";
 export { appDetail, blockLabel } from "./apps/app-detail";
+export { BLANK_TOKEN, resolveBlanks } from "./model/markdown-blocks";

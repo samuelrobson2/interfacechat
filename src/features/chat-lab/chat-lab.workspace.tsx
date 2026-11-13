@@ -403,6 +403,9 @@ export function ChatLabWorkspace() {
   // so the morphing shell stays visible for layoutId.
   useEffect(() => {
     if (!sessionId) {
+      // The starter's first commit on return still carries the handoff state, so
+      // its headline/tiles fade back in; resetting during render would skip that.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-commit reset; see above
       setExpandingKind(null);
       setIsStarting(false);
     }

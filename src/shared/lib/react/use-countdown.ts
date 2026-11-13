@@ -6,6 +6,9 @@ import {
   useState,
 } from "react";
 
+const getTimeLeft = (endTime: Date) =>
+  Math.max(0, Math.ceil((endTime.getTime() - Date.now()) / 1000));
+
 export const useCountdown = ({
   key,
   duration,
@@ -22,66 +25,78 @@ export const useCountdown = ({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isStarted, setIsStarted] = useState<boolean>(false);
 
-  const getTimeLeft = useCallback((endTime: Date) => {
-    return Math.max(0, Math.ceil((endTime.getTime() - Date.now()) / 1000));
-  }, []);
+  // Always call the latest `onStart` without making the callbacks below
+  // depend on it (callers usually pass an inline function).
+  const onStartRef = useRef(onStart);
+  useLayoutEffect(() => {
+    onStartRef.current = onStart;
+  });
 
-  const clearIntervalId = () => {
+  const clearIntervalId = useCallback(() => {
     if (intervalId.current) {
       clearInterval(intervalId.current);
       intervalId.current = null;
     }
-  };
+  }, []);
 
-  const clear = useEffectEvent(() => {
+  const clear = useCallback(() => {
     setTimeLeft(null);
     setIsStarted(false);
     localStorage.removeItem(storageKey);
 
     clearIntervalId();
-  });
+  }, [storageKey, clearIntervalId]);
 
-  const internalStart = useEffectEvent((endTime: Date) => {
-    clear();
+  const internalStart = useCallback(
+    (endTime: Date) => {
+      clear();
 
-    localStorage.setItem(storageKey, endTime.getTime().toString());
-    setTimeLeft(getTimeLeft(endTime));
-    setIsStarted(true);
-    onStart?.();
+      localStorage.setItem(storageKey, endTime.getTime().toString());
+      setTimeLeft(getTimeLeft(endTime));
+      setIsStarted(true);
+      onStartRef.current?.();
 
-    intervalId.current = setInterval(() => {
-      const newRemaining = getTimeLeft(endTime);
-      setTimeLeft(newRemaining);
+      intervalId.current = setInterval(() => {
+        const newRemaining = getTimeLeft(endTime);
+        setTimeLeft(newRemaining);
 
-      if (newRemaining === 0) clear();
-    }, 250);
-  });
+        if (newRemaining === 0) clear();
+      }, 250);
+    },
+    [clear, storageKey],
+  );
 
-  const start = useEffectEvent(() => {
+  const start = useCallback(() => {
     const endTime = new Date(Date.now() + duration * 1000);
 
     internalStart(endTime);
-  });
+  }, [duration, internalStart]);
+
+  /** Resumes a stored countdown; returns whether one was restored or cleared. */
+  const restoreFromStorage = useEffectEvent(
+    (key: string, startNow: boolean): boolean => {
+      const endTime = localStorage.getItem(key);
+
+      if (!endTime) {
+        if (startNow) start();
+        return false;
+      }
+
+      const endTimeDate = new Date(parseInt(endTime));
+      if (endTimeDate > new Date()) {
+        internalStart(endTimeDate);
+      } else {
+        clear();
+      }
+      return true;
+    },
+  );
 
   useLayoutEffect(() => {
-    const endTime = localStorage.getItem(storageKey);
-
-    if (!endTime) {
-      if (!instantStart) return;
-      start();
-      return;
-    }
-
-    const endTimeDate = new Date(parseInt(endTime));
-    if (endTimeDate > new Date()) {
-      internalStart(endTimeDate);
-    } else {
-      clear();
-    }
+    if (!restoreFromStorage(storageKey, instantStart)) return;
 
     return () => clearIntervalId();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instantStart, storageKey]);
+  }, [instantStart, storageKey, clearIntervalId]);
 
   const isReady = isStarted && timeLeft !== null && timeLeft === 0;
 

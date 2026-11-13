@@ -1,7 +1,7 @@
 import { cn } from "@/shared/lib/css";
 import { Skeleton } from "@/shared/ui/kit";
 import { type SuggestionsVariant } from "../lib/suggestions-cache";
-import { ChatSuggestionCard } from "@/services/chat/_ui/chat-suggestion-card";
+import { VisualizeSuggestionCard as ChatSuggestionCard } from "@/services/chat";
 import { useInitialSuggestions } from "../model/use-suggestions";
 
 export function ChatBubbleSuggestionsSkeleton({

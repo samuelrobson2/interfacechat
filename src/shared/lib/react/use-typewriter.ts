@@ -8,10 +8,13 @@ const DEFAULT_SPEED_MS = 28;
  */
 export function useTypewriter(text: string, speed = DEFAULT_SPEED_MS) {
   const [count, setCount] = useState(0);
+  const [prevText, setPrevText] = useState(text);
 
-  useEffect(() => {
+  // Restart when the text changes (adjusting state during render, not in an effect).
+  if (text !== prevText) {
+    setPrevText(text);
     setCount(0);
-  }, [text]);
+  }
 
   useEffect(() => {
     if (count >= text.length) return;
