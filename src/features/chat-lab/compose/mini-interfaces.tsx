@@ -114,7 +114,7 @@ export function MiniMoodboard({
               onKeyDown={(event) => fieldKeyDown(event, onSubmit)}
               placeholder="Board"
               className="w-full truncate rounded-full bg-gray-6 px-2.5 py-1 text-[11px] font-medium outline-none"
-              aria-label="Moodboard topic"
+              aria-label="Canvas topic"
             />
             <textarea
               value={context}
@@ -126,7 +126,7 @@ export function MiniMoodboard({
               }
               placeholder="Mood, materials, references…"
               className="min-h-0 w-full flex-1 resize-none bg-transparent text-[11px] leading-4 text-typography-primary outline-none placeholder:text-typography-secondary"
-              aria-label="Moodboard context"
+              aria-label="Canvas context"
             />
           </div>
         ) : (

@@ -1,6 +1,8 @@
+import { boardItems, canvasCounts } from "../model/canvas-layout";
 import { countWords, parseBlocks } from "../model/markdown-blocks";
 import { CHART_TYPE_META } from "../model/chart";
 import { SHELL_META } from "../model/shell-meta";
+import { appDetail } from "../apps/app-detail";
 import type { ShellData, ShellDataByKind, ShellKind } from "../model/shell-types";
 
 /**
@@ -104,8 +106,16 @@ export function inlineDetail(kind: ShellKind, data: ShellData): string {
       return near ? `${plural(places.length, "place")} near ${near}` : plural(places.length, "place");
     }
     case "moodboard": {
-      const { images, palette } = data as ShellDataByKind["moodboard"];
-      return `${plural(images.length, "image")} · ${plural(palette.length, "colour")}`;
+      // What's on the canvas, by kind, leaving out kinds it has none of.
+      const counts = canvasCounts(boardItems(data as ShellDataByKind["moodboard"]));
+      const parts = [
+        counts.images && plural(counts.images, "image"),
+        counts.drawings && plural(counts.drawings, "drawing"),
+        counts.components && plural(counts.components, "component"),
+        counts.notes && plural(counts.notes, "note"),
+        counts.colours && plural(counts.colours, "colour"),
+      ].filter(Boolean);
+      return parts.length ? parts.slice(0, 3).join(" · ") : "Empty canvas";
     }
     case "chart": {
       const chart = data as ShellDataByKind["chart"];
@@ -124,5 +134,15 @@ export function inlineDetail(kind: ShellKind, data: ShellData): string {
     }
     case "chat":
       return plural((data as ShellDataByKind["chat"]).messages.length, "message");
+    case "dashboard":
+    case "article":
+      return appDetail(data as ShellDataByKind["dashboard"]);
+    case "generator": {
+      const { mode, variations, chosen } = data as ShellDataByKind["generator"];
+      const what = mode === "image" ? "Image" : "Text";
+      if (!variations.length) return `${what} · Not generated yet`;
+      const picked = variations.findIndex((v) => v.id === chosen);
+      return picked >= 0 ? `${what} · Variation ${picked + 1} chosen` : `${what} · ${plural(variations.length, "variation")}`;
+    }
   }
 }

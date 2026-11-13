@@ -1,13 +1,19 @@
 import {
   Bold,
+  Code,
+  Copy,
+  Download,
   Heading,
   Heading1,
   Heading2,
   Italic,
+  Link2,
   List,
   ListOrdered,
   Pilcrow,
   Quote,
+  RemoveFormatting,
+  Strikethrough,
 } from "lucide-react";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
@@ -18,12 +24,25 @@ import {
   numberedIndices,
   parseBlocks,
   parseInline,
+  plainInline,
   renderedToRawOffset,
   serializeBlocks,
   type BlockType,
   type DocBlock,
 } from "../model/markdown-blocks";
-import type { DocumentShellData, ShellStatus } from "../model/shell-types";
+import type { DocumentShellData, ShellStatus, ShellSuggestions } from "../model/shell-types";
+import { SHELL_TITLE_LARGE } from "../ui/shell-kit";
+import {
+  copyText,
+  downloadText,
+  fileNameOf,
+  ShellToolbar,
+  ShellToolButton,
+  ShellToolDivider,
+  ShellToolField,
+  ShellToolMenu,
+  ShellToolPopover,
+} from "../ui/shell-toolbar";
 import { ShellFooter } from "../ui/shell-meta";
 import {
   AutoTextarea,
@@ -95,6 +114,7 @@ function InlineText({ text }: { text: string }) {
           );
         }
         if (segment.italic) return <em key={i}>{segment.text}</em>;
+        if (segment.strike) return <s key={i}>{segment.text}</s>;
         if (segment.code) {
           return (
             <code key={i} className="rounded-[4px] bg-gray-6 px-1 font-bureau text-[0.95em] font-normal">
@@ -255,6 +275,8 @@ export function DocumentEditor({
   /** Sits on the title's line, marking which interface this is. */
   titleMark,
   actions,
+  tools,
+  suggestions,
   className,
 }: {
   data: DocumentShellData;
@@ -265,6 +287,10 @@ export function DocumentEditor({
   titlePlaceholder?: string;
   titleMark?: React.ReactNode;
   actions?: React.ReactNode;
+  /** Large only: tools generated for this document, after the formatting ones. */
+  tools?: React.ReactNode;
+  /** Large only: suggestions after the writing (`end`) and by the word count (`footer`). */
+  suggestions?: ShellSuggestions;
   className?: string;
 }) {
   const editable = Boolean(onChange);
@@ -355,6 +381,35 @@ export function DocumentEditor({
     focusBlock(block.id, start + marker.length, start + marker.length + selected.length);
   };
 
+  /** The block the toolbar acts on, and the selection inside it. */
+  const target = () => {
+    const block = blocks.find((entry) => entry.id === targetId());
+    if (!block) return null;
+    const node = areas.current.get(block.id);
+    return { block, start: node?.selectionStart ?? block.text.length, end: node?.selectionEnd ?? block.text.length };
+  };
+
+  /** Docs' Insert link: the selection becomes the link's words. */
+  const insertLink = (href: string) => {
+    const at = target();
+    if (!at) return;
+    const { block, start, end } = at;
+    const url = /^[a-z]+:\/\//i.test(href) ? href : `https://${href}`;
+    const words = block.text.slice(start, end) || href;
+    replaceBlock(block.id, { ...block, text: `${block.text.slice(0, start)}[${words}](${url})${block.text.slice(end)}` });
+    focusBlock(block.id, start + 1, start + 1 + words.length);
+  };
+
+  /** Docs' Clear formatting: the block keeps its style, its words lose bold, links and the rest. */
+  const clearFormatting = () => {
+    const at = target();
+    if (!at) return;
+    replaceBlock(at.block.id, { ...at.block, text: plainInline(at.block.text) });
+    focusBlock(at.block.id, 0);
+  };
+
+  const asMarkdown = () => [data.title.trim() && `# ${data.title.trim()}`, serializeBlocks(blocks)].filter(Boolean).join("\n\n");
+
   const handleKeyDown = (
     event: React.KeyboardEvent<HTMLTextAreaElement>,
     block: DocBlock,
@@ -378,6 +433,11 @@ export function DocumentEditor({
     if (mod && event.key.toLowerCase() === "i") {
       event.preventDefault();
       wrapSelection("*");
+      return;
+    }
+    if (mod && event.shiftKey && event.key.toLowerCase() === "x") {
+      event.preventDefault();
+      wrapSelection("~~");
       return;
     }
     if (event.key === "Escape") {
@@ -496,15 +556,9 @@ export function DocumentEditor({
   };
   const words = countWords(blocks);
 
-  const toolbar = (
-    <div
-      className={cn(
-        "flex shrink-0 items-center gap-0.5",
-        compact
-          ? "h-8 border-b border-gray-3/15 bg-white/80 px-2"
-          : "h-12 border-b border-gray-3/15 px-4",
-      )}
-    >
+  // The formatting buttons are the document's standard tools.
+  const formatButtons = (
+    <>
       {!compact && (
         <>
           <ToolbarButton
@@ -590,8 +644,91 @@ export function DocumentEditor({
           </ToolbarButton>
         </>
       )}
+    </>
+  );
+  // Large follows Google Docs: style, inline formatting, link, lists, then copy and download.
+  const STYLE_LABEL: Record<BlockType, string> = {
+    paragraph: "Normal text",
+    heading1: "Heading 1",
+    heading2: "Heading 2",
+    bullet: "Normal text",
+    numbered: "Normal text",
+    quote: "Normal text",
+  };
+  const style = focusedBlock ? STYLE_LABEL[focusedBlock.type] : "Normal text";
+  const largeTools = (
+    <>
+      <ShellToolMenu
+        label="Text style"
+        text={style}
+        disabled={!editable}
+        items={[
+          { id: "p", label: "Normal text", icon: <Pilcrow />, checked: style === "Normal text", onSelect: () => setType("paragraph") },
+          { id: "h1", label: "Heading 1", icon: <Heading1 />, checked: style === "Heading 1", onSelect: () => setType("heading1") },
+          { id: "h2", label: "Heading 2", icon: <Heading2 />, checked: style === "Heading 2", onSelect: () => setType("heading2") },
+        ]}
+      />
+      <ShellToolDivider />
+      <ShellToolButton label="Bold (⌘B)" disabled={!editable} onPress={() => wrapSelection("**")}>
+        <Bold />
+      </ShellToolButton>
+      <ShellToolButton label="Italic (⌘I)" disabled={!editable} onPress={() => wrapSelection("*")}>
+        <Italic />
+      </ShellToolButton>
+      <ShellToolButton label="Strikethrough (⌘⇧X)" disabled={!editable} onPress={() => wrapSelection("~~")}>
+        <Strikethrough />
+      </ShellToolButton>
+      <ShellToolButton label="Inline code" disabled={!editable} onPress={() => wrapSelection("`")}>
+        <Code />
+      </ShellToolButton>
+      <ShellToolPopover label="Insert link" icon={<Link2 />} disabled={!editable}>
+        {(close) => (
+          <ShellToolField
+            label="Link"
+            placeholder="Paste or type a link"
+            onApply={(url) => {
+              insertLink(url);
+              close();
+            }}
+          />
+        )}
+      </ShellToolPopover>
+      <ShellToolButton label="Clear formatting" disabled={!editable} onPress={clearFormatting}>
+        <RemoveFormatting />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton label="Bulleted list" disabled={!editable} active={focusedBlock?.type === "bullet"} onPress={() => setType("bullet")}>
+        <List />
+      </ShellToolButton>
+      <ShellToolButton label="Numbered list" disabled={!editable} active={focusedBlock?.type === "numbered"} onPress={() => setType("numbered")}>
+        <ListOrdered />
+      </ShellToolButton>
+      <ShellToolButton label="Quote" disabled={!editable} active={focusedBlock?.type === "quote"} onPress={() => setType("quote")}>
+        <Quote />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton label="Copy as Markdown" disabled={!words && !data.title} onPress={() => copyText(asMarkdown())}>
+        <Copy />
+      </ShellToolButton>
+      <ShellToolButton
+        label="Download (.md)"
+        disabled={!words && !data.title}
+        onPress={() => downloadText(`${fileNameOf(data.title, "document")}.md`, asMarkdown(), "text/markdown")}
+      >
+        <Download />
+      </ShellToolButton>
+    </>
+  );
+
+  const toolbar = compact ? (
+    <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-gray-3/15 bg-white/80 px-2">
+      {formatButtons}
       {actions && <div className="ml-auto flex items-center gap-1">{actions}</div>}
     </div>
+  ) : (
+    <ShellToolbar tools={tools} actions={actions}>
+      {largeTools}
+    </ShellToolbar>
   );
 
   const renderBlock = (block: DocBlock, index: number) => {
@@ -709,14 +846,14 @@ export function DocumentEditor({
       }}
       className={cn(
         "w-full shrink-0 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary",
-        compact ? "text-[13px] font-normal leading-[1.3]" : "text-[26px] font-light leading-[1.2] tracking-[-0.3px]",
+        compact ? "text-[13px] font-normal leading-[1.3]" : SHELL_TITLE_LARGE,
       )}
     />
   ) : (
     <div
       className={cn(
         "shrink-0 truncate font-bureau",
-        compact ? "text-[13px] font-normal leading-[1.3]" : "text-[26px] font-light leading-[1.2] tracking-[-0.3px]",
+        compact ? "text-[13px] font-normal leading-[1.3]" : SHELL_TITLE_LARGE,
         data.title ? "text-typography-primary" : "text-typography-secondary",
       )}
     >
@@ -775,10 +912,16 @@ export function DocumentEditor({
         </div>
       </div>
       <div
-        className="flex h-9 shrink-0 items-center justify-between border-t border-gray-3/15 px-6 font-bureau text-[12px] text-typography-secondary"
+        className={cn(
+          "flex shrink-0 items-center justify-between gap-3 border-t border-gray-3/15 px-6 font-bureau text-[12px] text-typography-secondary",
+          suggestions?.footer ? "min-h-11 py-1.5" : "h-9",
+        )}
       >
-        <span className="tabular-nums">
-          {words} {words === 1 ? "word" : "words"}
+        <span className="flex items-center gap-3">
+          <span className="shrink-0 tabular-nums">
+            {words} {words === 1 ? "word" : "words"}
+          </span>
+          {suggestions?.footer}
         </span>
         {status === "loading" && <span className="animate-pulse">Writing…</span>}
       </div>

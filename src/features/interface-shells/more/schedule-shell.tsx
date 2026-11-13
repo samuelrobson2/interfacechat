@@ -1,4 +1,4 @@
-import { Plus, X } from "lucide-react";
+import { ArrowDownWideNarrow, CalendarMinus, CalendarPlus, ChevronsLeft, ChevronsRight, Copy, Download, FoldHorizontal, Plus, UnfoldHorizontal, X } from "lucide-react";
 import { useRef } from "react";
 import { cn } from "@/shared/lib/css";
 import {
@@ -21,9 +21,50 @@ import {
 } from "../ui/shell-kit";
 import { ghostLabels } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
+import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
 import { fieldEvents, ShellSurface, stopFieldEvent, Bar } from "../ui/shell-surface";
+import { copyText, downloadText, fileNameOf, ShellToolbar, ShellToolButton, ShellToolDivider } from "../ui/shell-toolbar";
 
 const TYPES: ScheduleTaskType[] = ["setup", "shoot", "travel", "break"];
+
+const clockText = (hour: number) => `${String(Math.floor(hour)).padStart(2, "0")}:${String(Math.round((hour % 1) * 60)).padStart(2, "0")}`;
+
+/** In order: by day, then start. */
+const byStart = (tasks: ScheduleTask[]) => [...tasks].sort((a, b) => a.day - b.day || a.start - b.start);
+
+/** Move every task by `delta` hours, keeping each inside the working day. */
+function shiftTasks(data: ScheduleShellData, delta: number): ScheduleTask[] {
+  const [open, close] = data.hours;
+  return data.tasks.map((task) => {
+    const length = task.end - task.start;
+    const start = Math.min(close - length, Math.max(open, task.start + delta));
+    return { ...task, start, end: start + length };
+  });
+}
+
+/** The plan as rows a spreadsheet or project tool can import. */
+function scheduleCsv(data: ScheduleShellData) {
+  const cell = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  return [
+    "Day,Start,End,Task,Type",
+    ...byStart(data.tasks).map((task) =>
+      [dayLabel(data, task.day), clockText(task.start), clockText(task.end), cell(task.label), TYPE_STYLE[task.type].label].join(","),
+    ),
+  ].join("\n");
+}
+
+const scheduleText = (data: ScheduleShellData) =>
+  [
+    data.title,
+    ...Array.from({ length: data.dayCount }, (_, day) => [
+      `\n${dayLabel(data, day)}`,
+      ...byStart(data.tasks)
+        .filter((task) => task.day === day)
+        .map((task) => `${clockText(task.start)}–${clockText(task.end)}  ${task.label}`),
+    ]).flat(),
+  ]
+    .filter(Boolean)
+    .join("\n");
 
 /** Each task type's bar colour and name. Inline reuses them. */
 export const TYPE_STYLE: Record<ScheduleTaskType, { bar: string; label: string }> = {
@@ -452,6 +493,11 @@ export function ScheduleShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
+  suggestions,
+  suggested,
+  onDismissSuggestion,
   className,
 }: ShellProps<ScheduleShellData>) {
   if (size === "small") return <ShellAppIcon kind="schedule" className={className} />;
@@ -480,8 +526,99 @@ export function ScheduleShell({
         onChange={update && ((title) => update({ title }))}
         onSubmit={onSubmit}
       />
+      {large && (
+        <ShellToolbar tools={tools} actions={actions}>
+          <ShellToolButton
+            label="New task"
+            disabled={!update}
+            onPress={() => {
+              const start = Math.min(data.hours[1] - 1, data.hours[0] + 1);
+              update?.({
+                tasks: [
+                  ...data.tasks,
+                  { id: shellId("task"), label: "New task", day: 0, start, end: start + 1, type: "setup" },
+                ],
+              });
+            }}
+          >
+            <Plus />
+          </ShellToolButton>
+          <ShellToolButton label="Add a day" disabled={!update} onPress={() => update?.({ dayCount: data.dayCount + 1 })}>
+            <CalendarPlus />
+          </ShellToolButton>
+          <ShellToolButton
+            label="Remove the last day"
+            disabled={!update || data.dayCount <= 1}
+            onPress={() =>
+              update?.({ dayCount: data.dayCount - 1, tasks: data.tasks.filter((task) => task.day < data.dayCount - 1) })
+            }
+          >
+            <CalendarMinus />
+          </ShellToolButton>
+          <ShellToolDivider />
+          <ShellToolButton
+            label="Longer days"
+            disabled={!update || (data.hours[0] <= 0 && data.hours[1] >= 24)}
+            onPress={() => update?.({ hours: [Math.max(0, data.hours[0] - 1), Math.min(24, data.hours[1] + 1)] })}
+          >
+            <UnfoldHorizontal />
+          </ShellToolButton>
+          <ShellToolButton
+            label="Shorter days"
+            disabled={
+              !update ||
+              data.hours[1] - data.hours[0] <= 2 ||
+              // Never cut into a task.
+              data.tasks.some((task) => task.start < data.hours[0] + 1 || task.end > data.hours[1] - 1)
+            }
+            onPress={() => update?.({ hours: [data.hours[0] + 1, data.hours[1] - 1] })}
+          >
+            <FoldHorizontal />
+          </ShellToolButton>
+          <ShellToolDivider />
+          <ShellToolButton
+            label="Move everything 30 min earlier"
+            disabled={!update || data.tasks.length === 0 || data.tasks.every((task) => task.start <= data.hours[0])}
+            onPress={() => update?.({ tasks: shiftTasks(data, -0.5) })}
+          >
+            <ChevronsLeft />
+          </ShellToolButton>
+          <ShellToolButton
+            label="Move everything 30 min later"
+            disabled={!update || data.tasks.length === 0 || data.tasks.every((task) => task.end >= data.hours[1])}
+            onPress={() => update?.({ tasks: shiftTasks(data, 0.5) })}
+          >
+            <ChevronsRight />
+          </ShellToolButton>
+          <ShellToolButton
+            label="Sort tasks by start time"
+            disabled={!update || data.tasks.length < 2}
+            onPress={() => update?.({ tasks: byStart(data.tasks) })}
+          >
+            <ArrowDownWideNarrow />
+          </ShellToolButton>
+          <ShellToolDivider />
+          <ShellToolButton label="Copy as text" disabled={data.tasks.length === 0} onPress={() => copyText(scheduleText(data))}>
+            <Copy />
+          </ShellToolButton>
+          <ShellToolButton
+            label="Download (.csv)"
+            disabled={data.tasks.length === 0}
+            onPress={() => downloadText(`${fileNameOf(data.title, "schedule")}.csv`, scheduleCsv(data), "text/csv")}
+          >
+            <Download />
+          </ShellToolButton>
+        </ShellToolbar>
+      )}
       <ShellBody size={size}>
-        <TimelineFields data={data} size={size} update={update} />
+        {large && suggestions?.days ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <TimelineFields data={data} size={size} update={update} />
+            {suggestions.days}
+          </div>
+        ) : (
+          <TimelineFields data={data} size={size} update={update} />
+        )}
         {large && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-bureau text-[12px] text-typography-secondary">Plan around</span>
@@ -491,6 +628,14 @@ export function ScheduleShell({
               addLabel="Add a constraint"
               onChange={update && ((constraints) => update({ constraints }))}
             />
+            {unusedSuggestions(suggested?.constraints, data.constraints).map((constraint) => (
+              <SuggestedChip
+                key={constraint}
+                label={constraint}
+                onAccept={update && (() => update({ constraints: [...data.constraints, constraint] }))}
+                onDismiss={onDismissSuggestion && (() => onDismissSuggestion("constraints", constraint))}
+              />
+            ))}
           </div>
         )}
         <Gantt data={data} size={size} onTasks={onTasks} />

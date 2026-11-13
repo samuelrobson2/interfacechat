@@ -117,6 +117,8 @@ export function DocumentShell({
   status,
   surface = true,
   actions,
+  tools,
+  suggestions,
   className,
 }: ShellProps<DocumentShellData>) {
   const mark = useShellMark(size);
@@ -155,6 +157,8 @@ export function DocumentShell({
         onSubmit={onSubmit}
         status={status}
         actions={actions}
+        tools={tools}
+        suggestions={suggestions}
       />
     </ShellSurface>
   );

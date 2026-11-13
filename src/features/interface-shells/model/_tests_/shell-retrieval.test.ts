@@ -67,6 +67,10 @@ describe("shell retrieval", () => {
     ["Read this lease and highlight the break clauses", "reader"],
     ["Find the nearest pharmacies near the hotel", "map"],
     ["Put together an inspiration board with a warm autumn palette", "moodboard"],
+    ["Generate an image of a lighthouse at dusk in watercolour", "generator"],
+    ["Give me three taglines for a coffee brand", "generator"],
+    ["Make a product photo of these trainers on a marble background", "generator"],
+    ["Create a logo idea for a bakery called Crumb", "generator"],
     ["Explain this paper on sleep spindles to me", "reader"],
     ["Summarise this report and show where the risks are", "reader"],
     ["Write a paper on sleep spindles", "document"],
@@ -79,6 +83,14 @@ describe("shell retrieval", () => {
     ["How do I fix a leaking radiator?", "guide"],
     ["A 20-minute yoga workout for beginners", "guide"],
     ["Install a smart thermostat, step by step", "guide"],
+    ["Build a dashboard of our monthly sales by region", "dashboard"],
+    ["Show me our KPIs: sign-ups, churn and revenue", "dashboard"],
+    ["Turn this CSV into a dashboard with a filter for region", "dashboard"],
+    ["Write an interactive article on how compound interest grows, with a slider", "article"],
+    ["Make a data story about the election turnout with charts", "article"],
+    ["An explorable explanation of how vaccines reach herd immunity", "article"],
+    ["Write an article about remote work", "document"],
+    ["Make a table comparing three cameras", "table"],
   ])("generalises: %s goes to %s", (draft, kind) => {
     expect(routeShellDraft(draft).kind).toBe(kind);
   });

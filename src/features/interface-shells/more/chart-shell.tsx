@@ -7,6 +7,7 @@ import { CHART_TYPES, type ChartShellData, type ChartType, type ShellProps } fro
 import { ChartTypeGlyph, ShellAppIcon } from "../ui/shell-icons";
 import { fieldEvents } from "../ui/shell-surface";
 import { ShellTitleAside } from "../ui/shell-title-aside";
+import { DiagramTools, DiagramToolsContext } from "./diagram-toolbar";
 import { FlowchartShell } from "./flowchart-shell";
 import { MindmapShell } from "./mindmap-shell";
 import { TimelineShell } from "./timeline-shell";
@@ -41,7 +42,7 @@ function ChartTypePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" aria-label={`Chart type: ${CHART_TYPE_META[value].label}. Change`} {...fieldEvents}>
+        <button type="button" aria-label={`Diagram type: ${CHART_TYPE_META[value].label}. Change`} {...fieldEvents}>
           {chip}
         </button>
       </PopoverTrigger>
@@ -80,8 +81,8 @@ function ChartTypePicker({
 }
 
 /**
- * Chart: one interface for a mind map, a timeline or a flowchart. The model
- * picks the type from what's asked, as one of Chart's parts, and the person
+ * Diagram (kind "chart"): one interface for a mind map, a timeline or a flowchart. The model
+ * picks the type from what's asked, as one of its parts, and the person
  * can switch it from the title row. Each type is drawn by its own design and
  * keeps its own content, so switching back loses nothing.
  */
@@ -89,11 +90,12 @@ export function ChartShell(props: ShellProps<ChartShellData>) {
   const { size, data, onChange, className } = props;
   if (size === "small") return <ShellAppIcon kind="chart" className={className} />;
 
+  // Large switches type from its toolbar; medium plus from the title row.
   const picker =
-    size === "medium-plus" || size === "large" ? (
+    size === "medium-plus" ? (
       <ChartTypePicker
         value={data.type}
-        large={size === "large"}
+        large={false}
         onChange={onChange && ((type) => onChange({ ...data, type }))}
       />
     ) : null;
@@ -127,5 +129,9 @@ export function ChartShell(props: ShellProps<ChartShellData>) {
     }
   })();
 
-  return <ShellTitleAside value={picker}>{shell}</ShellTitleAside>;
+  return (
+    <DiagramToolsContext.Provider value={size === "large" ? <DiagramTools data={data} onChange={onChange} /> : null}>
+      <ShellTitleAside value={picker}>{shell}</ShellTitleAside>
+    </DiagramToolsContext.Provider>
+  );
 }

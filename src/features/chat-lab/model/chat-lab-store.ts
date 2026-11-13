@@ -68,7 +68,7 @@ const ARTEFACT_FALLBACK_TITLE: Record<ChatLabArtefactKind, string> = {
   document: "Untitled document",
   search: "Search",
   table: "Table",
-  moodboard: "Moodboard",
+  moodboard: "Canvas",
   shell: "Untitled",
 };
 

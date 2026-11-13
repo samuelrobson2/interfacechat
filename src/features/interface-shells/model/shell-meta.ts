@@ -39,16 +39,28 @@ export const SHELL_META: Record<ShellKind, { label: string; description: string 
     description: "Places, distances and a shortlist around a location.",
   },
   chart: {
-    label: "Chart",
+    label: "Diagram",
     description: "A mind map, timeline or flowchart: ideas around a topic, events in order, or steps and decisions.",
   },
   guide: {
     label: "Guide",
     description: "A recipe or how-to to follow, step by step.",
   },
+  generator: {
+    label: "Generator",
+    description: "Generate text or images from a prompt and references, in three variations.",
+  },
+  dashboard: {
+    label: "Dashboard",
+    description: "Figures, charts and tables over data, with filters and code that runs.",
+  },
+  article: {
+    label: "Article",
+    description: "A piece to read with live charts, controls and code between the prose.",
+  },
   moodboard: {
-    label: "Moodboard",
-    description: "Collect images, colours and words for a look.",
+    label: "Canvas",
+    description: "A freeform canvas: put images, notes and colours anywhere, and generate more.",
   },
 };
 

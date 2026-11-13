@@ -9,6 +9,9 @@ import { useShellTitleAside } from "./shell-title-aside";
 import { ShellFooter } from "./shell-meta";
 import { fieldEvents, isSubmitShortcut, stopFieldEvent } from "./shell-surface";
 
+/** Every large title, so Document, Table, Checklist and the rest read as one family. */
+export const SHELL_TITLE_LARGE = "text-[22px] font-normal leading-[1.25] tracking-[-0.2px]";
+
 /** Medium: glyph and title on one line, the way every idle card opens. */
 export function PreviewHead({
   kind,
@@ -89,7 +92,7 @@ export function ShellTitle({
           }}
           className={cn(
             "min-w-0 flex-1 bg-transparent font-bureau text-typography-primary outline-none placeholder:font-light placeholder:text-typography-secondary",
-            large ? "text-[22px]" : "text-[14px]",
+            large ? SHELL_TITLE_LARGE : "text-[14px]",
           )}
         />
       ) : (
@@ -97,7 +100,7 @@ export function ShellTitle({
           className={cn(
             "min-w-0 flex-1 truncate font-bureau",
             value ? "text-typography-primary" : "font-light text-typography-secondary",
-            large ? "text-[22px]" : "text-[14px]",
+            large ? SHELL_TITLE_LARGE : "text-[14px]",
           )}
         >
           {value || placeholder}

@@ -83,6 +83,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Find sources on urban heat islands",
       "Explain this paper to me",
       "Make a table of essay topics with due dates",
+      "Write an interactive article with a slider",
     ],
     triggers: [
       "paper",
@@ -389,7 +390,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
     description:
       "Events on dates across a month: what's on, when, and at what time. Choose this when the person wants to add, move or see events, such as a shoot, a review, a deadline or a trip, on a calendar.",
     notFor:
-      "Planning what happens hour by hour within a day (use Schedule), tasks with owners (use Tracker), or what already happened (use a timeline Chart).",
+      "Planning what happens hour by hour within a day (use Schedule), tasks with owners (use Tracker), or what already happened (use a timeline Diagram).",
     queries: [
       "Put the recce, the three shoot days and the rough cut review on a December calendar",
       "Add the rough cut review to the calendar on the 17th",
@@ -607,7 +608,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
   },
   chart: {
     description:
-      "A chart of ideas, events or a process. Pick its type from what's asked: a mind map develops ideas as branches around a central topic (brainstorming, seeing how ideas connect); a timeline lays out events in time order (history, the story of a project); a flowchart maps steps and decisions with the paths between them (a how-to with branches, a decision tree, a workflow).",
+      "A diagram of ideas, events or a process. Pick its type from what's asked: a mind map develops ideas as branches around a central topic (brainstorming, seeing how ideas connect); a timeline lays out events in time order (history, the story of a project); a flowchart maps steps and decisions with the paths between them (a how-to with branches, a decision tree, a workflow).",
     notFor:
       "A finished outline or document (use Document), a simple list of to-dos (use Tracker), planning future tasks with times (use Schedule), or upcoming events on dates (use Calendar).",
     queries: [
@@ -694,7 +695,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
     description:
       "A recipe or how-to to follow along: what you need, then the steps in order, ticked off as you go, with timers where there's waiting. Recipes, flat-pack assembly, repairs, setups, workouts, garden jobs. Choose this when the person is going to do something themselves, one step at a time.",
     notFor:
-      "A team's to-dos with owners and deadlines (use Tracker), a process with decisions (use a flowchart Chart), or learning how something works (use Explainer).",
+      "A team's to-dos with owners and deadlines (use Tracker), a process with decisions (use a flowchart Diagram), or learning how something works (use Explainer).",
     queries: [
       "Give me a recipe for fish stew for the crew lunch, for 12",
       "How do I assemble an IKEA Billy bookcase?",
@@ -772,9 +773,130 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "easy",
     ],
   },
+  dashboard: {
+    description:
+      "Figures at a glance over data: totals and rates on top, charts and tables beneath, with filters that change them all, and code for forecasts or anything the blocks can't do. Choose this when the person wants to monitor numbers, slice them, or build an app over their data, from a file, a link, another interface or sample numbers.",
+    notFor:
+      "One chart or table on its own (use Table), a piece of writing that explains data (use Article), or a list of rows to fill in (use Table).",
+    queries: [
+      "Build a dashboard of our café sales by site and month",
+      "Make a KPI dashboard for the newsletter: subscribers, open rate and churn",
+      "Show me revenue, orders and average ticket with a filter for region",
+      "Turn this spreadsheet into a dashboard",
+      "Track website traffic and sign-ups week by week",
+    ],
+    avoidQueries: [
+      "Make a table comparing three cameras",
+      "Write an article on why cities run hot",
+      "Draw a timeline of the company's history",
+    ],
+    triggers: [
+      "dashboard",
+      "kpi",
+      "kpis",
+      "metrics",
+      "analytics",
+      "monitor",
+      "track revenue",
+      "data app",
+      "report on the numbers",
+      "visualise my data",
+      "visualize my data",
+    ],
+    hints: ["revenue", "sales", "conversion", "churn", "traffic", "by month", "by region", "csv", "spreadsheet", "filter", "forecast"],
+  },
+  article: {
+    description:
+      "A piece to read top to bottom with live charts, controls and runnable code between the prose: a data story or an explorable explanation where moving a slider changes the charts and the numbers in the text. Choose this when the person wants writing that lets readers explore data or a model, not just read about it.",
+    notFor:
+      "Plain writing without data or interaction (use Document), or figures to monitor at a glance (use Dashboard).",
+    queries: [
+      "Write an interactive article on why some streets run hotter, with a slider for tree cover",
+      "Make a data story about our sales year with charts",
+      "Explain compound interest with a calculator readers can play with",
+      "An explorable explanation of how vaccines reach herd immunity",
+      "Write a blog post with live charts of the survey results",
+    ],
+    avoidQueries: [
+      "Write an article about remote work",
+      "Build a dashboard of our café sales",
+      "Write a memo about the hiring plan",
+    ],
+    triggers: [
+      "interactive article",
+      "data story",
+      "explorable",
+      "explorable explanation",
+      "interactive essay",
+      "article with charts",
+      "post with charts",
+      "live charts",
+      "readers can play",
+      "with a slider",
+      "with a calculator",
+    ],
+    hints: ["chart", "charts", "slider", "simulate", "simulation", "model", "what if", "explain", "data"],
+  },
+  generator: {
+    description:
+      "Generate something new with an AI model, writing or pictures, from a prompt, reference images or both, shaped with controls such as tone, length, style and aspect. Each run makes three variations to choose from. Choose this when the person wants options to pick between: taglines, names, product shots, illustrations, logos.",
+    notFor:
+      "Collecting existing references for a look (use Canvas) or writing one long piece to edit (use Document).",
+    queries: [
+      "Generate an image of a lighthouse at dusk in watercolour",
+      "Give me three taglines for a coffee brand",
+      "Make variations of this product photo on a marble background",
+      "Create a logo idea for a bakery called Crumb",
+      "Come up with names for a hiking app",
+    ],
+    avoidQueries: [
+      "Make a moodboard for the brand refresh",
+      "Write a paper on urban heat islands",
+      "Find stock photos of lighthouses",
+    ],
+    triggers: [
+      "generate",
+      "generator",
+      "generate an image",
+      "image of",
+      "picture of",
+      "illustration of",
+      "variations",
+      "variation",
+      "taglines",
+      "tagline",
+      "slogan",
+      "slogans",
+      "logo",
+      "headline ideas",
+      "name ideas",
+      "names for",
+      "product shot",
+      "product photo",
+      "text to image",
+      "ai image",
+      "create an image",
+      "make an image",
+    ],
+    hints: [
+      "options",
+      "versions",
+      "ideas",
+      "photo",
+      "illustration",
+      "poster",
+      "caption",
+      "copy",
+      "style",
+      "watercolour",
+      "watercolor",
+      "photorealistic",
+      "3d",
+    ],
+  },
   moodboard: {
     description:
-      "Collect and browse visual references, images, colours and words, to set a look before making something. Choose this when the person wants to explore or agree a visual direction.",
+      "A freeform, generative canvas: images, notes and colours placed anywhere, with new images and notes generated onto it. Collect references and set a look, or think visually before making something. Choose this when the person wants to explore or agree a visual direction, or wants a board to gather and generate on.",
     notFor: "A list of shots (use Table), written creative notes (use Document), or finding images online by fact (use Search).",
     queries: [
       "Create a moodboard for the film with muted colours, natural window light and intimate handheld framing",
@@ -788,6 +910,8 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Find stock photo sites with free licences",
     ],
     triggers: [
+      "canvas",
+      "freeform board",
       "moodboard",
       "mood board",
       "inspiration",

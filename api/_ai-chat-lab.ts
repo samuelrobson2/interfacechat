@@ -32,7 +32,7 @@ import {
 // pharos backend. Requires OPENAI_API_KEY; OPENAI_CHAT_MODEL picks the model.
 export const maxDuration = 60;
 
-type InterfaceKind = "document" | "search" | "table" | "moodboard" | "tracker";
+type InterfaceKind = "document" | "search" | "table" | "moodboard" | "tracker" | "dashboard" | "article";
 
 type ArtefactContext = {
   kind: InterfaceKind | "shell";
@@ -55,6 +55,15 @@ type InterfaceCandidate = {
   opensAs: InterfaceKind;
 };
 
+/** What a small change to each catalogue interface touches, in the model's words. */
+const PART_WORDS: Record<CatalogueKind, string> = {
+  document: "a passage",
+  table: "a cell, row or column",
+  tracker: "an item, an owner, what's done",
+  dashboard: "a block, a chart's type, a filter, a dataset's label",
+  article: "a paragraph, a chart, a control, a code cell",
+};
+
 /** A catalogue interface that's open: how to fill it and how to change part of it. */
 const catalogueSystemAddon = (kind: CatalogueKind, artefact: ArtefactContext) => {
   const entry = CATALOGUE[kind];
@@ -65,7 +74,7 @@ const catalogueSystemAddon = (kind: CatalogueKind, artefact: ArtefactContext) =>
   const change = artefact.value
     ? kind === "document"
       ? "- To rename it, call update_interface with a replace on /title. To change the writing, call fill_document with the new body."
-      : `- To change part of it (a ${kind === "table" ? "cell, row or column" : "item, an owner, what's done"}, the title), call update_interface with the
+      : `- To change part of it (${PART_WORDS[kind]}, the title), call update_interface with the
   fewest operations that do it. Don't resend the whole ${name} for a small change.
   If update_interface returns an error, fix the path or value and call it again.`
     : "";
@@ -136,6 +145,13 @@ Routing rules:
 - If the user is just chatting, reply in chat only and skip write_interface.`;
 };
 
+/**
+ * The catalogue interfaces this turn could open. Each brings its own guidance,
+ * so the prompt only carries how to write the interfaces actually on offer.
+ */
+const retrievedCatalogueKinds = (interfaces: InterfaceCandidate[]) =>
+  CATALOGUE_KINDS.filter((kind) => interfaces.some((candidate) => candidate.opensAs === kind));
+
 const candidatesSystemAddon = (candidates: InterfaceCandidate[]) => {
   const interfaces = candidates.filter((candidate) => candidate.layer !== "format");
   const formats = candidates.filter((candidate) => candidate.layer === "format");
@@ -148,13 +164,13 @@ ${list(interfaces, (c) => ` → opens as ${c.opensAs}`)}
 
 - If an interface clearly fits, call open_interface with that candidate's id and
   a short title for it. Prefer the listed candidates only.
-- Right after opening, fill it. A Document, Table or Tracker has its own tool
+- Right after opening, fill it. ${CATALOGUE_KINDS.map((kind) => CATALOGUE[kind].label).join(", ")} each have their own tool
   (${CATALOGUE_KINDS.map((kind) => CATALOGUE[kind].tool).join(", ")}): it appears in the interface as you write it. For
   anything else call write_interface with the body (and filters for search).
   Keep the chat reply short.
 - For search, call web_search before write_interface, and write one result per
   line as "- [Title](https://source.url) — one-sentence finding".
-${CATALOGUE_KINDS.flatMap((kind) => CATALOGUE[kind].guidance.map((line) => `- ${CATALOGUE[kind].label}: ${line}`)).join("\n")}
+${retrievedCatalogueKinds(interfaces).flatMap((kind) => CATALOGUE[kind].guidance.map((line) => `- ${CATALOGUE[kind].label}: ${line}`)).join("\n")}
 - Never open more than one interface in a single turn.
 - Don't say where the interface is on screen (no "side panel" or "on the right"):
   the user places it. Refer to it by what it is, as in "the table".`

@@ -40,7 +40,9 @@ export type VisualInterfaceKind =
   | "flowchart"
   | "mindmap"
   | "guide"
-  | "table";
+  | "table"
+  | "dashboard"
+  | "article";
 
 export type VisualInterface = {
   id: VisualInterfaceKind;
@@ -72,7 +74,7 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
   },
   {
     id: "moodboard",
-    label: "Moodboard",
+    label: "Canvas",
     description: "Visual collage of references, colors, and aesthetic direction",
     seed: "Make a moodboard for ",
     ambient: true,
@@ -111,10 +113,24 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
   {
     id: "chart",
     label: "Chart",
-    description: "Visualize numbers as a chart or dashboard",
+    description: "Visualize numbers as a chart",
     seed: "Chart the data for ",
     match:
-      /\b(chart|graph|plot|visualize|visualise|dashboard)\b|\b(bar|line|pie)\s*(chart|graph)\b/i,
+      /\b(chart|graph|plot|visualize|visualise)\b|\b(bar|line|pie)\s*(chart|graph)\b/i,
+  },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    description: "Figures, charts and tables over data, with filters and runnable code",
+    seed: "Build a dashboard of ",
+    match: /\b(dashboards?|kpis?|metrics|analytics|data app)\b/i,
+  },
+  {
+    id: "article",
+    label: "Article",
+    description: "An interactive article: prose with live charts, controls and code",
+    seed: "Write an interactive article on ",
+    match: /\b(interactive (article|essay|post|piece)|data stor(y|ies)|explorables?|live charts?)\b/i,
   },
   {
     id: "calendar",
@@ -275,9 +291,14 @@ export function resolveImplementableKind(
   return "document";
 }
 
+/** Library interfaces the model fills through the catalogue, holding their own data. */
+export type ShellCatalogueOpen = "tracker" | "dashboard" | "article";
+
 /** What the model's pick opens as: a panel kind, or a catalogue interface of its own. */
-export function opensAsOf(kind: VisualInterfaceKind): ImplementableInterfaceKind | "tracker" {
-  return kind === "checklist" ? "tracker" : resolveImplementableKind(kind);
+export function opensAsOf(kind: VisualInterfaceKind): ImplementableInterfaceKind | ShellCatalogueOpen {
+  if (kind === "checklist") return "tracker";
+  if (kind === "dashboard" || kind === "article") return kind;
+  return resolveImplementableKind(kind);
 }
 
 export type InterfaceCandidate = {
@@ -285,7 +306,7 @@ export type InterfaceCandidate = {
   label: string;
   description: string;
   /** Panel kind if the model opens this candidate. */
-  opensAs: ImplementableInterfaceKind | "tracker";
+  opensAs: ImplementableInterfaceKind | ShellCatalogueOpen;
   /** A format shapes the reply in the thread; only an interface opens. */
   layer: "interface" | "format";
 };
@@ -515,6 +536,8 @@ const LIBRARY_KIND: Partial<Record<VisualInterfaceKind, ShellKind>> = {
   mindmap: "chart",
   guide: "guide",
   checklist: "tracker",
+  dashboard: "dashboard",
+  article: "article",
   calendar: "calendar",
   reader: "reader",
   map: "map",

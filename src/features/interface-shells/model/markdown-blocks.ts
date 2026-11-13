@@ -136,11 +136,12 @@ export type InlineSegment = {
   bold?: boolean;
   italic?: boolean;
   code?: boolean;
+  strike?: boolean;
   href?: string;
 };
 
 const INLINE =
-  /\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)/g;
+  /\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)|~~([^~]+)~~/g;
 
 export function parseInline(raw: string): InlineSegment[] {
   const segments: InlineSegment[] = [];
@@ -150,7 +151,7 @@ export function parseInline(raw: string): InlineSegment[] {
     if (index > cursor) {
       segments.push({ text: raw.slice(cursor, index), rawStart: cursor });
     }
-    const [, bold, italicStar, italicUnderscore, code, linkText, href] = match;
+    const [, bold, italicStar, italicUnderscore, code, linkText, href, strike] = match;
     if (bold !== undefined) {
       segments.push({ text: bold, rawStart: index + 2, bold: true });
     } else if (italicStar !== undefined || italicUnderscore !== undefined) {
@@ -163,6 +164,8 @@ export function parseInline(raw: string): InlineSegment[] {
       segments.push({ text: code, rawStart: index + 1, code: true });
     } else if (linkText !== undefined) {
       segments.push({ text: linkText, rawStart: index + 1, href });
+    } else if (strike !== undefined) {
+      segments.push({ text: strike, rawStart: index + 2, strike: true });
     }
     cursor = index + match[0].length;
   }
@@ -195,4 +198,11 @@ export function countWords(blocks: DocBlock[]) {
     const words = plainText(block.text).trim().split(/\s+/).filter(Boolean);
     return total + words.length;
   }, 0);
+}
+
+/** A line's words without bold, italics, code, links or strikethrough. */
+export function plainInline(raw: string): string {
+  return parseInline(raw)
+    .map((segment) => segment.text)
+    .join("");
 }

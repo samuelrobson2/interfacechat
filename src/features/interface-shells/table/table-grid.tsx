@@ -1,14 +1,14 @@
-import { Plus, X } from "lucide-react";
+import { ArrowDown, ArrowDownAZ, ArrowDownZA, ArrowLeftToLine, ArrowRightToLine, ArrowUp, ArrowUpDown, Check, PencilLine, Plus, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import {
   shellId,
   type ShellStatus,
   type TableColumn,
-  type TableRow,
   type TableShellData,
 } from "../model/shell-types";
 import { Bar } from "../ui/shell-surface";
+import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
 import {
   COLUMN_TYPE_ICON,
   COLUMN_TYPE_LABEL,
@@ -19,6 +19,17 @@ import {
 } from "./table-cells";
 
 type CellAddress = { rowId: string; columnId: string };
+
+/** Rows ordered by one column, as Sheets' Sort A → Z: numbers by value, blanks last. */
+export function sortRows(data: TableShellData, columnId: string, direction: 1 | -1): TableShellData {
+  const rows = [...data.rows].sort((a, b) => {
+    const x = a.cells[columnId]?.trim() ?? "";
+    const y = b.cells[columnId]?.trim() ?? "";
+    if (!x || !y) return x ? -1 : y ? 1 : 0;
+    return direction * x.localeCompare(y, undefined, { numeric: true, sensitivity: "base" });
+  });
+  return { ...data, rows };
+}
 
 const ROW_GUTTER = 40;
 
@@ -82,13 +93,25 @@ export function TableGrid({
   data,
   onChange,
   status = "idle",
+  suggestedColumns,
+  onDismissColumn,
 }: {
   data: TableShellData;
   onChange?: (data: TableShellData) => void;
   status?: ShellStatus;
+  /** Column names the model suggests: drawn after the real columns, outlined, until added. */
+  suggestedColumns?: string[];
+  onDismissColumn?: (label: string) => void;
 }) {
   const editable = Boolean(onChange);
   const [editing, setEditing] = useState<CellAddress | null>(null);
+  // The column last sorted from its header, and which way; rows stay in that order, as in Sheets.
+  const [sorted, setSorted] = useState<{ columnId: string; direction: 1 | -1 } | null>(null);
+  // Sheets' column menu, opened by right-clicking a header.
+  const [menu, setMenu] = useState<{ columnId: string; x: number; y: number } | null>(null);
+  // Dragging a header to move its column.
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<{ columnId: string; side: "before" | "after" } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const columns = data.columns;
   const rows = data.rows;
@@ -120,18 +143,28 @@ export function TableGrid({
       }),
     });
 
-  const addColumn = () => {
-    const column: TableColumn = { id: shellId("col"), label: "", type: "text" };
-    onChange?.({ ...data, columns: [...columns, column] });
-    setRenaming(column.id);
+  const addColumn = (at = columns.length, label = "") => {
+    const column: TableColumn = { id: shellId("col"), label, type: "text" };
+    onChange?.({ ...data, columns: [...columns.slice(0, at), column, ...columns.slice(at)] });
+    if (!label) setRenaming(column.id);
   };
 
-  const addRow = () => {
-    const row: TableRow = { id: shellId("row"), cells: {} };
-    onChange?.({ ...data, rows: [...rows, row] });
-    const first = columns.find((column) => column.type !== "image") ?? columns[0];
-    if (first) setEditing({ rowId: row.id, columnId: first.id });
+  const moveColumn = (columnId: string, targetId: string, side: "before" | "after") => {
+    if (columnId === targetId) return;
+    const moving = columns.find((column) => column.id === columnId);
+    if (!moving) return;
+    const rest = columns.filter((column) => column.id !== columnId);
+    const at = rest.findIndex((column) => column.id === targetId) + (side === "after" ? 1 : 0);
+    onChange?.({ ...data, columns: [...rest.slice(0, at), moving, ...rest.slice(at)] });
   };
+
+  const sortBy = (columnId: string, direction: 1 | -1) => {
+    onChange?.(sortRows(data, columnId, direction));
+    setSorted({ columnId, direction });
+  };
+
+  const extra = editable ? unusedSuggestions(suggestedColumns, columns.map((column) => column.label)).slice(0, 2) : [];
+  const SUGGESTED_WIDTH = 168;
 
   const removeRow = (rowId: string) =>
     onChange?.({ ...data, rows: rows.filter((row) => row.id !== rowId) });
@@ -166,7 +199,7 @@ export function TableGrid({
       rows.map((row) => row.cells[column.id] ?? ""),
     ),
   );
-  const totalWidth = ROW_GUTTER + widths.reduce((sum, width) => sum + width, 0) + (editable ? 44 : 0);
+  const totalWidth = ROW_GUTTER + widths.reduce((sum, width) => sum + width, 0) + extra.length * SUGGESTED_WIDTH + (editable ? 44 : 0);
   const placeholderRows = rows.length === 0 ? 3 : 0;
 
   return (
@@ -180,6 +213,9 @@ export function TableGrid({
           {columns.map((column, i) => (
             <col key={column.id} style={{ width: widths[i] }} />
           ))}
+          {extra.map((label) => (
+            <col key={`suggested-${label}`} style={{ width: SUGGESTED_WIDTH }} />
+          ))}
           {editable && <col style={{ width: 44 }} />}
         </colgroup>
         <thead className="sticky top-0 z-10">
@@ -190,8 +226,48 @@ export function TableGrid({
               return (
                 <th
                   key={column.id}
-                  className="group/header border-b border-gray-3/15 bg-background-primary px-3 py-2.5 text-left align-middle"
+                  draggable={editable && renaming !== column.id}
+                  title={editable ? "Drag to move · right-click for options" : undefined}
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", column.id);
+                    setDragging(column.id);
+                  }}
+                  onDragOver={(event) => {
+                    if (!dragging || dragging === column.id) return;
+                    event.preventDefault();
+                    const box = event.currentTarget.getBoundingClientRect();
+                    const side = event.clientX < box.left + box.width / 2 ? "before" : "after";
+                    if (dropAt?.columnId !== column.id || dropAt.side !== side) setDropAt({ columnId: column.id, side });
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (dragging && dropAt) moveColumn(dragging, dropAt.columnId, dropAt.side);
+                    setDragging(null);
+                    setDropAt(null);
+                  }}
+                  onDragEnd={() => {
+                    setDragging(null);
+                    setDropAt(null);
+                  }}
+                  onContextMenu={(event) => {
+                    if (!editable) return;
+                    event.preventDefault();
+                    setMenu({ columnId: column.id, x: event.clientX, y: event.clientY });
+                  }}
+                  className={cn(
+                    "group/header relative border-b border-gray-3/15 bg-background-primary px-3 py-2.5 text-left align-middle",
+                    editable && "cursor-grab active:cursor-grabbing",
+                    dragging === column.id && "opacity-40",
+                    menu?.columnId === column.id && "bg-gray-6",
+                  )}
                 >
+                  {dropAt?.columnId === column.id && (
+                    <span
+                      aria-hidden
+                      className={cn("absolute top-1 bottom-1 w-0.5 rounded-full bg-blue-4", dropAt.side === "before" ? "-left-px" : "-right-px")}
+                    />
+                  )}
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
@@ -230,6 +306,25 @@ export function TableGrid({
                         {column.label || "Untitled"}
                       </button>
                     )}
+                    {editable && column.type !== "image" && rows.length > 1 && (() => {
+                      const active = sorted?.columnId === column.id ? sorted.direction : null;
+                      const next = active === 1 ? -1 : 1;
+                      const SortIcon = active === 1 ? ArrowUp : active === -1 ? ArrowDown : ArrowUpDown;
+                      return (
+                        <button
+                          type="button"
+                          aria-label={`Sort by ${column.label || "this column"}, ${next === 1 ? "A to Z" : "Z to A"}`}
+                          title={next === 1 ? "Sort A → Z" : "Sort Z → A"}
+                          onClick={() => sortBy(column.id, next)}
+                          className={cn(
+                            "flex size-5 shrink-0 items-center justify-center rounded-[5px] transition-[opacity,colors] hover:bg-gray-6 hover:text-typography-primary focus-visible:opacity-100",
+                            active ? "text-typography-primary opacity-100" : "text-typography-secondary opacity-0 group-hover/header:opacity-100",
+                          )}
+                        >
+                          <SortIcon className="size-3" />
+                        </button>
+                      );
+                    })()}
                     {editable && (
                       <button
                         type="button"
@@ -244,13 +339,23 @@ export function TableGrid({
                 </th>
               );
             })}
+            {extra.map((label) => (
+              <th key={`suggested-${label}`} className="border-b border-gray-3/15 bg-background-primary px-2 py-2 text-left align-middle">
+                <SuggestedChip
+                  size="sm"
+                  label={label}
+                  onAccept={() => addColumn(columns.length, label)}
+                  onDismiss={onDismissColumn && (() => onDismissColumn(label))}
+                />
+              </th>
+            ))}
             {editable && (
               <th className="border-b border-gray-3/15 bg-background-primary px-1.5">
                 <button
                   type="button"
                   aria-label="Add column"
                   title="Add column"
-                  onClick={addColumn}
+                  onClick={() => addColumn()}
                   className="flex size-7 items-center justify-center rounded-[8px] text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary"
                 >
                   <Plus className="size-4" />
@@ -310,6 +415,9 @@ export function TableGrid({
                   </td>
                 );
               })}
+              {extra.map((label) => (
+                <td key={`suggested-${label}`} aria-hidden className="border-b border-dashed border-gray-3/15 bg-gray-6/30" />
+              ))}
               {editable && (
                 <td className="border-b border-gray-3/10 px-1.5 py-2 align-top">
                   <button
@@ -336,37 +444,113 @@ export function TableGrid({
                   )}
                 </td>
               ))}
+              {extra.map((label) => (
+                <td key={`suggested-${label}`} className="border-b border-gray-3/10" />
+              ))}
               {editable && <td className="border-b border-gray-3/10" />}
             </tr>
           ))}
-          {editable && (
-            <>
-              <tr>
-                <td colSpan={columns.length + 2} className="border-b border-gray-3/10 px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={addColumn}
-                    className="font-bureau text-[13px] leading-[1.4] font-light text-typography-secondary"
-                  >
-                    Add / remove columns
-                  </button>
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={columns.length + 2} className="px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    className="font-bureau text-[13px] leading-[1.4] font-light text-typography-secondary"
-                  >
-                    Add any additional rows you want
-                  </button>
-                </td>
-              </tr>
-            </>
-          )}
         </tbody>
       </table>
+      {menu && (
+        <ColumnMenu
+          menu={menu}
+          column={columns.find((column) => column.id === menu.columnId)}
+          index={columns.findIndex((column) => column.id === menu.columnId)}
+          canSort={rows.length > 1}
+          onClose={() => setMenu(null)}
+          onSort={(direction) => sortBy(menu.columnId, direction)}
+          onInsert={(at) => addColumn(at)}
+          onRename={() => setRenaming(menu.columnId)}
+          onType={(type) => updateColumn(menu.columnId, { type })}
+          onRemove={() => removeColumn(menu.columnId)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Sheets' column menu: sort, insert, rename, type, delete. */
+function ColumnMenu({
+  menu,
+  column,
+  index,
+  canSort,
+  onClose,
+  onSort,
+  onInsert,
+  onRename,
+  onType,
+  onRemove,
+}: {
+  menu: { x: number; y: number };
+  column?: TableColumn;
+  index: number;
+  canSort: boolean;
+  onClose: () => void;
+  onSort: (direction: 1 | -1) => void;
+  onInsert: (at: number) => void;
+  onRename: () => void;
+  onType: (type: TableColumn["type"]) => void;
+  onRemove: () => void;
+}) {
+  if (!column) return null;
+  const item = (label: string, icon: React.ReactNode, onPress: () => void, options: { disabled?: boolean; danger?: boolean; checked?: boolean } = {}) => (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={options.disabled}
+      onClick={() => {
+        onPress();
+        onClose();
+      }}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left font-bureau text-[13px] transition-colors hover:bg-gray-6 disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
+        options.danger ? "text-red-5 [&_svg]:text-red-5" : "text-typography-primary [&_svg]:text-typography-secondary",
+      )}
+    >
+      {icon}
+      <span className="flex-1">{label}</span>
+      {options.checked !== undefined && <Check className={cn("!text-typography-primary", !options.checked && "invisible")} />}
+    </button>
+  );
+  const rule = <span aria-hidden className="mx-2 my-1 h-px bg-gray-3/20" />;
+  // Keep the menu on screen.
+  const left = Math.min(menu.x, window.innerWidth - 232);
+  const top = Math.min(menu.y, window.innerHeight - 380);
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40"
+        onClick={onClose}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          onClose();
+        }}
+      />
+      <div
+        role="menu"
+        aria-label={`${column.label || "Column"} options`}
+        tabIndex={-1}
+        ref={(node) => node?.focus()}
+        onKeyDown={(event) => event.key === "Escape" && onClose()}
+        className="fixed z-50 flex w-56 flex-col rounded-[14px] border-[0.5px] border-gray-2 bg-gray-1 p-1.5 shadow-[0_4px_14px_rgba(26,23,24,0.14)] outline-none"
+        style={{ left, top }}
+      >
+        {item("Sort A → Z", <ArrowDownAZ />, () => onSort(1), { disabled: !canSort || column.type === "image" })}
+        {item("Sort Z → A", <ArrowDownZA />, () => onSort(-1), { disabled: !canSort || column.type === "image" })}
+        {rule}
+        {item("Insert column left", <ArrowLeftToLine />, () => onInsert(index))}
+        {item("Insert column right", <ArrowRightToLine />, () => onInsert(index + 1))}
+        {item("Rename", <PencilLine />, onRename)}
+        {rule}
+        {(["text", "tag", "image"] as const).map((type) => {
+          const Icon = COLUMN_TYPE_ICON[type];
+          return <span key={type}>{item(COLUMN_TYPE_LABEL[type], <Icon />, () => onType(type), { checked: column.type === type })}</span>;
+        })}
+        {rule}
+        {item("Delete column", <Trash2 />, onRemove, { danger: true })}
+      </div>
+    </>
   );
 }

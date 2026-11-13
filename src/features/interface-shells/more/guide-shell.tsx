@@ -1,4 +1,4 @@
-import { Check, Pause, Play, Plus, RotateCcw, X } from "lucide-react";
+import { Check, ChefHat, Copy, ListChecks, Minus, Pause, Play, Plus, RotateCcw, ShoppingCart, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { shellId, type GuideFact, type GuideNeed, type GuideShellData, type GuideStep, type ShellProps, type ShellSize } from "../model/shell-types";
@@ -7,8 +7,78 @@ import { ghostLabels } from "../ui/shell-accents";
 import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider } from "../ui/shell-toolbar";
 
 const TERRACOTTA = "#c2563a";
+
+/* ── Scaling a recipe ────────────────────────────────────────────────── */
+
+const VULGAR: Record<string, number> = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125 };
+/** A leading amount: "2", "1.5", "1/2", "1 1/2", "½", "1½". */
+const AMOUNT = /^(\d+(?:[.,]\d+)?)?(?:\s*(\d+)\/(\d+)|\s*([½¼¾⅓⅔⅛]))?(?=\s|[a-zA-Z]|$)/;
+
+function readAmount(text: string): { value: number; length: number } | null {
+  const match = text.match(AMOUNT);
+  if (!match || !match[0].trim()) return null;
+  const whole = match[1] ? Number(match[1].replace(",", ".")) : 0;
+  const fraction = match[2] ? Number(match[2]) / Number(match[3]) : match[4] ? VULGAR[match[4]]! : 0;
+  return { value: whole + fraction, length: match[0].length };
+}
+
+/** An amount the way a recipe writes it: whole numbers with ¼, ⅓, ½, ⅔ and ¾ where they fit. */
+function writeAmount(value: number) {
+  if (value >= 10) return String(Math.round(value));
+  const whole = Math.floor(value);
+  const rest = value - whole;
+  const parts: [number, string][] = [[0, ""], [0.25, "¼"], [1 / 3, "⅓"], [0.5, "½"], [2 / 3, "⅔"], [0.75, "¾"], [1, ""]];
+  const [amount, glyph] = parts.reduce((best, part) => (Math.abs(part[0] - rest) < Math.abs(best[0] - rest) ? part : best));
+  if (Math.abs(amount - rest) > 0.07) return String(Math.round(value * 10) / 10);
+  const total = whole + (amount === 1 ? 1 : 0);
+  return total ? `${total}${glyph}` : glyph || "0";
+}
+
+/** "200g flour" for 4 becomes "300g flour" for 6. Lines without an amount ("Salt") stay as they are. */
+export function scaleNeed(text: string, factor: number) {
+  const amount = readAmount(text);
+  if (!amount) return text;
+  return writeAmount(amount.value * factor) + text.slice(amount.length);
+}
+
+const SERVES = /^(serves|servings|makes|people|portions|yield)$/i;
+const servesOf = (facts: GuideFact[]) => {
+  const index = facts.findIndex((fact) => SERVES.test(fact.label.trim()) && readAmount(fact.value.trim()));
+  return index < 0 ? null : { index, value: readAmount(facts[index]!.value.trim())!.value };
+};
+
+const recipeText = (data: GuideShellData) =>
+  [
+    data.title,
+    data.facts.map((fact) => `${fact.label} ${fact.value}`).join(" · "),
+    data.needs.length ? `\nYou need\n${data.needs.map((need) => `- ${need.text}`).join("\n")}` : "",
+    data.steps.length ? `\nSteps\n${data.steps.map((step, i) => `${i + 1}. ${step.text}${step.note ? ` (${step.note})` : ""}`).join("\n")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+/** Keeps the screen on while cooking, where the browser allows it. */
+function useWakeLock(on: boolean) {
+  useEffect(() => {
+    if (!on || !("wakeLock" in navigator)) return;
+    let lock: { release: () => Promise<void> } | null = null;
+    let cancelled = false;
+    void (navigator as Navigator & { wakeLock: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock
+      .request("screen")
+      .then((sentinel) => {
+        if (cancelled) void sentinel.release();
+        else lock = sentinel;
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      void lock?.release();
+    };
+  }, [on]);
+}
 
 function Tick({ done, size, onToggle, label }: { done: boolean; size: "xs" | "sm" | "md"; onToggle?: () => void; label: string }) {
   const box = cn(
@@ -130,8 +200,14 @@ export function GuideShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
   className,
 }: ShellProps<GuideShellData>) {
+  const [cooking, setCooking] = useState(false);
+  // What the recipe said before scaling, so each step scales from it and rounding never adds up.
+  const [scaleBase, setScaleBase] = useState<{ serves: number; texts: Record<string, string>; written: Record<string, string> } | null>(null);
+  useWakeLock(cooking && size === "large");
   if (size === "small") return <ShellAppIcon kind="guide" className={className} />;
 
   const current = data.steps.findIndex((s) => !s.done);
@@ -246,7 +322,7 @@ export function GuideShell({
                 {...fieldEvents}
                 onKeyDown={stopFieldEvent}
                 onChange={(event) => setStep({ ...step, text: event.target.value })}
-                className={cn("min-w-0 font-bureau text-[14px] leading-[1.5] placeholder:font-light", step.done ? "text-typography-secondary line-through" : "text-typography-primary")}
+                className={cn("min-w-0 font-bureau leading-[1.5] placeholder:font-light", cooking ? "text-[18px]" : "text-[14px]", step.done ? "text-typography-secondary line-through" : "text-typography-primary")}
               />
               {(step.note || (update && isCurrent)) && (
                 <InlineInput
@@ -289,6 +365,80 @@ export function GuideShell({
     );
   }
 
+  // A recipe app's tools: scale the servings, cook hands-free, tick off the shop, start over, share.
+  const serves = servesOf(data.facts);
+  const rescale = (next: number) => {
+    if (!serves || !update || next < 1) return;
+    // A line edited since the last scaling becomes its own new starting point.
+    const base = scaleBase ?? { serves: serves.value, texts: {}, written: {} };
+    const texts: Record<string, string> = {};
+    const written: Record<string, string> = {};
+    const needs = data.needs.map((need) => {
+      const fromBase = base.written[need.id] === need.text ? base.texts[need.id] : undefined;
+      const original = fromBase ?? scaleNeed(need.text, base.serves / serves.value);
+      texts[need.id] = original;
+      const text = scaleNeed(original, next / base.serves);
+      written[need.id] = text;
+      return { ...need, text };
+    });
+    setScaleBase({ serves: base.serves, texts, written });
+    update({
+      facts: data.facts.map((fact, i) => (i === serves.index ? { ...fact, value: fact.value.replace(/^[\d.,½¼¾⅓⅔⅛\s/]+/, `${next} `).trim() } : fact)),
+      needs,
+    });
+  };
+  const missing = data.needs.filter((need) => !need.have);
+  const toolbar = (
+    <ShellToolbar tools={tools} actions={actions}>
+      <span
+        role="group"
+        aria-label="Servings"
+        title={serves ? "Scale the recipe" : "Add a Serves fact to scale the recipe"}
+        className={cn("flex shrink-0 items-center gap-0.5 rounded-full bg-gray-6 pr-0.5 pl-2.5 font-bureau text-[13px] tabular-nums", !serves && "opacity-40")}
+      >
+        <Users className="mr-1 size-4 text-typography-secondary" />
+        <span className="text-typography-primary">{serves ? `Serves ${writeAmount(serves.value)}` : "Serves"}</span>
+        <ShellToolButton label="Fewer servings" disabled={!serves || !update || serves.value <= 1} onPress={() => serves && rescale(Math.round(serves.value) - 1)}>
+          <Minus />
+        </ShellToolButton>
+        <ShellToolButton label="More servings" disabled={!serves || !update} onPress={() => serves && rescale(Math.round(serves.value) + 1)}>
+          <Plus />
+        </ShellToolButton>
+      </span>
+      <ShellToolButton label={cooking ? "Leave cook mode" : "Cook mode: keep the screen on, bigger steps"} active={cooking} disabled={data.steps.length === 0} onPress={() => setCooking((value) => !value)}>
+        <ChefHat />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton
+        label="Got everything"
+        disabled={!update || missing.length === 0}
+        onPress={() => update?.({ needs: data.needs.map((need) => ({ ...need, have: true })) })}
+      >
+        <ListChecks />
+      </ShellToolButton>
+      <ShellToolButton
+        label="Start over"
+        disabled={!update || (data.steps.every((step) => !step.done) && data.needs.every((need) => !need.have))}
+        onPress={() =>
+          update?.({ steps: data.steps.map((step) => ({ ...step, done: false })), needs: data.needs.map((need) => ({ ...need, have: false })) })
+        }
+      >
+        <RotateCcw />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton
+        label={missing.length ? `Copy the shopping list (${missing.length})` : "Copy the shopping list"}
+        disabled={missing.length === 0}
+        onPress={() => copyText([`${data.title || "Shopping list"}`, ...missing.map((need) => `- ${need.text}`)].join("\n"))}
+      >
+        <ShoppingCart />
+      </ShellToolButton>
+      <ShellToolButton label="Copy the recipe" disabled={!data.steps.length && !data.needs.length} onPress={() => copyText(recipeText(data))}>
+        <Copy />
+      </ShellToolButton>
+    </ShellToolbar>
+  );
+
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle
@@ -299,6 +449,7 @@ export function GuideShell({
         onSubmit={onSubmit}
         aside={progress && <span className="font-bureau text-[13px] text-typography-secondary tabular-nums">{progress}</span>}
       />
+      {toolbar}
       <div className="px-6 pt-3">{facts}</div>
       <div className="flex min-h-0 flex-1 gap-6 px-6 pt-4 pb-6">
         <aside className="no-scrollbar flex w-56 shrink-0 flex-col gap-1.5 overflow-y-auto">

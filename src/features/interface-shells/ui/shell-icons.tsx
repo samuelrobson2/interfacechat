@@ -43,9 +43,23 @@ const ICON_SRC: Record<ShellKind, string> = {
   moodboard: moodboardIcon,
   chart: flowchartIcon,
   guide: guideIcon,
+  generator: moodboardIcon,
+  dashboard: tableIcon,
+  article: documentIcon,
   chat: chatIcon,
 };
 
+
+/**
+ * Generator, Dashboard and Article have no artwork of their own yet: they
+ * borrow Moodboard's, Table's and Document's, shifted in hue so each reads apart.
+ */
+const ICON_FILTER: Partial<Record<ShellKind, string>> = {
+  generator: "hue-rotate(-62deg) saturate(0.9)",
+  dashboard: "hue-rotate(130deg) saturate(1.1)",
+  article: "hue-rotate(-45deg) saturate(1.1)",
+};
+const filterOf = (kind: ShellKind) => (ICON_FILTER[kind] ? { filter: ICON_FILTER[kind] } : undefined);
 
 export function ShellAppIcon({ kind, className }: { kind: ShellKind; className?: string }) {
   return (
@@ -54,6 +68,7 @@ export function ShellAppIcon({ kind, className }: { kind: ShellKind; className?:
       alt={SHELL_META[kind].label}
       draggable={false}
       data-shell-mark=""
+      style={filterOf(kind)}
       className={cn(
         "block size-full rounded-[22.5%] object-cover select-none",
         className,
@@ -74,6 +89,9 @@ const GLYPH_SRC: Record<ShellKind, string> = {
   moodboard: moodboardGlyph,
   chart: flowchartGlyph,
   guide: guideGlyph,
+  generator: moodboardGlyph,
+  dashboard: tableGlyph,
+  article: documentGlyph,
   chat: chatGlyph,
 };
 
@@ -88,6 +106,7 @@ export function ShellGlyph({ kind, className }: { kind: ShellKind; className?: s
       alt=""
       draggable={false}
       data-shell-mark=""
+      style={filterOf(kind)}
       className={cn("block shrink-0 object-contain select-none", className)}
     />
   );
@@ -111,14 +130,14 @@ export function ShellMarkCrossfade({
         src={ICON_SRC[kind]}
         alt=""
         draggable={false}
-        style={{ opacity: tile }}
+        style={{ opacity: tile, ...filterOf(kind) }}
         className="absolute inset-0 size-full rounded-[22.5%] object-cover select-none"
       />
       <motion.img
         src={GLYPH_SRC[kind]}
         alt=""
         draggable={false}
-        style={{ opacity: glyph }}
+        style={{ opacity: glyph, ...filterOf(kind) }}
         className="absolute inset-0 size-full object-contain select-none"
       />
     </>

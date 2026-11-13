@@ -500,4 +500,7 @@ export const VISUAL_PREVIEWS: Record<
   mindmap: OutlinePreview,
   guide: ChecklistPreview,
   table: TablePreview,
+  // Old chat previews: the nearest shapes until they get their own.
+  dashboard: ChartPreview,
+  article: BlogPreview,
 };

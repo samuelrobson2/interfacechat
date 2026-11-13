@@ -147,6 +147,7 @@ export function CanvasBoard({
   selection,
   onClearSelection,
   onDelete,
+  suggestions,
   className,
   children,
 }: {
@@ -170,6 +171,8 @@ export function CanvasBoard({
   } | null;
   onClearSelection?: () => void;
   onDelete?: () => void;
+  /** Suggested tools about what's on the board, floating top left, out of the work's way. */
+  suggestions?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -367,6 +370,12 @@ export function CanvasBoard({
           style={{ left: barAt.left, top: barAt.top }}
         >
           {selection!.bar}
+        </div>
+      )}
+
+      {suggestions && (
+        <div {...fieldEvents} className="absolute top-3 left-3 z-10 max-w-[calc(100%-24px)]">
+          {suggestions}
         </div>
       )}
 

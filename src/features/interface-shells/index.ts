@@ -39,6 +39,7 @@ export {
 } from "./model/shell-catalogue";
 export { CHART_TYPE_META, chartTypeFor } from "./model/chart";
 export * from "./model/shell-types";
+export { generatorModeFor } from "./model/generator";
 export {
   SHELL_PARTS,
   setShellParts,
@@ -82,3 +83,11 @@ export {
   FORMAT_SUGGESTIONS,
   formatInstruction,
 } from "./model/chat-formats";
+// Dashboard and Article: apps built from data, variables and blocks, with runnable code.
+export { ArticleShell, DashboardShell, type AppShellProps } from "./apps/app-shells";
+export { LinkableDataContext, type LinkableData } from "./apps/app-data-menu";
+export { articleFixture, dashboardFixture, emptyArticle, emptyDashboard } from "./apps/app-fixtures";
+export { ALL as APP_ALL, columnsOf, runQuery } from "./apps/app-query";
+export * from "./apps/app-types";
+export { appToCatalogue, catalogueToApp } from "./apps/app-catalogue";
+export { appDetail, blockLabel } from "./apps/app-detail";

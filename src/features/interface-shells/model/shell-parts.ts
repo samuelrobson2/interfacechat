@@ -146,7 +146,7 @@ export const SHELL_PARTS: Record<ShellKind, ShellPart[]> = {
       label: "Type",
       type: "choice",
       required: true,
-      description: "Which chart fits what's asked: mindmap for ideas around a topic, timeline for events in order, flowchart for steps and decisions.",
+      description: "Which diagram fits what's asked: mindmap for ideas around a topic, timeline for events in order, flowchart for steps and decisions.",
     },
     { key: "branches", label: "Branches", type: "branches", description: "Mind map: four to six main ideas, each with a few ideas of its own." },
     { key: "events", label: "Events", type: "events", description: "Timeline: what happened, each with a date (a year, YYYY-MM or YYYY-MM-DD) and a line of detail." },
@@ -159,11 +159,33 @@ export const SHELL_PARTS: Record<ShellKind, ShellPart[]> = {
     { key: "needs", label: "You need", type: "needs", required: true, description: "Ingredients, parts, tools or requirements, with amounts, grouped (Ingredients and Equipment; Parts and Tools)." },
     { key: "steps", label: "Steps", type: "steps", required: true, description: "One action per step, in order. Minutes where there's waiting; a note for a tip or warning." },
   ],
+  generator: [
+    { key: "title", label: "Prompt", type: "text", required: true, description: "What to make, in the person's words: a tagline, a product photo, a poem." },
+    { key: "mode", label: "Makes", type: "choice", description: "text or image. Pictures, photos, illustrations and logos are image; copy, names and lines are text." },
+    { key: "references", label: "References", type: "images", description: "Pictures to work from: a style to match or a subject to keep." },
+    { key: "controls", label: "Controls", type: "tags", description: "Tone and length for text; style and aspect for images; creativity for both." },
+    { key: "variations", label: "Variations", type: "list", description: "Three takes on the prompt, one of which the person picks." },
+  ],
+  dashboard: [
+    { key: "title", label: "Title", type: "text", required: true, description: "What the dashboard tracks." },
+    { key: "description", label: "Description", type: "text", description: "One line on what it covers and where the numbers come from." },
+    { key: "datasets", label: "Data", type: "list", required: true, description: "Named datasets: the person's own (a file, a link, another interface) or sample numbers until theirs arrives." },
+    { key: "variables", label: "Filters", type: "list", description: "Choices, sliders and switches the blocks read, such as a site or a date range." },
+    { key: "blocks", label: "Blocks", type: "list", required: true, description: "Stats, charts, tables, notes and code, on a 12-column grid." },
+  ],
+  article: [
+    { key: "title", label: "Headline", type: "text", required: true, description: "The claim the piece makes." },
+    { key: "subtitle", label: "Standfirst", type: "text", description: "A line under the headline." },
+    { key: "datasets", label: "Data", type: "list", required: true, description: "The data behind the charts: the person's own or sample numbers." },
+    { key: "variables", label: "Controls", type: "list", description: "What readers can change: a slider, a choice, a switch." },
+    { key: "blocks", label: "Body", type: "list", required: true, description: "Prose, charts, controls and code cells, top to bottom." },
+  ],
   moodboard: [
     { key: "title", label: "Title", type: "text", required: true, description: "What the look is for." },
     { key: "keywords", label: "Keywords", type: "tags", description: "The look in words, such as natural window light." },
     { key: "palette", label: "Palette", type: "colours", description: "Five or so colours." },
     { key: "images", label: "Images", type: "images", description: "Reference images, each with a short caption." },
+    { key: "items", label: "On the canvas", type: "list", description: "Images, notes and colours placed on the board, each with a position. Laid out from the images, keywords and palette when absent." },
   ],
 };
 
@@ -195,7 +217,7 @@ function itemText(item: unknown): string {
   if (typeof record.date === "string")
     return typeof record.title === "string" ? `${formatDay(record.date)} · ${record.title}` : formatDay(record.date);
   if (typeof record.label === "string" && typeof record.value === "string") return `${record.label} ${record.value}`;
-  const text = record.label ?? record.name ?? record.title ?? record.heading ?? record.text ?? record.quote ?? record.caption ?? "";
+  const text = record.label ?? record.name ?? record.title ?? record.heading ?? record.text ?? record.quote ?? record.caption ?? (record.src ? "Image" : "");
   return typeof text === "string" ? text : "";
 }
 
@@ -214,6 +236,11 @@ export function partValueOf(data: unknown, key: string): string | string[] {
   if (key === "hours" && Array.isArray(value)) return value.map((h) => hourText(Number(h))).join("–");
   if (Array.isArray(value)) return value.map(itemText).filter(Boolean);
   if (typeof value === "number") return String(value);
+  // A group of settings, such as a Generator's controls: each as "name value".
+  if (value && typeof value === "object")
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([, setting]) => typeof setting === "string" || typeof setting === "number")
+      .map(([name, setting]) => `${name[0]!.toUpperCase()}${name.slice(1)} ${setting}`);
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDay(value);
   return typeof value === "string" ? value : "";
 }

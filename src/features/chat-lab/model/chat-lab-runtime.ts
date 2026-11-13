@@ -166,8 +166,9 @@ function syncOpenInterface(id: string, messages: ChatLabMessage[]) {
       const libraryKind = input.id as VisualInterfaceKind;
       const opensAs = opensAsOf(libraryKind);
       const title = input.title?.trim() || libraryKind;
-      // A tracker is a library interface holding its own data.
-      const tracker = opensAs === "tracker" ? newCatalogueArtefact("tracker", title) : null;
+      // A tracker, dashboard or article is a library interface holding its own data.
+      const tracker =
+        opensAs === "tracker" || opensAs === "dashboard" || opensAs === "article" ? newCatalogueArtefact(opensAs, title) : null;
       const kind = tracker?.kind ?? input.opensAs ?? resolveImplementableKind(libraryKind);
 
       // One per turn and kind.
@@ -402,7 +403,10 @@ function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]
       kind: "shell" as const,
       title: active.title,
       label: SHELL_META[active.shell.kind].label,
-      snapshot: JSON.stringify(active.shell.data).slice(0, 2000),
+      // Embedded pictures (a Generator's references and variations) are bytes, not words: name them instead.
+      snapshot: JSON.stringify(active.shell.data, (_key, value: unknown) =>
+        typeof value === "string" && value.startsWith("data:") ? "[image]" : value,
+      ).slice(0, 2000),
     };
   }
   if (active.kind === "shell") return undefined;

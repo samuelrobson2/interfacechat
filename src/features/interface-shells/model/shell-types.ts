@@ -1,3 +1,4 @@
+import type { ArticleShellData, DashboardShellData } from "../apps/app-types";
 /** Every interface in the library. */
 export const SHELL_KINDS = [
   "chat",
@@ -12,6 +13,9 @@ export const SHELL_KINDS = [
   "moodboard",
   "chart",
   "guide",
+  "generator",
+  "dashboard",
+  "article",
 ] as const;
 export type ShellKind = (typeof SHELL_KINDS)[number];
 
@@ -203,12 +207,38 @@ export type MapShellData = ProjectSlot & {
 
 export type MoodboardImage = { id: string; src: string; caption?: string };
 
+/** Something on the canvas, wherever the person put it. Positions are in board units from the top left. */
+export type MoodboardItem = {
+  id: string;
+  kind: "image" | "note" | "colour" | "drawing" | "component";
+  x: number;
+  y: number;
+  w: number;
+  h?: number;
+  /** Image: its URL. */
+  src?: string;
+  /** Image: its caption. Note: its words. */
+  text?: string;
+  /** Colour: a hex value. */
+  colour?: string;
+  /** Note: its paper colour. */
+  tone?: ShellColour;
+  /** Drawing: its SVG. Component: its HTML. Both made by the model and revisable by it. */
+  code?: string;
+};
+
 export type MoodboardShellData = ProjectSlot & {
   title: string;
   keywords: string[];
   /** Hex colours. */
   palette: string[];
   images: MoodboardImage[];
+  /**
+   * The canvas at large: everything on it and where. Without it the canvas
+   * lays out the images, keywords and palette; with it, those three are kept
+   * in step for the smaller sizes and the model.
+   */
+  items?: MoodboardItem[];
 };
 
 export type TimelineEvent = {
@@ -286,6 +316,46 @@ export type GuideShellData = ProjectSlot & {
   steps: GuideStep[];
 };
 
+/** What a Generator makes: writing or pictures. */
+export const GENERATOR_MODES = ["text", "image"] as const;
+export type GeneratorMode = (typeof GENERATOR_MODES)[number];
+
+/** A picture the person adds for the model to work from. `src` is a data or remote URL. */
+export type GeneratorReference = { id: string; src: string; name?: string };
+
+/** One of the three outputs a run makes. Text holds `text`; an image holds `src`. */
+export type GeneratorVariation = { id: string; text?: string; src?: string };
+
+/**
+ * The controls that shape a run. Text uses tone and length; images use style
+ * and aspect; both use creativity, 0 (close to the prompt and references) to
+ * 100 (free).
+ */
+export type GeneratorControls = {
+  tone: string;
+  /** "short", "medium" or "long", or the person's own ("Under 10 words"). */
+  length: string;
+  style: string;
+  aspect: "1:1" | "3:2" | "2:3";
+  creativity: number;
+};
+
+export type GeneratorShellData = ProjectSlot & {
+  /** The prompt: what to make. */
+  title: string;
+  mode: GeneratorMode;
+  references: GeneratorReference[];
+  controls: GeneratorControls;
+  /** The latest run's three variations. */
+  variations: GeneratorVariation[];
+  /** The variation the person picked, by id. */
+  chosen?: string;
+  /** Tones, styles and lengths the person added beyond the built-in ones. */
+  options?: GeneratorOptions;
+};
+
+export type GeneratorOptions = { tones?: string[]; styles?: string[]; lengths?: string[] };
+
 /**
  * What a Chart draws: ideas branching from a topic, events in order, or steps
  * and decisions. The model picks it from what's asked; the person can switch.
@@ -338,6 +408,9 @@ export type ShellDataByKind = {
   moodboard: MoodboardShellData;
   chart: ChartShellData;
   guide: GuideShellData;
+  generator: GeneratorShellData;
+  dashboard: DashboardShellData;
+  article: ArticleShellData;
 };
 
 export type ShellData = ShellDataByKind[ShellKind];
@@ -363,8 +436,50 @@ export type ShellProps<D> = {
   mark?: boolean;
   /** Host controls at the end of the large shell's toolbar (pin, close…). */
   actions?: React.ReactNode;
+  /**
+   * Large only: tools generated for what's in the interface now, drawn by the
+   * host in the toolbar after the interface's own standard tools.
+   */
+  tools?: React.ReactNode;
+  /**
+   * Large only: generated tools that belong beside part of the interface
+   * rather than in the toolbar, such as suggested filters in Search's filter
+   * row. Each interface draws the places it has; see SUGGESTION_PLACES.
+   */
+  suggestions?: ShellSuggestions;
+  /**
+   * Values the model suggests adding, drawn among the real ones with the AI
+   * outline: a suggested filter among the filters, a tone among the tones.
+   * Clicking one adds it; values already present aren't shown.
+   */
+  suggested?: SuggestedValues;
+  /** Dismissing a suggested value; without it, suggestions can only be accepted. */
+  onDismissSuggestion?: (group: SuggestedGroup, value: string) => void;
   className?: string;
 };
+
+/**
+ * Groups of values an interface can show suggestions in: Search's and Map's
+ * filters, Generator's tones, styles and lengths, Schedule's constraints,
+ * a Table's columns, a Tracker's items, a Moodboard canvas's notes.
+ */
+export const SUGGESTED_GROUPS = ["filters", "tones", "styles", "lengths", "constraints", "columns", "items", "notes"] as const;
+export type SuggestedGroup = (typeof SUGGESTED_GROUPS)[number];
+export type SuggestedValues = Partial<Record<SuggestedGroup, string[]>>;
+
+/**
+ * Where a suggested tool sits: the toolbar, or inside a row the interface
+ * already has, beside what it acts on. It never gets a row of its own.
+ * - footer: by Document's word count.
+ * - days: by Schedule's day settings.
+ * - prompt: in Generator's prompt box, by the references.
+ * - board: floating on a Diagram's or Moodboard's canvas.
+ * Suggested values (a filter, a tone, a column) are a separate thing: see
+ * SuggestedValues, drawn among the real ones.
+ */
+export const SUGGESTION_PLACES = ["toolbar", "footer", "days", "prompt", "board"] as const;
+export type SuggestionPlace = (typeof SUGGESTION_PLACES)[number];
+export type ShellSuggestions = Partial<Record<Exclude<SuggestionPlace, "toolbar">, React.ReactNode>>;
 
 export function isShellKind(kind: string | null | undefined): kind is ShellKind {
   return SHELL_KINDS.includes(kind as ShellKind);

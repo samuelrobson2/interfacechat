@@ -1,7 +1,13 @@
 import {
+  AtSign,
+  Clock,
   Database,
+  ExternalLink,
   File,
   FileText,
+  FilterX,
+  Layers,
+  Link2,
   Globe,
   ImageIcon,
   Newspaper,
@@ -13,10 +19,12 @@ import {
 import { useState } from "react";
 import { Popover, PopoverAnchor, PopoverContent } from "@/shared/ui/kit/popover";
 import { cn } from "@/shared/lib/css";
-import { CONTENT_PANEL, PreviewBody, PreviewHead } from "../ui/shell-kit";
+import { CONTENT_PANEL, PreviewBody, PreviewHead, SHELL_TITLE_LARGE } from "../ui/shell-kit";
+import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolMenu, ShellToolPopover } from "../ui/shell-toolbar";
 import { resultDomain } from "../model/search-results";
 import type { SearchShellData, ShellProps } from "../model/shell-types";
 import { SearchAppIcon, ShellGlyph } from "../ui/shell-icons";
+import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
 import { useShellMark } from "../ui/shell-mark";
 import { ActionPill, AddChip, Kbd, ShellField, SoftChip } from "../ui/shell-fields";
 import {
@@ -58,6 +66,41 @@ const FILTER_ICON: Record<string, LucideIcon> = {
 };
 
 const filterIcon = (chip: string) => FILTER_ICON[chip.toLowerCase()] ?? Tag;
+
+/** Google's result types, under Tools: one at a time, as a filter chip. */
+const SEARCH_TYPES = [
+  { label: "News", icon: Newspaper },
+  { label: "Images", icon: ImageIcon },
+  { label: "Videos", icon: Video },
+  { label: "Papers", icon: FileText },
+  { label: "Datasets", icon: Database },
+] as const;
+
+/** Google's time ranges, also one at a time. `tbs` is Google's own code for each. */
+const TIME_RANGES = [
+  { label: "Past 24 hours", tbs: "qdr:d" },
+  { label: "Past week", tbs: "qdr:w" },
+  { label: "Past month", tbs: "qdr:m" },
+  { label: "Past year", tbs: "qdr:y" },
+] as const;
+
+const lower = (value: string) => value.toLowerCase();
+const isTypeChip = (chip: string) => SEARCH_TYPES.some((type) => lower(type.label) === lower(chip));
+const isTimeChip = (chip: string) => TIME_RANGES.some((range) => lower(range.label) === lower(chip));
+
+/** The same search on Google, with its sites and time range. */
+function googleUrl(data: SearchShellData) {
+  const sites = (data.sources ?? []).map((site) => `site:${site}`).join(" OR ");
+  const q = [data.query.trim(), sites && `(${sites})`].filter(Boolean).join(" ");
+  const time = TIME_RANGES.find((range) => data.filters.some((chip) => lower(chip) === lower(range.label)));
+  const type = data.filters.find(isTypeChip);
+  const tbm = type && ({ news: "nws", images: "isch", videos: "vid" } as Record<string, string>)[lower(type)];
+  const params = new URLSearchParams({ q });
+  if (time) params.set("tbs", time.tbs);
+  if (tbm) params.set("tbm", tbm);
+  if (type && lower(type) === "papers") return `https://scholar.google.com/scholar?${new URLSearchParams({ q })}`;
+  return `https://www.google.com/search?${params}`;
+}
 
 type SearchShellProps = ShellProps<SearchShellData> & {
   /** Run (or re-run) the search; falls back to onSubmit. */
@@ -120,7 +163,7 @@ function QueryField({
   const mark = useShellMark(large ? "large" : "medium-plus");
   const textClass = cn(
     "font-bureau font-normal text-typography-primary",
-    large ? "text-[20px] leading-[1.35] tracking-[-0.2px]" : "text-[14px] leading-[1.35]",
+    large ? SHELL_TITLE_LARGE : "text-[14px] leading-[1.35]",
   );
   return (
     <div className="flex min-w-0 flex-1 items-start gap-2">
@@ -485,6 +528,9 @@ export function SearchShell({
   status = "idle",
   surface = true,
   actions,
+  tools,
+  suggested,
+  onDismissSuggestion,
   className,
 }: SearchShellProps) {
   const editable = Boolean(onChange);
@@ -569,9 +615,99 @@ export function SearchShell({
     <ShellSurface size={size} surface={surface} className={className}>
       <div className="flex shrink-0 items-start gap-2 px-6 pt-3">
         <div className="flex min-w-0 flex-1 rounded-[16px] bg-gray-6 px-4 py-3">{query}</div>
-        {actions}
       </div>
-      <div className="shrink-0 px-6 pt-4">{filters}</div>
+      <ShellToolbar tools={tools} actions={actions} className="mt-3 border-t">
+        <ShellToolMenu
+          label="Type"
+          icon={<Layers />}
+          text={data.filters.find(isTypeChip) ?? "All results"}
+          active={data.filters.some(isTypeChip)}
+          disabled={!editable}
+          items={[
+            { id: "all", label: "All results", icon: <Globe />, checked: !data.filters.some(isTypeChip), onSelect: () => update({ filters: data.filters.filter((chip) => !isTypeChip(chip)) }) },
+            ...SEARCH_TYPES.map(({ label, icon: Icon }) => ({
+              id: label,
+              label,
+              icon: <Icon />,
+              checked: data.filters.some((chip) => lower(chip) === lower(label)),
+              onSelect: () => update({ filters: [...data.filters.filter((chip) => !isTypeChip(chip)), label] }),
+            })),
+          ]}
+        />
+        <ShellToolMenu
+          label="Time"
+          icon={<Clock />}
+          text={data.filters.find(isTimeChip) ?? "Any time"}
+          active={data.filters.some(isTimeChip)}
+          disabled={!editable}
+          items={[
+            { id: "any", label: "Any time", checked: !data.filters.some(isTimeChip), onSelect: () => update({ filters: data.filters.filter((chip) => !isTimeChip(chip)) }) },
+            ...TIME_RANGES.map(({ label }) => ({
+              id: label,
+              label,
+              checked: data.filters.some((chip) => lower(chip) === lower(label)),
+              onSelect: () => update({ filters: [...data.filters.filter((chip) => !isTimeChip(chip)), label] }),
+            })),
+          ]}
+        />
+        <ShellToolPopover label="Search within a site" icon={<AtSign />} disabled={!editable}>
+          {(close) => (
+            <ShellToolField
+              label="Site"
+              placeholder="e.g. nature.com"
+              apply="Add"
+              onApply={(value) => {
+                const site = value.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
+                if (!(data.sources ?? []).includes(site)) update({ sources: [...(data.sources ?? []), site] });
+                close();
+              }}
+            />
+          )}
+        </ShellToolPopover>
+        <ShellToolButton
+          label="Clear filters"
+          disabled={!editable || (data.filters.length === 0 && !data.sources?.length)}
+          onPress={() => onChange?.({ ...data, filters: [], sources: [] })}
+        >
+          <FilterX />
+        </ShellToolButton>
+        <ShellToolDivider />
+        <ShellToolButton
+          label="Copy the links"
+          disabled={!data.results.some((result) => result.url)}
+          onPress={() =>
+            copyText(data.results.flatMap((result) => (result.url ? [`${result.title}: ${result.url}`] : [])).join("\n"))
+          }
+        >
+          <Link2 />
+        </ShellToolButton>
+        <ShellToolButton
+          label="Open the top result"
+          disabled={!data.results.find((result) => result.url)}
+          onPress={() => window.open(data.results.find((result) => result.url)?.url, "_blank", "noopener")}
+        >
+          <ExternalLink />
+        </ShellToolButton>
+        <ShellToolButton
+          label="Open in Google"
+          disabled={!data.query.trim()}
+          onPress={() => window.open(googleUrl(data), "_blank", "noopener")}
+        >
+          <Globe />
+        </ShellToolButton>
+      </ShellToolbar>
+      {/* Suggested filters sit among the real ones, outlined, until added or dismissed. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 px-6 pt-4">
+        {filters}
+        {unusedSuggestions(suggested?.filters, data.filters).map((chip) => (
+          <SuggestedChip
+            key={chip}
+            label={chip}
+            onAccept={editable ? () => toggleFilter(chip) : undefined}
+            onDismiss={onDismissSuggestion && (() => onDismissSuggestion("filters", chip))}
+          />
+        ))}
+      </div>
       <div className="no-scrollbar grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto px-6 pt-5 pb-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Steps data={data} large loading={loading} editable={editable} onQueries={(queries) => update({ queries })} />
         <div className="flex min-w-0 flex-col gap-5">

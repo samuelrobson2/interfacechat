@@ -1,14 +1,16 @@
 import { z } from "zod";
+import { blockSchema, variableSchema } from "../apps/app-types.js";
 
 /**
  * The catalogue: one entry per interface the model can fill. An entry's schema
  * is the model's tool input, the text it reads about the interface's fields,
  * and what its writes are checked against. Read by the app and by the chat API
- * (`api/_ai-chat-lab.ts`), so it imports nothing but zod.
+ * (`api/_ai-chat-lab.ts`), so it imports nothing but zod (and the app
+ * schemas, which import nothing but zod).
  *
- * Piloted on Document, Table and Tracker.
+ * Piloted on Document, Table and Tracker; Dashboard and Article follow.
  */
-export const CATALOGUE_KINDS = ["document", "table", "tracker"] as const;
+export const CATALOGUE_KINDS = ["document", "table", "tracker", "dashboard", "article"] as const;
 export type CatalogueKind = (typeof CATALOGUE_KINDS)[number];
 
 /** One entry per interface, not per size: the app places it, and this is the model's say. */
@@ -64,14 +66,78 @@ const trackerSchema = z.object({
     .describe("Each thing to do, in order."),
 });
 
-const SCHEMAS = { document: documentSchema, table: tableSchema, tracker: trackerSchema };
+/**
+ * Dashboard and Article share their data, variables and blocks. Datasets go
+ * as columns and rows of cells, not objects, so sample data costs fewer tokens
+ * and streams in a shape that's usable row by row.
+ */
+const cellSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const appDatasetSchema = z.object({
+  id: z.string().describe("Short and lower case, such as sales. Blocks refer to the dataset by this."),
+  label: z.string().describe("Its name in the Data menu, such as Sales by month."),
+  from: z
+    .enum(["sample", "code", "yours"])
+    .describe(
+      "sample: numbers you write in rows until the person's own arrive. code: what a code block emits (set that block's output to this id); leave rows empty. yours: the person's own data, marked by the app; never write it, only read its columns.",
+    ),
+  columns: z.array(z.string()).describe("Column names in order, short and without spaces: month, region, revenue."),
+  rows: z.array(z.array(cellSchema)).describe("Sample rows, cells in column order, numbers as numbers. Empty for code and yours."),
+  rowCount: z.number().int().optional().describe("Set by the app when only the first rows are shown. Never set it."),
+});
+const appParts = {
+  datasets: z.array(appDatasetSchema).describe("Write the data first, so each block can draw as soon as it arrives."),
+  variables: z
+    .array(variableSchema)
+    .describe('Controls people steer with. A block reads one as "$id" in a where clause. A choice with includeAll starts on "__all__".'),
+  blocks: z.array(blockSchema).describe("Stats, charts, tables, text, controls and code, in reading order."),
+};
+
+const dashboardSchema = z.object({
+  title: z.string().describe("What the dashboard tracks."),
+  placement,
+  description: z.string().optional().describe("One line on what it covers and where the numbers come from."),
+  ...appParts,
+});
+
+const articleSchema = z.object({
+  title: z.string().describe("The headline: the claim the piece makes."),
+  placement,
+  subtitle: z.string().optional().describe("One line under the headline."),
+  ...appParts,
+});
+
+const SCHEMAS = {
+  document: documentSchema,
+  table: tableSchema,
+  tracker: trackerSchema,
+  dashboard: dashboardSchema,
+  article: articleSchema,
+};
 
 export type CatalogueValueByKind = {
   document: z.infer<typeof documentSchema>;
   table: z.infer<typeof tableSchema>;
   tracker: z.infer<typeof trackerSchema>;
+  dashboard: z.infer<typeof dashboardSchema>;
+  article: z.infer<typeof articleSchema>;
 };
+export type AppCatalogueDataset = z.infer<typeof appDatasetSchema>;
 export type CatalogueValue = CatalogueValueByKind[CatalogueKind];
+
+/** How Dashboard and Article use data: the person's own first, sample numbers only until theirs arrives. */
+const APP_DATA_GUIDANCE = [
+  "Write it in order: title, datasets, variables, then blocks. It is drawn as you write.",
+  "A dataset marked from: yours is the person's own data (a file, a link, another interface). Build on it: read its columns (only the first rows are shown), refer to it by id, and never write rows for it.",
+  "With no data of theirs, write sample data (from: sample): 20 to 60 realistic, consistent rows with plain column names. Say in chat that the numbers are samples and that they can bring their own from the Data menu.",
+];
+
+/** How their blocks are written, for both. */
+const APP_BLOCK_GUIDANCE = [
+  'Filter a block with query.where; read a variable as "$id", such as {"field": "region", "op": "eq", "value": "$region"}.',
+  "Charts: line or area over time, bar for categories, point for two measures, arc for shares of a whole (x the category, y the amount). Set aggregate when several rows share an x.",
+  "Code only for what blocks can't do (a forecast, a simulation, a custom drawing): plain JavaScript, run in a sandbox with data (its inputs by id), vars, root (an element to draw into) and emit(rows). No network, no imports. To chart its result, emit rows into a dataset with from: code and point a chart at it.",
+  "To change part of one that's open (a chart's type, a block's filter, a label), patch it with update_interface rather than rewriting it.",
+];
 
 export type CatalogueEntry<K extends CatalogueKind = CatalogueKind> = {
   kind: K;
@@ -120,6 +186,36 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
       "Use groups only when the items fall into a few clear sections.",
     ],
     schema: trackerSchema,
+  },
+  dashboard: {
+    kind: "dashboard",
+    label: "Dashboard",
+    tool: "fill_dashboard",
+    description:
+      "Figures, charts and tables over data, with filters and code that runs: a sales or KPI dashboard, or an app over a spreadsheet.",
+    guidance: [
+      ...APP_DATA_GUIDANCE,
+      "Lay it out as a dashboard: three or four stats across the top (span 3), the main chart (span 8) beside a supporting one (span 4), then a table or code (span 6 or 12). Fewer, clearer blocks beat many.",
+      "Stats: one numeric column with op sum, mean, count, min, max or last; format currency or percent where it fits. compare shows the change against other filters, such as this half against the last.",
+      "Every variable sits in the filter bar. Add one only when blocks read it.",
+      ...APP_BLOCK_GUIDANCE,
+    ],
+    schema: dashboardSchema,
+  },
+  article: {
+    kind: "article",
+    label: "Article",
+    tool: "fill_article",
+    description:
+      "A piece to read with live charts, controls and runnable code between the prose: a data story or an explorable explanation.",
+    guidance: [
+      ...APP_DATA_GUIDANCE,
+      "The prose carries the argument; each chart, control or code cell shows something the prose claims. Three to six text blocks of short paragraphs, a ## heading per section.",
+      "Put a control just before what it changes, and use its value in the text with {{variable}} so the sentence moves with it.",
+      "Set a code block's showCode to true when the working is part of the explanation.",
+      ...APP_BLOCK_GUIDANCE,
+    ],
+    schema: articleSchema,
   },
 };
 
@@ -187,6 +283,47 @@ export function readCatalogueValue(kind: CatalogueKind, input: unknown): Catalog
   const base = { title: text(source.title), ...(where ? { placement: where } : {}) };
 
   if (kind === "document") return { ...base, body: text(source.body) };
+
+  if (kind === "dashboard" || kind === "article") {
+    // While it streams, the block being written is incomplete: it's left out until it parses.
+    const parsed = <T,>(schema: z.ZodType<T>, value: unknown): T[] => {
+      const result = schema.safeParse(value);
+      return result.success ? [result.data] : [];
+    };
+    const datasets = list(source.datasets).flatMap((item) => {
+      const fields = record(item);
+      const id = text(fields?.id).trim();
+      if (!fields || !id) return [];
+      const columns = list(fields.columns).filter((column): column is string => typeof column === "string" && !!column);
+      const rows = list(fields.rows)
+        .filter(Array.isArray)
+        .map((cells) =>
+          columns.map((_, index) => {
+            const cell = cells[index];
+            return typeof cell === "number" || typeof cell === "boolean" ? cell : typeof cell === "string" ? text(cell) : null;
+          }),
+        );
+      const from = fields.from === "code" || fields.from === "yours" ? fields.from : "sample";
+      return [
+        {
+          id,
+          label: text(fields.label) || id,
+          from,
+          columns,
+          rows,
+          ...(typeof fields.rowCount === "number" ? { rowCount: fields.rowCount } : {}),
+        } as AppCatalogueDataset,
+      ];
+    });
+    const line = kind === "dashboard" ? "description" : "subtitle";
+    return {
+      ...base,
+      ...(optionalText(source[line]) ? { [line]: optionalText(source[line]) } : {}),
+      datasets,
+      variables: list(source.variables).flatMap((item) => parsed(variableSchema, item)),
+      blocks: list(source.blocks).flatMap((item) => parsed(blockSchema, item)),
+    } as CatalogueValue;
+  }
 
   if (kind === "table") {
     const columns = list(source.columns).flatMap((column) => {
@@ -290,5 +427,9 @@ export function catalogueSummary(kind: CatalogueKind, value: CatalogueValue): st
     return `${table.columns.length} columns, ${table.rows.length} rows`;
   }
   if (kind === "tracker") return `${(value as CatalogueValueByKind["tracker"]).items.length} items`;
+  if (kind === "dashboard" || kind === "article") {
+    const app = value as CatalogueValueByKind["dashboard"];
+    return `${app.blocks.length} blocks over ${app.datasets.length} datasets, ${app.variables.length} controls`;
+  }
   return `${(value as CatalogueValueByKind["document"]).body.length} characters`;
 }

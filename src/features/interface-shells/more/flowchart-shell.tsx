@@ -12,6 +12,7 @@ import {
 } from "../model/shell-types";
 import { CanvasBoard, canvasColour, SelectionBar, tint } from "../ui/canvas-board";
 import { CONTENT_PANEL, FitBox, PreviewBody, PreviewHead, ShellTitle } from "../ui/shell-kit";
+import { DiagramToolbar } from "./diagram-toolbar";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
@@ -239,6 +240,9 @@ export function FlowchartShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
+  suggestions,
   className,
 }: ShellProps<FlowchartShellData>) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -375,7 +379,9 @@ export function FlowchartShell({
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+      <DiagramToolbar tools={tools} actions={actions} />
       <CanvasBoard
+        suggestions={suggestions?.board}
         width={width}
         height={height}
         editable={Boolean(update)}

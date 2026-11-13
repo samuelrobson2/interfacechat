@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarArrowDown, ChevronLeft, ChevronRight, Copy, PanelRightClose, PanelRightOpen, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { shellId, type CalendarEvent, type CalendarShellData, type ShellProps, type ShellSize } from "../model/shell-types";
@@ -13,6 +13,7 @@ import {
 } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { copyText, downloadText, fileNameOf, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolText } from "../ui/shell-toolbar";
 
 const VIOLET = "#7c66f0";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -41,6 +42,40 @@ const monthName = (month: string, short = false) =>
 
 const shortDate = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const isoOf = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+/** The month's events as an .ics file Google Calendar, Apple Calendar or Outlook can import. Times stay in the title. */
+function monthIcs(data: CalendarShellData, events: CalendarEvent[]) {
+  const escape = (text: string) => text.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, "\\n");
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const day = (iso: string) => iso.replace(/-/g, "");
+  const next = (iso: string) => {
+    const date = new Date(`${iso}T12:00:00`);
+    date.setDate(date.getDate() + 1);
+    return day(isoOf(date));
+  };
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Adaption//Interface Chat//EN",
+    `X-WR-CALNAME:${escape(data.title || "Calendar")}`,
+    ...events.flatMap((event) => [
+      "BEGIN:VEVENT",
+      `UID:${event.id}@interface-chat`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${day(event.date)}`,
+      `DTEND;VALUE=DATE:${next(event.date)}`,
+      `SUMMARY:${escape(event.time ? `${event.title} (${event.time})` : event.title)}`,
+      "END:VEVENT",
+    ]),
+    "END:VCALENDAR",
+  ].join("\r\n");
+}
+
+const agendaText = (data: CalendarShellData, events: CalendarEvent[]) =>
+  [monthName(data.month), ...events.map((event) => `${shortDate(event.date)}${event.time ? `, ${event.time}` : ""}: ${event.title}`)].join("\n");
 
 function MonthNav({ data, size, update }: { data: CalendarShellData; size: ShellSize; update?: (patch: Partial<CalendarShellData>) => void }) {
   const large = size === "large";
@@ -334,8 +369,11 @@ export function CalendarShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
   className,
 }: ShellProps<CalendarShellData>) {
+  const [agenda, setAgenda] = useState(true);
   if (size === "small") return <ShellAppIcon kind="calendar" className={className} />;
 
   if (size === "medium") {
@@ -353,6 +391,47 @@ export function CalendarShell({
   const update = onChange ? (patch: Partial<CalendarShellData>) => onChange({ ...data, ...patch }) : undefined;
   const monthEvents = data.events.filter((event) => event.date.startsWith(data.month)).length;
   const monthTitles = [...new Set(data.events.filter((e) => e.date.startsWith(data.month)).map((e) => e.title))];
+  const thisMonth = [...data.events].filter((e) => e.date.startsWith(data.month)).sort((a, b) => a.date.localeCompare(b.date));
+  const today = isoOf(new Date());
+  const onToday = today.startsWith(data.month);
+
+  // Google Calendar's bar: Today, back and forward, the month, then Create.
+  const toolbar = large && (
+    <ShellToolbar tools={tools} actions={actions}>
+      <ShellToolText label="Today" title={new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} disabled={!update || onToday} onPress={() => update?.({ month: today.slice(0, 7) })} />
+      <ShellToolButton label="Previous month" disabled={!update} onPress={() => update?.({ month: shiftMonth(data.month, -1) })}>
+        <ChevronLeft />
+      </ShellToolButton>
+      <ShellToolButton label="Next month" disabled={!update} onPress={() => update?.({ month: shiftMonth(data.month, 1) })}>
+        <ChevronRight />
+      </ShellToolButton>
+      <span className="shrink-0 px-2 font-bureau text-[15px] text-typography-primary">{monthName(data.month)}</span>
+      <ShellToolDivider />
+      <ShellToolButton
+        label={onToday ? "New event today" : "New event"}
+        disabled={!update}
+        onPress={() =>
+          update?.({ events: [...data.events, { id: shellId("event"), date: onToday ? today : `${data.month}-01`, title: "New event" }] })
+        }
+      >
+        <Plus />
+      </ShellToolButton>
+      <ShellToolButton label={agenda ? "Hide the agenda" : "Show the agenda"} active={agenda} onPress={() => setAgenda((value) => !value)}>
+        {agenda ? <PanelRightClose /> : <PanelRightOpen />}
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton label="Copy the agenda" disabled={thisMonth.length === 0} onPress={() => copyText(agendaText(data, thisMonth))}>
+        <Copy />
+      </ShellToolButton>
+      <ShellToolButton
+        label="Export to calendar (.ics)"
+        disabled={thisMonth.length === 0}
+        onPress={() => downloadText(`${fileNameOf(data.title, "calendar")}-${data.month}.ics`, monthIcs(data, thisMonth), "text/calendar")}
+      >
+        <CalendarArrowDown />
+      </ShellToolButton>
+    </ShellToolbar>
+  );
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
@@ -362,8 +441,9 @@ export function CalendarShell({
         value={data.title}
         onChange={update && ((title) => update({ title }))}
         onSubmit={onSubmit}
-        aside={<MonthNav data={data} size={size} update={update} />}
+        aside={large ? undefined : <MonthNav data={data} size={size} update={update} />}
       />
+      {toolbar}
       <ShellBody size={size}>
         <div className="flex flex-wrap items-center gap-1.5">
           {large && <span className="font-bureau text-[12px] text-typography-secondary">Events</span>}
@@ -391,7 +471,7 @@ export function CalendarShell({
           <div className="min-w-0 flex-1">
             <MonthGrid data={data} size={size} update={update} />
           </div>
-          {large && (
+          {large && agenda && (
             <aside className="flex w-72 shrink-0 flex-col gap-2">
               <span className="font-bureau text-[12px] text-typography-secondary">
                 {monthEvents === 1 ? "1 event" : `${monthEvents} events`}

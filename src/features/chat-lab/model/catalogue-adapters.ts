@@ -1,5 +1,8 @@
 import {
+  appToCatalogue,
+  catalogueToApp,
   EMPTY_SHELL_DATA,
+  type AppShellData,
   serializeMarkdownTable,
   type CatalogueKind,
   type CatalogueValue,
@@ -13,7 +16,8 @@ import { artefactDocument, artefactTable } from "./shell-adapters";
 /** Which catalogue entry an interface in a thread is, if the model can fill it. */
 export function artefactCatalogueKind(artefact: ChatLabArtefact): CatalogueKind | null {
   if (artefact.kind === "document" || artefact.kind === "table") return artefact.kind;
-  if (artefact.kind === "shell" && artefact.shell?.kind === "tracker") return "tracker";
+  const shellKind = artefact.kind === "shell" ? artefact.shell?.kind : undefined;
+  if (shellKind === "tracker" || shellKind === "dashboard" || shellKind === "article") return shellKind;
   return null;
 }
 
@@ -46,6 +50,7 @@ export function artefactCatalogueValue(artefact: ChatLabArtefact): CatalogueValu
       })),
     };
   }
+  if (kind === "dashboard" || kind === "article") return appToCatalogue(kind, artefact.shell!.data as AppShellData);
   return null;
 }
 
@@ -87,6 +92,11 @@ export function catalogueArtefactPatch(artefact: ChatLabArtefact, value: Catalog
     const data: TrackerShellData = { ...previous, title: tracker.title || previous.title, groups, items };
     return { title: tracker.title, shell: { kind: "tracker", data } as ArtefactShell };
   }
+  if (kind === "dashboard" || kind === "article") {
+    const previous = artefact.shell?.data as AppShellData | undefined;
+    const data = catalogueToApp(kind, value as CatalogueValueByKind[typeof kind], previous);
+    return { title: data.title, shell: { kind, data } as ArtefactShell };
+  }
   return null;
 }
 
@@ -101,6 +111,13 @@ export function newCatalogueArtefact(kind: CatalogueKind, title: string): {
       kind: "shell",
       libraryKind: "checklist",
       shell: { kind: "tracker", data: { ...structuredClone(EMPTY_SHELL_DATA.tracker), title } } as ArtefactShell,
+    };
+  }
+  if (kind === "dashboard" || kind === "article") {
+    return {
+      kind: "shell",
+      libraryKind: kind,
+      shell: { kind, data: { ...structuredClone(EMPTY_SHELL_DATA[kind]), title } } as ArtefactShell,
     };
   }
   return { kind, libraryKind: kind };

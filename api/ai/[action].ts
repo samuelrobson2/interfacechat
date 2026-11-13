@@ -2,6 +2,7 @@ import * as chatLab from "../_ai-chat-lab.js";
 import * as chatLabIcon from "../_ai-chat-lab-icon.js";
 import * as chatLabSuggestions from "../_ai-chat-lab-suggestions.js";
 import * as chatLabTitle from "../_ai-chat-lab-title.js";
+import * as generate from "../_ai-generate.js";
 import * as interfaceFill from "../_ai-interface-fill.js";
 import * as visualize from "../_ai-visualize.js";
 
@@ -23,12 +24,13 @@ const MODULES: Record<string, Module> = {
   "chat-lab-icon": chatLabIcon,
   "chat-lab-suggestions": chatLabSuggestions,
   "chat-lab-title": chatLabTitle,
+  generate,
   "interface-fill": interfaceFill,
   "visualize": visualize,
 };
 
 // The longest of the merged handlers' own limits.
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 function dispatch(method: "GET" | "POST") {
   return async (req: Request): Promise<Response> => {

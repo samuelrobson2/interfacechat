@@ -6,6 +6,7 @@ import { CanvasBoard, canvasColour, SelectionBar, tint } from "../ui/canvas-boar
 import { ghostLabels } from "../ui/shell-accents";
 import { AddChip } from "../ui/shell-fields";
 import { CONTENT_PANEL, FitBox, PreviewBody, PreviewHead, ShellTitle } from "../ui/shell-kit";
+import { DiagramToolbar } from "./diagram-toolbar";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
@@ -247,6 +248,9 @@ export function MindmapShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
+  suggestions,
   className,
 }: ShellProps<MindmapShellData>) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -332,7 +336,9 @@ export function MindmapShell({
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+      <DiagramToolbar tools={tools} actions={actions} />
       <CanvasBoard
+        suggestions={suggestions?.board}
         width={W}
         height={H}
         editable={Boolean(update)}

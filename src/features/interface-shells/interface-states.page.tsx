@@ -61,10 +61,22 @@ const COLUMNS: Column[] = [
   { size: "large", state: "history", label: "Inline · Medium", inline: "medium" },
 ];
 
-/** The library's order, with Chat last: it's the conversation, not a surface. */
-const ROW_KINDS: ShellKind[] = [
-  ...SHELL_KINDS.filter((kind) => kind !== "chat"),
-  ...SHELL_KINDS.filter((kind) => kind === "chat"),
+/** Built after P0: the rest of the library is P0. */
+const P1_KINDS: ShellKind[] = ["calendar", "guide", "moodboard", "map", "chart"];
+
+/**
+ * Rows by priority, each in the library's order, with Chat last in P0: it's
+ * the conversation, not a surface.
+ */
+const PRIORITIES: { label: string; kinds: ShellKind[] }[] = [
+  {
+    label: "P0",
+    kinds: [
+      ...SHELL_KINDS.filter((kind) => kind !== "chat" && !P1_KINDS.includes(kind)),
+      ...SHELL_KINDS.filter((kind) => kind === "chat"),
+    ],
+  },
+  { label: "P1", kinds: SHELL_KINDS.filter((kind) => P1_KINDS.includes(kind)) },
 ];
 
 const stageWidth = (column: Column) =>
@@ -180,8 +192,21 @@ function InterfaceStatesPage() {
           </div>
         </div>
 
-        {ROW_KINDS.map((kind) => (
-          <StatesRow key={kind} kind={kind} />
+        {PRIORITIES.map(({ label, kinds }) => (
+          <section key={label} aria-label={label} className="flex flex-col pt-10 first-of-type:pt-6">
+            {/* Stays at the left edge while the rows scroll sideways. */}
+            <div className="sticky left-6 flex w-fit items-baseline gap-3 md:left-24">
+              <Text variant="h2" as="h2">
+                {label}
+              </Text>
+              <span className="font-bureau text-[13px] text-typography-secondary tabular-nums">
+                {kinds.length} interfaces
+              </span>
+            </div>
+            {kinds.map((kind) => (
+              <StatesRow key={kind} kind={kind} />
+            ))}
+          </section>
         ))}
       </div>
       {import.meta.env.DEV && <EditOverlay />}

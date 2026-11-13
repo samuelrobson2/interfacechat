@@ -1,5 +1,7 @@
+import { APP_EMPTY, APP_FIXTURES } from "../apps/app-fixtures";
 import { EXTRA_EMPTY, EXTRA_FIXTURES } from "./shell-fixtures-extra";
 import { MORE_EMPTY, MORE_FIXTURES } from "./shell-fixtures-more";
+import { GENERATOR_EMPTY, GENERATOR_FIXTURES } from "./shell-fixtures-generator";
 import { fillToShellData } from "./shell-fill";
 import type {
   DocumentShellData,
@@ -229,6 +231,8 @@ export const SHELL_FIXTURES: { [K in ShellKind]: ShellFixture<K> } = {
   table: tableFixture,
   ...MORE_FIXTURES,
   ...EXTRA_FIXTURES,
+  ...GENERATOR_FIXTURES,
+  ...APP_FIXTURES,
 };
 
 export const EMPTY_SHELL_DATA: { [K in ShellKind]: ShellDataByKind[K] } = {
@@ -237,4 +241,6 @@ export const EMPTY_SHELL_DATA: { [K in ShellKind]: ShellDataByKind[K] } = {
   table: emptyTable,
   ...MORE_EMPTY,
   ...EXTRA_EMPTY,
+  ...GENERATOR_EMPTY,
+  ...APP_EMPTY,
 };

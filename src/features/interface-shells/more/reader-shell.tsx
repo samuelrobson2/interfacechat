@@ -1,11 +1,15 @@
-import { ChevronDown, ChevronUp, MessageCircle, MessageCircleQuestion, ScanText, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardCopy, Copy, Eraser, FileUp, Highlighter, MessageCircle, MessageCircleQuestion, ScanText, Search, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { readFile } from "../model/reader-file";
-import type { ReaderShellData, ShellProps } from "../model/shell-types";
+import { shellId, type ReaderShellData, type ShellProps } from "../model/shell-types";
 import { PdfIcon, PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { Bar, barWidths, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolFile } from "../ui/shell-toolbar";
+
+/** Preview's zoom steps, as a share of the page's normal text size. */
+const ZOOMS = [0.8, 0.9, 1, 1.15, 1.3, 1.5];
 
 /**
  * Reader is a smart document reader: search the file, ask it a question, find
@@ -219,12 +223,14 @@ function MarkedPassage({
   data,
   matches,
   current,
+  zoom = 1,
 }: {
   text: string;
   index: number;
   data: ReaderShellData;
   matches: Match[];
   current: Match | undefined;
+  zoom?: number;
 }) {
   // Search matches win where they overlap a found passage: they're what the person is looking at now.
   const marks = [
@@ -255,7 +261,7 @@ function MarkedPassage({
   }
   parts.push(text.slice(cursor));
   return (
-    <p data-passage={index} className="font-serif text-[13px] leading-[1.7] text-typography-primary">
+    <p data-passage={index} className="font-serif text-[13px] leading-[1.7] text-typography-primary" style={zoom === 1 ? undefined : { fontSize: 13 * zoom }}>
       {parts}
     </p>
   );
@@ -355,10 +361,14 @@ export function ReaderShell({
   onSubmit,
   onAsk,
   surface = true,
+  tools,
+  actions,
   className,
 }: ShellProps<ReaderShellData>) {
   const article = useRef<HTMLElement>(null);
   const [step, setStep] = useState(0);
+  const [zoom, setZoom] = useState(2);
+  const [opening, setOpening] = useState<"idle" | "reading" | "error">("idle");
   const matches = findMatches(data.passages, data.query ?? "");
   // While asking, the arrows walk the passages the chat found instead.
   const found = data.highlights.filter((h) => data.passages.some((p) => p.includes(h.quote)));
@@ -447,6 +457,82 @@ export function ReaderShell({
   }
 
   const hasFile = data.passages.length > 0;
+
+  /** What's selected in the page, if anything: the words a highlight or a question is about. */
+  const selectedText = () => {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() ?? "";
+    if (!text || !article.current || !selection?.anchorNode || !article.current.contains(selection.anchorNode)) return "";
+    return text;
+  };
+  const openFile = async (file: File) => {
+    if (!update) return;
+    setOpening("reading");
+    try {
+      const read = await readFile(file);
+      if (read.passages.length === 0) throw new Error("No text found");
+      update({ source: read.source, title: read.title, pages: read.pages, passages: read.passages, highlights: [], query: "" });
+      setOpening("idle");
+    } catch {
+      setOpening("error");
+    }
+  };
+  const ownHighlights = data.highlights.filter((h) => data.passages.some((p) => p.includes(h.quote)));
+
+  // Preview's and Acrobat's essentials: open, zoom, highlight, ask, copy.
+  const toolbar = (
+    <ShellToolbar tools={tools} actions={actions}>
+      <ShellToolFile label={opening === "reading" ? "Opening…" : opening === "error" ? "Couldn't read that file. Open another" : "Open a file"} accept="application/pdf,.pdf,.txt,.md,text/plain,text/markdown" disabled={!update || opening === "reading"} onFiles={([file]) => file && void openFile(file)}>
+        <FileUp />
+      </ShellToolFile>
+      <ShellToolDivider />
+      <ShellToolButton label="Zoom out" disabled={!hasFile || zoom === 0} onPress={() => setZoom((z) => Math.max(0, z - 1))}>
+        <ZoomOut />
+      </ShellToolButton>
+      <span className="w-11 shrink-0 text-center font-bureau text-[12px] text-typography-secondary tabular-nums">{Math.round(ZOOMS[zoom]! * 100)}%</span>
+      <ShellToolButton label="Zoom in" disabled={!hasFile || zoom === ZOOMS.length - 1} onPress={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+        <ZoomIn />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton
+        label="Highlight the selection"
+        disabled={!update || !hasFile}
+        onPress={() => {
+          const quote = selectedText();
+          if (quote && !data.highlights.some((h) => h.quote === quote))
+            update?.({ highlights: [...data.highlights, { id: shellId("hl"), quote, note: "Your highlight" }] });
+          window.getSelection()?.removeAllRanges();
+        }}
+      >
+        <Highlighter />
+      </ShellToolButton>
+      <ShellToolButton
+        label="Ask the chat about the selection"
+        disabled={!ask || !hasFile}
+        onPress={() => {
+          const quote = selectedText();
+          if (quote) ask?.(`What does this mean: "${quote.length > 400 ? `${quote.slice(0, 400)}…` : quote}"`);
+        }}
+      >
+        <MessageCircleQuestion />
+      </ShellToolButton>
+      <ShellToolButton
+        label="Copy the highlights"
+        disabled={ownHighlights.length === 0}
+        onPress={() => copyText(ownHighlights.map((h) => `“${h.quote}”${h.note && h.note !== "Your highlight" ? ` (${h.note})` : ""}`).join("\n\n"))}
+      >
+        <ClipboardCopy />
+      </ShellToolButton>
+      <ShellToolButton label="Clear the highlights" disabled={!update || data.highlights.length === 0} onPress={() => update?.({ highlights: [] })}>
+        <Eraser />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton label="Copy the text" disabled={!hasFile} onPress={() => copyText(data.passages.join("\n\n"))}>
+        <Copy />
+      </ShellToolButton>
+    </ShellToolbar>
+  );
+
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle
@@ -461,6 +547,7 @@ export function ReaderShell({
           </FileDrop>
         }
       />
+      {toolbar}
       {hasFile && (
         <div className="flex flex-col gap-2 px-6 pt-3">
           <AskBar
@@ -516,6 +603,7 @@ export function ReaderShell({
                   data={data}
                   matches={matches}
                   current={walkingFound ? undefined : matches[at]}
+                  zoom={ZOOMS[zoom]}
                 />
               ))
             ) : (

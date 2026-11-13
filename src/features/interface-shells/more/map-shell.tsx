@@ -1,4 +1,4 @@
-import { MapPin, Star, X } from "lucide-react";
+import { ArrowUpDown, Copy, ExternalLink, LocateFixed, MapPin, Minus, Navigation, Plus, SlidersHorizontal, Star, X } from "lucide-react";
 import { useId, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { AddChip } from "../ui/shell-fields";
@@ -12,7 +12,32 @@ import {
 } from "../ui/shell-kit";
 import { ghostLabels } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
+import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
+import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolMenu } from "../ui/shell-toolbar";
+
+/** Google Maps' quick filters, kept as the map's filter chips. */
+const MAP_FILTERS = ["Open now", "Top rated", "Cheap", "Wheelchair accessible", "Outdoor seating", "Good for groups"];
+
+/** A distance such as "4 min", "350 m" or "1.2 km" in comparable units (metres; a minute's walk is 80 m). */
+function distanceOf(place: MapPlace) {
+  const match = place.distance?.match(/([\d.]+)\s*(km|m|mi|min)?/i);
+  if (!match) return Infinity;
+  const value = Number(match[1]);
+  const unit = (match[2] ?? "m").toLowerCase();
+  return unit === "km" ? value * 1000 : unit === "mi" ? value * 1609 : unit === "min" ? value * 80 : value;
+}
+
+const mapsSearch = (data: MapShellData) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([data.query, data.near && `near ${data.near}`].filter(Boolean).join(" "))}`;
+
+/** Directions from the searched-around place to a chosen one, walking, in Google Maps. */
+const mapsDirections = (data: MapShellData, place: MapPlace) =>
+  `https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${encodeURIComponent(
+    [place.name, data.near].filter(Boolean).join(", "),
+  )}${data.near ? `&origin=${encodeURIComponent(data.near)}` : ""}`;
+
+const ZOOM_STEPS = [1, 1.4, 2, 2.8];
 
 const YELLOW = "#f2b630";
 
@@ -132,23 +157,34 @@ export function MapCanvas({
   data,
   size,
   onToggle,
+  zoom = 1,
   className,
 }: {
   data: MapShellData;
   size: "medium" | "medium-plus" | "large";
   onToggle?: (id: string) => void;
+  /** Zooms in on the centre; pins move apart but stay the same size, as in Maps. */
+  zoom?: number;
   className?: string;
 }) {
+  const around = (value: number) => 0.5 + (value - 0.5) * zoom;
   return (
     <div className={cn("relative overflow-hidden", className)}>
-      <Streets />
+      <div className="absolute inset-0 transition-transform duration-300" style={zoom === 1 ? undefined : { transform: `scale(${zoom})` }}>
+        <Streets />
+      </div>
       {data.near && (
         <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full text-typography-primary">
           <MapPin className={size === "medium" ? "size-3.5" : "size-6"} fill={YELLOW} strokeWidth={1.5} />
         </span>
       )}
       {data.places.map((place) => (
-        <Pin key={place.id} place={place} size={size} onToggle={onToggle ? () => onToggle(place.id) : undefined} />
+        <Pin
+          key={place.id}
+          place={zoom === 1 ? place : { ...place, x: around(place.x), y: around(place.y) }}
+          size={size}
+          onToggle={onToggle ? () => onToggle(place.id) : undefined}
+        />
       ))}
       {data.places.length === 0 &&
         ghostLabels("Place").map((label, i) => (
@@ -180,9 +216,14 @@ export function MapShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
+  suggested,
+  onDismissSuggestion,
   className,
 }: ShellProps<MapShellData>) {
   const [onlyShortlist, setOnlyShortlist] = useState(false);
+  const [zoom, setZoom] = useState(0);
   if (size === "small") return <ShellAppIcon kind="map" className={className} />;
 
   const title = data.query && data.near ? `${data.query} near ${data.near}` : data.query;
@@ -241,6 +282,76 @@ export function MapShell({
     </label>
   );
 
+  const hasFilter = (chip: string) => data.filters.some((filter) => filter.toLowerCase() === chip.toLowerCase());
+  const destination = data.places.find((place) => place.shortlisted) ?? data.places[0];
+  const listText = () =>
+    [
+      title,
+      ...(onlyShortlist || shortlisted ? data.places.filter((place) => place.shortlisted) : data.places).map((place) =>
+        [place.name, place.kind, place.distance].filter(Boolean).join(" · "),
+      ),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+  // Google Maps' tools: filters and sort for the list, zoom for the map, then directions and sharing.
+  const toolbar = large && (
+    <ShellToolbar tools={tools} actions={actions}>
+      <ShellToolMenu
+        label="Filters"
+        icon={<SlidersHorizontal />}
+        active={MAP_FILTERS.some(hasFilter)}
+        disabled={!update}
+        items={MAP_FILTERS.map((chip) => ({
+          id: chip,
+          label: chip,
+          checked: hasFilter(chip),
+          onSelect: () =>
+            update?.({ filters: hasFilter(chip) ? data.filters.filter((filter) => filter.toLowerCase() !== chip.toLowerCase()) : [...data.filters, chip] }),
+        }))}
+      />
+      <ShellToolButton
+        label="Sort by distance"
+        disabled={!update || data.places.filter((place) => place.distance).length < 2}
+        onPress={() => update?.({ places: [...data.places].sort((a, b) => distanceOf(a) - distanceOf(b)) })}
+      >
+        <ArrowUpDown />
+      </ShellToolButton>
+      <ShellToolButton
+        label={onlyShortlist ? "Show all places" : "Show the shortlist only"}
+        active={onlyShortlist}
+        disabled={!onlyShortlist && shortlisted === 0}
+        onPress={() => setOnlyShortlist((value) => !value)}
+      >
+        <Star />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton label="Zoom in" disabled={zoom === ZOOM_STEPS.length - 1} onPress={() => setZoom((z) => z + 1)}>
+        <Plus />
+      </ShellToolButton>
+      <ShellToolButton label="Zoom out" disabled={zoom === 0} onPress={() => setZoom((z) => z - 1)}>
+        <Minus />
+      </ShellToolButton>
+      <ShellToolButton label="Re-centre" disabled={zoom === 0} onPress={() => setZoom(0)}>
+        <LocateFixed />
+      </ShellToolButton>
+      <ShellToolDivider />
+      <ShellToolButton
+        label={destination ? `Directions to ${destination.name}` : "Directions"}
+        disabled={!destination}
+        onPress={() => destination && window.open(mapsDirections(data, destination), "_blank", "noopener")}
+      >
+        <Navigation />
+      </ShellToolButton>
+      <ShellToolButton label="Open in Google Maps" disabled={!data.query && !data.near} onPress={() => window.open(mapsSearch(data), "_blank", "noopener")}>
+        <ExternalLink />
+      </ShellToolButton>
+      <ShellToolButton label={shortlisted ? "Copy the shortlist" : "Copy the list"} disabled={data.places.length === 0} onPress={() => copyText(listText())}>
+        <Copy />
+      </ShellToolButton>
+    </ShellToolbar>
+  );
+
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle
@@ -250,6 +361,7 @@ export function MapShell({
         onChange={update && ((query) => update({ query }))}
         onSubmit={onSubmit}
       />
+      {toolbar}
       <ShellBody size={size} className={large ? "min-h-0" : undefined}>
         <div className="flex flex-wrap items-center gap-1.5">
           {near}
@@ -259,10 +371,19 @@ export function MapShell({
             addLabel="Add a filter"
             onChange={update && ((filters) => update({ filters }))}
           />
+          {large &&
+            unusedSuggestions(suggested?.filters, data.filters).map((chip) => (
+              <SuggestedChip
+                key={chip}
+                label={chip}
+                onAccept={update && (() => update({ filters: [...data.filters, chip] }))}
+                onDismiss={onDismissSuggestion && (() => onDismissSuggestion("filters", chip))}
+              />
+            ))}
         </div>
         {large ? (
           <div className="flex min-h-0 flex-1 gap-4">
-            <MapCanvas data={data} size="large" onToggle={toggle} className="min-h-[300px] flex-[3] rounded-[14px]" />
+            <MapCanvas data={data} size="large" onToggle={toggle} zoom={ZOOM_STEPS[zoom]} className="min-h-[300px] flex-[3] rounded-[14px]" />
             <div className="flex min-w-0 flex-[2] flex-col gap-2">
             <div className="flex gap-1">
               {[

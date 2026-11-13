@@ -69,6 +69,10 @@ export const sharedAppRoutes: RouteObject[] = [
     lazy: () => import("@/features/workbench/workbench.page"),
   },
   {
+    path: ROUTES.GENERATIVE_TOOLS,
+    lazy: () => import("@/features/generative-toolbar/generative-toolbar.page"),
+  },
+  {
     path: ROUTES.COMMON_UI_EXAMPLES,
     lazy: () =>
       import("@/features/common-ui-examples/common-ui-examples.layout"),

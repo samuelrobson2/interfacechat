@@ -4,6 +4,7 @@ import {
   chatFormatFor,
   chatPersonaFor,
   EMPTY_SHELL_DATA,
+  generatorModeFor,
   type DocumentShellData,
   type SearchShellData,
   type ShellDataByKind,
@@ -52,6 +53,9 @@ export const PROMPT_SEED: Record<ChatShellKind, string> = {
   moodboard: "Make a moodboard for ",
   chart: "Brainstorm ",
   guide: "Give me a recipe for ",
+  generator: "Generate ",
+  dashboard: "Build a dashboard of ",
+  article: "Write an interactive article on ",
 };
 
 const formatLabel = (format: keyof typeof CHAT_FORMAT_META | null) => (format ? CHAT_FORMAT_META[format].label : "");
@@ -272,6 +276,9 @@ export function parsePrompt<K extends ChatShellKind>(
       format: formatLabel(chatFormatFor(prompt).format),
       persona: personaLabel(chatPersonaFor(prompt)),
     };
+  } else if (kind === "generator") {
+    // The prompt is what to make; it also says whether that's writing or pictures.
+    data = { ...EMPTY_SHELL_DATA.generator, title: capitalize(topic), mode: generatorModeFor(prompt) };
   } else if (kind !== "table") {
     // The other interfaces fill their title (a map, its query) from the topic;
     // everything else is set on the card.

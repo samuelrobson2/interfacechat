@@ -1,4 +1,4 @@
-import { ImageIcon, Plus, X } from "lucide-react";
+import { Columns3, Copy, Download, Eraser, ImageIcon, Plus, Rows3, X } from "lucide-react";
 import { Fragment, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import {
@@ -7,7 +7,9 @@ import {
   type TableColumn,
   type TableShellData,
 } from "../model/shell-types";
+import { SHELL_TITLE_LARGE } from "../ui/shell-kit";
 import { ShellGlyph, TableAppIcon } from "../ui/shell-icons";
+import { copyText, downloadText, fileNameOf, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolMenu } from "../ui/shell-toolbar";
 import { useShellMark } from "../ui/shell-mark";
 import { ShellFooter } from "../ui/shell-meta";
 import {
@@ -19,6 +21,36 @@ import {
 } from "../ui/shell-surface";
 import { COLUMN_TYPE_ICON, NEXT_COLUMN_TYPE, TagChip, Thumbnail } from "./table-cells";
 import { TableGrid } from "./table-grid";
+
+/** The table as CSV, for pasting into a spreadsheet. */
+function tableAsCsv(data: TableShellData) {
+  const cell = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  return [
+    data.columns.map((column) => cell(column.label)).join(","),
+    ...data.rows.map((row) => data.columns.map((column) => cell(row.cells[column.id] ?? "")).join(",")),
+  ].join("\n");
+}
+
+const rowText = (data: TableShellData, row: TableShellData["rows"][number]) =>
+  JSON.stringify(data.columns.map((column) => (row.cells[column.id] ?? "").trim()));
+
+/** Sheets' Data cleanup: drop rows with nothing in them, or rows that repeat an earlier one. */
+function withoutEmptyRows(data: TableShellData): TableShellData {
+  return { ...data, rows: data.rows.filter((row) => data.columns.some((column) => (row.cells[column.id] ?? "").trim())) };
+}
+
+function withoutDuplicateRows(data: TableShellData): TableShellData {
+  const seen = new Set<string>();
+  return {
+    ...data,
+    rows: data.rows.filter((row) => {
+      const key = rowText(data, row);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }),
+  };
+}
 
 /** A few columns and rows at thumbnail scale; images stay images. */
 function MiniGrid({
@@ -344,6 +376,9 @@ export function TableShell({
   status = "idle",
   surface = true,
   actions,
+  tools,
+  suggested,
+  onDismissSuggestion,
   className,
 }: ShellProps<TableShellData>) {
   const editable = Boolean(onChange);
@@ -382,14 +417,14 @@ export function TableShell({
         }}
         className={cn(
           "w-full min-w-0 shrink-0 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary",
-          large ? "text-[20px] font-light leading-[1.3]" : "text-[13px] font-normal leading-[1.3]",
+          large ? SHELL_TITLE_LARGE : "text-[13px] font-normal leading-[1.3]",
         )}
       />
     ) : (
       <div
         className={cn(
           "truncate font-bureau",
-          large ? "text-[20px] font-light leading-[1.3]" : "text-[13px] font-normal leading-[1.3]",
+          large ? SHELL_TITLE_LARGE : "text-[13px] font-normal leading-[1.3]",
           data.title ? "text-typography-primary" : "text-typography-secondary",
         )}
       >
@@ -449,9 +484,66 @@ export function TableShell({
         {status === "loading" && (
           <span className="shrink-0 font-bureau text-[12px] text-typography-secondary tabular-nums">Filling in…</span>
         )}
-        {actions}
       </div>
-      <TableGrid data={data} onChange={onChange} status={status} />
+      <ShellToolbar tools={tools} actions={actions}>
+        <ShellToolButton
+          label="Add a row"
+          disabled={!editable}
+          onPress={() => onChange?.({ ...data, rows: [...data.rows, { id: shellId("row"), cells: {} }] })}
+        >
+          <Rows3 />
+        </ShellToolButton>
+        <ShellToolButton
+          label="Add a column"
+          disabled={!editable}
+          onPress={() =>
+            onChange?.({
+              ...data,
+              columns: [...data.columns, { id: shellId("col"), label: "New column", type: "text" }],
+            })
+          }
+        >
+          <Columns3 />
+        </ShellToolButton>
+        <ShellToolDivider />
+        <ShellToolMenu
+          label="Data cleanup"
+          icon={<Eraser />}
+          disabled={!editable || data.rows.length === 0}
+          items={[
+            {
+              id: "empty",
+              label: "Remove empty rows",
+              hint: String(data.rows.length - withoutEmptyRows(data).rows.length),
+              onSelect: () => onChange?.(withoutEmptyRows(data)),
+            },
+            {
+              id: "duplicates",
+              label: "Remove duplicate rows",
+              hint: String(data.rows.length - withoutDuplicateRows(data).rows.length),
+              onSelect: () => onChange?.(withoutDuplicateRows(data)),
+            },
+          ]}
+        />
+        <ShellToolDivider />
+        <ShellToolButton label="Copy as CSV" disabled={data.rows.length === 0} onPress={() => copyText(tableAsCsv(data))}>
+          <Copy />
+        </ShellToolButton>
+        <ShellToolButton
+          label="Download (.csv)"
+          disabled={data.rows.length === 0}
+          onPress={() => downloadText(`${fileNameOf(data.title, "table")}.csv`, tableAsCsv(data), "text/csv")}
+        >
+          <Download />
+        </ShellToolButton>
+      </ShellToolbar>
+      <TableGrid
+        data={data}
+        onChange={onChange}
+        status={status}
+        suggestedColumns={suggested?.columns}
+        onDismissColumn={onDismissSuggestion && ((label) => onDismissSuggestion("columns", label))}
+      />
     </ShellSurface>
   );
 }

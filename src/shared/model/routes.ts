@@ -101,6 +101,8 @@ export const ROUTES = {
   INTERFACE_STATES: "/interface-states",
   // A test bed for the flexible workspace before it goes into chat.
   WORKBENCH: "/workbench",
+  // Where a generated toolbar sits on the large Document, Table and Checklist.
+  GENERATIVE_TOOLS: "/generative-tools",
   USER_PROFILE: "/user-profile",
   SETTINGS: "/settings",
   PLANS: "/plans",

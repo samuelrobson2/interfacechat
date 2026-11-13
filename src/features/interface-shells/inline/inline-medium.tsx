@@ -3,6 +3,7 @@ import { SHELL_META } from "../model/shell-meta";
 import { chartAsFlowchart, chartAsMindmap, chartAsTimeline } from "../model/chart";
 import type { ChartShellData, ShellData, ShellDataByKind, ShellKind } from "../model/shell-types";
 import { InlineHead } from "./inline-kit";
+import { GeneratorInline } from "./inline-medium-generator";
 import {
   CalendarInline,
   DocumentInline,
@@ -21,6 +22,7 @@ import {
   TimelineInline,
 } from "./inline-medium-visual";
 import { hasInline, inlineDetail, inlineTitle } from "./inline-summary";
+import { AppInline } from "../apps/app-sizes";
 
 /** Chart draws its type's design, editing that type's part of the chart. */
 function ChartInline({ data, onChange }: { data: ChartShellData; onChange?: (data: ChartShellData) => void }) {
@@ -77,6 +79,11 @@ function Body({ kind, data, onChange, selected }: BodyProps) {
       return <ChartInline data={data as ShellDataByKind["chart"]} onChange={onChange as never} />;
     case "guide":
       return <GuideInline data={data as ShellDataByKind["guide"]} onChange={edit} />;
+    case "generator":
+      return <GeneratorInline data={data as ShellDataByKind["generator"]} onChange={edit} />;
+    case "dashboard":
+    case "article":
+      return <AppInline kind={kind} data={data as ShellDataByKind[typeof kind]} />;
     case "chat":
       return null;
   }

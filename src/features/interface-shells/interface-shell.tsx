@@ -1,3 +1,5 @@
+import { AppShellBySize } from "./apps/app-sizes";
+import type { AppShellData } from "./apps/app-types";
 import { DocumentShell } from "./document/document-shell";
 import type {
   SearchShellData,
@@ -8,6 +10,7 @@ import type {
 import { SearchShell } from "./search/search-shell";
 import { CalendarShell } from "./more/calendar-shell";
 import { ChartShell } from "./more/chart-shell";
+import { GeneratorShell } from "./more/generator-shell";
 import { GuideShell } from "./more/guide-shell";
 import { ChatShell } from "./more/chat-shell";
 import { MapShell } from "./more/map-shell";
@@ -16,7 +19,9 @@ import { ReaderShell } from "./more/reader-shell";
 import { ScheduleShell } from "./more/schedule-shell";
 import { TrackerShell } from "./more/tracker-shell";
 import { TableShell } from "./table/table-shell";
+import { useShellHistory } from "./ui/shell-history";
 import { ShellMarkContext } from "./ui/shell-mark";
+import { ShellHistoryContext } from "./ui/shell-toolbar";
 
 export type InterfaceShellProps<K extends ShellKind = ShellKind> = {
   [Kind in K]: ShellProps<ShellDataByKind[Kind]> & {
@@ -28,9 +33,15 @@ export type InterfaceShellProps<K extends ShellKind = ShellKind> = {
 
 /** One entry point for every interface in the library, at any size. */
 export function InterfaceShell(props: InterfaceShellProps) {
+  // Large is where work happens, so it keeps an undo history; its toolbar leads with Undo and Redo.
+  const large = props.size === "large";
+  const { onChange, history } = useShellHistory<unknown>(props.data, large ? (props.onChange as ((data: unknown) => void) | undefined) : undefined);
+  const shellProps = (large && onChange ? { ...props, onChange } : props) as InterfaceShellProps;
   return (
     <ShellMarkContext.Provider value={props.mark}>
-      <ShellBySize {...props} />
+      <ShellHistoryContext.Provider value={history}>
+        <ShellBySize {...shellProps} />
+      </ShellHistoryContext.Provider>
     </ShellMarkContext.Provider>
   );
 }
@@ -61,5 +72,10 @@ function ShellBySize(props: InterfaceShellProps) {
       return <ChartShell {...props} />;
     case "guide":
       return <GuideShell {...props} />;
+    case "dashboard":
+    case "article":
+      return <AppShellBySize {...(props as unknown as ShellProps<AppShellData>)} kind={props.kind} />;
+    case "generator":
+      return <GeneratorShell {...props} />;
   }
 }

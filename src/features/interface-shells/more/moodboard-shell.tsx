@@ -9,12 +9,11 @@ import {
   ShellBody,
   ShellTitle,
 } from "../ui/shell-kit";
-import { ghostLabels } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
+import { MoodboardCanvas } from "./moodboard-canvas";
+import { editCanvasLists } from "../model/canvas-layout";
+import { CanvasMini } from "../ui/canvas-mini";
 import { fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
-
-/** References are toned down so the board reads as one look, not a photo dump. */
-const TONE = "saturate-[0.55] contrast-[0.95]";
 
 /** Readable ink on a swatch: dark on light colours, white on dark ones. */
 function inkOn(hex: string) {
@@ -172,48 +171,6 @@ function Palette({
   );
 }
 
-function Tile({
-  image,
-  onCaption,
-  onRemove,
-}: {
-  image: MoodboardImage;
-  onCaption?: (caption: string) => void;
-  onRemove?: () => void;
-}) {
-  return (
-    <figure className="group relative mb-2 break-inside-avoid overflow-hidden rounded-[10px] bg-gray-6">
-      <img src={image.src} alt={image.caption ?? ""} loading="lazy" draggable={false} className={cn("block w-full", TONE)} />
-      <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent px-2 pt-5 pb-1.5">
-        <input
-          value={image.caption ?? ""}
-          placeholder="Add a caption"
-          aria-label="Caption"
-          readOnly={!onCaption}
-          {...fieldEvents}
-          onKeyDown={stopFieldEvent}
-          onChange={(event) => onCaption?.(event.target.value)}
-          className="w-full bg-transparent font-bureau text-[11px] text-white outline-none placeholder:text-white/60"
-        />
-      </figcaption>
-      {onRemove && (
-        <button
-          type="button"
-          aria-label={`Remove ${image.caption || "image"}`}
-          {...fieldEvents}
-          onClick={(event) => {
-            stopFieldEvent(event);
-            onRemove();
-          }}
-          className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm group-hover:opacity-100 focus-visible:opacity-100"
-        >
-          <X className="size-3.5" />
-        </button>
-      )}
-    </figure>
-  );
-}
-
 /** Upload images or paste a link. */
 function AddImages({ large, onAdd }: { large: boolean; onAdd: (images: MoodboardImage[]) => void }) {
   const file = useRef<HTMLInputElement>(null);
@@ -291,21 +248,6 @@ function AddImages({ large, onAdd }: { large: boolean; onAdd: (images: Moodboard
   );
 }
 
-function GhostTiles({ count, className }: { count: number; className: string }) {
-  return (
-    <>
-      {ghostLabels("Image", count).map((label) => (
-        <span
-          key={label}
-          className={cn("grid place-items-center rounded-[8px] bg-gray-6 font-bureau font-light text-typography-secondary", className)}
-        >
-          {label}
-        </span>
-      ))}
-    </>
-  );
-}
-
 export function MoodboardShell({
   size,
   data,
@@ -313,41 +255,27 @@ export function MoodboardShell({
   onSubmit,
   surface = true,
   className,
+  ...rest
 }: ShellProps<MoodboardShellData>) {
   if (size === "small") return <ShellAppIcon kind="moodboard" className={className} />;
+  // Large is a freeform, AI-enabled canvas.
+  if (size === "large")
+    return <MoodboardCanvas size={size} data={data} onChange={onChange} onSubmit={onSubmit} surface={surface} className={className} {...rest} />;
 
   if (size === "medium") {
-    const images = data.images.slice(0, 4);
+    // The canvas in miniature, as it's laid out at large.
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="moodboard" title={data.title} />
-        <PreviewBody className="gap-1">
-          <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-1">
-            {images.length === 0 ? (
-              <GhostTiles count={4} className="text-[0px]" />
-            ) : (
-              images.map((image) => (
-                <img
-                  key={image.id}
-                  src={image.src}
-                  alt=""
-                  draggable={false}
-                  className={cn("size-full min-h-0 rounded-[5px] object-cover", TONE)}
-                />
-              ))
-            )}
-          </div>
-          <Palette colours={data.palette} size="medium" />
+        <PreviewBody className="p-0">
+          <CanvasMini data={data} className="min-h-0 flex-1 rounded-[10px]" />
         </PreviewBody>
       </ShellSurface>
     );
   }
 
-  const large = size === "large";
-  const update = onChange ? (patch: Partial<MoodboardShellData>) => onChange({ ...data, ...patch }) : undefined;
-  const setImage = (id: string, patch: Partial<MoodboardImage>) =>
-    update?.({ images: data.images.map((image) => (image.id === id ? { ...image, ...patch } : image)) });
-  const removeImage = update ? (id: string) => update({ images: data.images.filter((image) => image.id !== id) }) : undefined;
+  // Medium plus: the canvas in miniature, and its words, colours and pictures to edit. Large is the canvas itself.
+  const update = onChange ? (patch: Partial<MoodboardShellData>) => onChange(editCanvasLists(data, patch)) : undefined;
   const addImages = update && ((images: MoodboardImage[]) => update({ images: [...data.images, ...images] }));
 
   return (
@@ -356,61 +284,19 @@ export function MoodboardShell({
         kind="moodboard"
         size={size}
         value={data.title}
-        onChange={update && ((title) => update({ title }))}
+        onChange={onChange && ((title) => onChange({ ...data, title }))}
         onSubmit={onSubmit}
       />
       <ShellBody size={size}>
+        <CanvasMini data={data} className="h-28 shrink-0" />
         <ChipList
           size={size}
           items={data.keywords}
-          addLabel="Add a keyword"
+          addLabel="Add a note"
           onChange={update && ((keywords) => update({ keywords }))}
         />
         <Palette colours={data.palette} size={size} onChange={update && ((palette) => update({ palette }))} />
-        {data.images.length === 0 ? (
-          <div className="grid grid-cols-3 gap-2">
-            <GhostTiles count={3} className={large ? "h-40 text-[13px]" : "h-16 text-[11px]"} />
-          </div>
-        ) : large ? (
-          <div className="columns-4 gap-2">
-            {data.images.map((image) => (
-              <Tile
-                key={image.id}
-                image={image}
-                onCaption={update && ((caption) => setImage(image.id, { caption: caption || undefined }))}
-                onRemove={removeImage && (() => removeImage(image.id))}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-1.5">
-            {data.images.slice(0, 6).map((image) => (
-              <div key={image.id} className="group relative">
-                <img
-                  src={image.src}
-                  alt={image.caption ?? ""}
-                  draggable={false}
-                  className={cn("aspect-[4/5] w-full rounded-[8px] object-cover", TONE)}
-                />
-                {removeImage && (
-                  <button
-                    type="button"
-                    aria-label={`Remove ${image.caption || "image"}`}
-                    {...fieldEvents}
-                    onClick={(event) => {
-                      stopFieldEvent(event);
-                      removeImage(image.id);
-                    }}
-                    className="absolute top-1 right-1 grid size-5 place-items-center rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100"
-                  >
-                    <X className="size-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        {addImages && <AddImages large={large} onAdd={addImages} />}
+        {addImages && <AddImages large={false} onAdd={addImages} />}
       </ShellBody>
     </ShellSurface>
   );

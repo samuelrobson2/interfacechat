@@ -14,6 +14,7 @@ import type {
   TimelineShellData,
 } from "../model/shell-types";
 import { canvasColour, tint } from "../ui/canvas-board";
+import { CanvasMini } from "../ui/canvas-mini";
 import { InlineRemove, InlineText } from "./inline-edit";
 import { InlineChip, InlineGhostLines, InlineMore } from "./inline-kit";
 import { INLINE_META, INLINE_TEXT } from "./inline-styles";
@@ -136,18 +137,10 @@ export function MapInline({ data, onChange }: Editable<MapShellData>) {
 
 /** A strip of the images, then the palette and keywords. */
 export function MoodboardInline({ data, onChange, selected }: Editable<MoodboardShellData> & { selected?: boolean }) {
-  const images = data.images.slice(0, 4);
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="grid grid-cols-4 gap-1.5">
-        {(images.length ? images : [null, null, null, null]).map((image, index) =>
-          image ? (
-            <img key={image.id} src={image.src} alt={image.caption ?? ""} className="aspect-square w-full rounded-[10px] bg-gray-6 object-cover" />
-          ) : (
-            <span key={index} aria-hidden className="aspect-square rounded-[10px] bg-gray-6" />
-          ),
-        )}
-      </div>
+      {/* The canvas in miniature, as it's laid out in its window. */}
+      <CanvasMini data={data} className="h-40" />
       {(data.palette.length > 0 || data.keywords.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {data.palette.slice(0, 6).map((colour) => (

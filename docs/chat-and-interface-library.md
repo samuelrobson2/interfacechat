@@ -6,7 +6,7 @@ Chat is in the sidebar as **Chat** (`/app/chat-lab`). The **Interface library** 
 
 ## Three layers: interfaces, chat modes and tools
 
-- **Interfaces** are surfaces that display information and let you work with it. There are 12, and Chat is one of them: it is the interface that *is* the conversation.
+- **Interfaces** are surfaces that display information and let you work with it. There are 13, and Chat is one of them: it is the interface that *is* the conversation.
 - **Chat modes** are two free-text fields on the Chat interface:
   - **Format** sets how the reply's text is laid out, such as "Pros & cons", "Step by step", or anything you type.
   - **Assistant** sets who replies or what they use, such as "Critic", "Tutor" or "Web search".
@@ -20,7 +20,7 @@ Search shows how the layers split:
 - **What it found** goes in the chat reply, with real links.
 - **Running the search** is a tool.
 
-## The 12 interfaces
+## The 13 interfaces
 
 | Interface | For |
 | --- | --- |
@@ -33,15 +33,17 @@ Search shows how the layers split:
 | Calendar | Events on dates across a month: what's on, when, and at what time. You can add, rename and remove events. |
 | Reader | A smart reader for a document you already have: search it, ask it a question, find something. Answers go in the chat, and the passages they use are marked in the document. |
 | Map | Places, distances and a shortlist around a location. |
-| Chart | A mind map, timeline or flowchart: ideas branching from a topic, events in order, or steps and decisions. The type is one of Chart's parts, so the model picks it from what's asked ("brainstorm" is a mind map, "history of" a timeline, "what happens if" a flowchart), and the person can switch it from the title row. Each type keeps its own content, so switching back loses nothing. At large size every type is a board. |
+| Diagram | A mind map, timeline or flowchart: ideas branching from a topic, events in order, or steps and decisions. Its kind is still `chart` in code and data. The type is one of its parts, so the model picks it from what's asked ("brainstorm" is a mind map, "history of" a timeline, "what happens if" a flowchart), and the person can switch it from the toolbar (the title row at M+). Each type keeps its own content, so switching back loses nothing. At large size every type is a board. |
 | Guide | A recipe or how-to to follow step by step, with facts, what you need, and steps with notes. It works for recipes and furniture builds alike. |
-| Moodboard | Images, colours and words collected for a look. |
+| Canvas | A freeform, AI-enabled canvas: images, notes, colours, drawings and live components placed anywhere, and generated onto it. Its kind is still `moodboard` in code and data. |
+| Generator | New text or images from an AI model: a prompt, reference images or both, shaped by controls (tone and length for text; style and aspect for images; creativity for both). Each run makes three variations, and you choose one. |
 
 Each description is written around the job the interface does: find, understand, create, plan, track, compare or explore. Neighbouring interfaces name each other.
 
 - Reader and Document split on whether the document already exists.
 - Calendar is for events on dates, and Schedule is for hours and days of work.
 - Tracker is for status, and Guide is for following steps.
+- Moodboard collects references that exist, and Generator makes new ones.
 
 ## Sizes and states
 
@@ -52,9 +54,47 @@ Every interface is the same object at four sizes.
 | Small (S) | App icon | A white 3D glyph on a solid coloured tile. |
 | Medium (M) | A tile on the chat home | The blank interface, named after its kind ("Document", not "Untitled"). Chat at M is just a bubble holding the query. |
 | Medium plus (M+) | The card while you type | Every field is editable. ⌘↵ sends. |
-| Large (L) | A window in the thread | The working interface, with room to edit. It sits in a window whose bar carries the glyph, so it doesn't repeat the glyph beside its title. Everything starts on one 24px edge, the same as the bar's icon: the title (with little space above it), toolbars, content and footer. Document's footer is just the word count. The key functions also appear at M+ and M. Chart opens as a FigJam-style board: pan, zoom, a tool bar, and a small bar of options above whatever is selected. |
+| Large (L) | A window in the thread | The working interface, with room to edit. It sits in a window whose bar carries the glyph, so it doesn't repeat the glyph beside its title. Everything starts on one 24px edge, the same as the bar's icon: the title (with little space above it), toolbars, content and footer. Document's footer is just the word count. The key functions also appear at M+ and M. Diagram opens as a FigJam-style board: pan, zoom, a tool bar, and a small bar of options above whatever is selected. |
 
 A host that frames a smaller size in a window too (the Workbench does at medium) passes `mark={false}`, so the glyph appears once, in the bar.
+
+### Standard tools
+
+Every large interface has a toolbar under its title. It leads with **Undo** and **Redo** (kept by `InterfaceShell` for whatever changes through the interface, with edits under 0.7s apart counted as one step), then the interface's own tools, then any tools generated for its content. Each set follows the app people already use for that job:
+
+| Interface | Modelled on | Tools |
+| --- | --- | --- |
+| Document | Google Docs | Text style (Normal text, Heading 1, Heading 2); Bold, Italic, Strikethrough (⌘⇧X), Inline code, Insert link, Clear formatting; Bulleted list, Numbered list, Quote; Copy as Markdown, Download .md |
+| Table | Google Sheets | Add a row, Add a column; Data cleanup (remove empty or duplicate rows); Copy as CSV, Download .csv. Each column header sorts A → Z, then Z → A |
+| Tracker | Apple Reminders | New item, New list; Sort by due date, owner, title or not done first; Show or hide completed; Mark all as done, Clear completed; Copy as a checklist |
+| Search | Google | Type (All, News, Images, Videos, Papers, Datasets) and Time (Any time to Past year) as filter chips; Search within a site; Clear filters; Copy the links, Open the top result, Open in Google (with the same sites, time and type) |
+| Schedule | Gantt tools | New task, Add a day, Remove the last day; Longer or shorter days; Move everything 30 minutes earlier or later; Sort by start time; Copy as text, Download .csv |
+| Calendar | Google Calendar | Today, previous and next month, the month's name; New event; Show or hide the agenda; Copy the agenda, Export to calendar (.ics) |
+| Reader | Preview and Acrobat | Open a file; Zoom out and in; Highlight the selection, Ask the chat about the selection; Copy the highlights, Clear the highlights; Copy the text |
+| Map | Google Maps | Filters (Open now, Top rated and so on); Sort by distance; Shortlist only; Zoom in, Zoom out, Re-centre; Directions (walking, in Google Maps), Open in Google Maps; Copy the list or shortlist |
+| Canvas | FigJam and Milanote | Upload images, Add an image from a link, Add a colour; Shuffle, bigger or smaller tiles, captions on or off, true colours; Sort the palette light to dark, Copy the palette |
+| Diagram | FigJam | Diagram type; Reset colours; Copy as an outline, Copy as Mermaid, Download .md (outline and Mermaid). Select, hand, add and zoom stay on the board's own bar |
+| Guide | Recipe apps | Servings: scales every amount that starts a line, always from the original so rounding never adds up; Cook mode (keeps the screen on, bigger steps); Got everything, Start over; Copy the shopping list, Copy the recipe |
+| Generator | Firefly and Midjourney | Text or Image; Add reference images, Clear references; Generate; Download all or Copy all; Clear results |
+
+**Generated suggestions** (the Generative Tools page, `/app/generative-tools`) come in two kinds, and neither gets a row or a panel of its own:
+
+- **Suggested values** sit among the real ones with the AI outline, as `SuggestedChip`: a filter among Search's or Map's filters, a tone, style or length among Generator's, a constraint among Schedule's, a ghost column at the end of a Table, an outlined item in a Tracker's first list, a note on a Moodboard canvas. Click to add; × to dismiss. They reach a shell as `suggested` (`SuggestedValues`); the page's stand-in is `generative-toolbar/model/suggest-values.ts`.
+- **Suggested tools** (chips, sliders, 2×2s, choices, toggles) go in the toolbar after the standard tools, or inside a row the interface already has (`SUGGESTION_PLACES`): Document's footer by the word count, Schedule's day settings, Generator's prompt box, a Diagram's or Moodboard's board. Defaults are in `generative-toolbar/model/tool-places.ts`; a tool's own `place` wins.
+
+Tables sort from each column's header. Right-clicking a header opens Sheets' column menu (sort, insert left or right, rename, type, delete), and dragging a header moves its column.
+
+Generator keeps **presets** (four built in, plus the person's own, saved in the browser) under Presets in its toolbar, and takes the person's own tones, styles and lengths. Length is free text as well as Short, Medium or Long.
+
+**Canvas (formerly Moodboard; kind `moodboard`) is an AI-enabled canvas at large.** Images, notes, colours, SVG drawings and live HTML components sit anywhere on a FigJam-style board and drag about freely. The prompt bar asks the model for an Image, a Note, a Drawing or a Component through `/api/generate`, in modes `image`, `text`, `svg` and `html`. What's selected shapes the request: an image becomes a reference, a note's words become context, and a selected drawing or component is revised in place. Each selected thing has its own AI actions:
+
+- Image: More like this, Describe it, Draw it.
+- Note: Turn into images, Expand, Draw it, Build it.
+- Drawing or component: Edit with AI, Another take, Download SVG or Copy HTML.
+
+The server strips scripts, handlers and embeds from drawings and components. Drawings render as images, and components in a frame that never runs scripts. Positions live in `items` (`model/canvas-layout.ts`). The medium card, medium plus and inline show the canvas in miniature (`ui/canvas-mini.tsx`), and edits made there land on the canvas.
+
+The pieces are in `interface-shells/ui/shell-toolbar.tsx`: `ShellToolButton`, `ShellToolText` (words, as "Today"), `ShellToolMenu`, `ShellToolPopover` with `ShellToolField`, and `ShellToolFile`. Every tool does its job on the spot, with no model call; a tool that needs something it doesn't have is disabled rather than hidden.
 
 ### Inline
 
@@ -77,9 +117,10 @@ Inline medium, by interface:
 | Calendar | An agenda: day, event and time |
 | Reader | What was asked, then the marked passages with their notes |
 | Map | The map beside the first places, starred where shortlisted |
-| Moodboard | A strip of four images, then the palette and keywords |
-| Chart | By type. Mind map: each branch as a coloured label with its ideas. Timeline: up to five events along a line, dated above and named below. Flowchart: the main path from the start as a chain of steps, decisions marked with a diamond |
+| Canvas | The canvas in miniature, laid out as in its window, then the palette and notes |
+| Diagram | By type. Mind map: each branch as a coloured label with its ideas. Timeline: up to five events along a line, dated above and named below. Flowchart: the main path from the start as a chain of steps, decisions marked with a diamond |
 | Guide | What's needed, then the first steps with their timers |
+| Generator | The three variations side by side, the chosen one ringed; clicking one chooses it |
 
 Inline medium can be edited where it stands, without changing size: titles and visible text take a caret (`InlineText`), checklist items and guide steps tick, map places star, and chips get a × while selected. Clicking or typing into it selects it: the same design takes a white background and an outline, so it reads as an interface. Escape finishes editing, then puts it back. **Pin ↗** moves it into a window. The Interface State page has an Inline · Small and an Inline · Medium column for every interface.
 
@@ -144,6 +185,7 @@ What the model can do with each:
 - **Document, Table and Tracker** are in the catalogue (below): the model fills each through its own tool, you watch it fill, and later turns change one part of it.
 - **Search** is written through `write_interface`: it runs `web_search`, writes its results, and keeps its filter chips.
 - **Every other interface** holds its card's data. You edit it, and the model sees its contents as JSON and refers to them by name, but it doesn't write into it yet.
+- **Generator** runs itself: **Generate** (or ⌘↵ in its prompt) calls `/api/generate`, which returns three variations, text from the chat model and images from `gpt-image-1-mini`. Reference images are scaled to 1024px in the browser and sent as data URLs. The model reading the thread sees the prompt, controls and variations, with pictures shown as `[image]`. On the chat home the mode is set from the prompt: "taglines" opens Text, "an image of" opens Image.
 - **Chat** opens nothing. Its Assistant and Format are sent with the turn (`chatModes`) and become part of the system prompt.
 
 ## The catalogue

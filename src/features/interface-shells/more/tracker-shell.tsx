@@ -1,4 +1,4 @@
-import { Check, Plus, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpDown, CalendarClock, Check, CheckCheck, Copy, Eye, EyeOff, ListChecks, ListPlus, ListX, Plus, User, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { shellId, type ShellProps, type TrackerItem, type TrackerShellData } from "../model/shell-types";
@@ -13,6 +13,8 @@ import {
 } from "../ui/shell-kit";
 import { accentOf, ghostLabels } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
+import { SuggestedRing, unusedSuggestions } from "../ui/suggested-chip";
+import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolMenu } from "../ui/shell-toolbar";
 import { Bar, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const CORAL = "#f0525c";
@@ -41,6 +43,76 @@ function Tick({ done, size, onToggle }: { done: boolean; size: "xs" | "sm" | "md
     >
       {done && mark}
     </button>
+  );
+}
+
+type TrackerSort = "due" | "owner" | "title" | "open";
+
+/** A due date such as "Fri 4 Dec" as a time, or Infinity when it can't be read. */
+function dueTime(due: string | undefined) {
+  if (!due?.trim()) return Infinity;
+  const direct = Date.parse(due);
+  if (!Number.isNaN(direct)) return direct;
+  const withYear = Date.parse(`${due} ${new Date().getFullYear()}`);
+  return Number.isNaN(withYear) ? Infinity : withYear;
+}
+
+/** Reminders' Sort By: the order is kept, so the list stays sorted after you close the menu. */
+function sortItems(items: TrackerItem[], by: TrackerSort): TrackerItem[] {
+  const text = (value?: string) => value?.trim().toLowerCase() || "\uffff";
+  const compare: Record<TrackerSort, (a: TrackerItem, b: TrackerItem) => number> = {
+    due: (a, b) => dueTime(a.due) - dueTime(b.due),
+    owner: (a, b) => text(a.owner).localeCompare(text(b.owner)),
+    title: (a, b) => text(a.label).localeCompare(text(b.label), undefined, { numeric: true }),
+    open: (a, b) => Number(a.done) - Number(b.done),
+  };
+  return [...items].sort(compare[by]);
+}
+
+const checklistText = (data: TrackerShellData) =>
+  [
+    data.title,
+    ...data.items.map(
+      (item) => `- [${item.done ? "x" : " "}] ${item.label}${item.owner ? ` · ${item.owner}` : ""}${item.due ? ` · ${item.due}` : ""}`,
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+/** An item the model suggests: a row with the AI outline. Click to add it to the list. */
+function SuggestedItem({ label, onAccept, onDismiss }: { label: string; onAccept: () => void; onDismiss?: () => void }) {
+  return (
+    <div className="group/suggested relative my-1 flex items-center gap-2.5 rounded-[10px] bg-white py-2 pr-2 pl-2.5">
+      <SuggestedRing />
+      <button
+        type="button"
+        aria-label={`Add suggested item: ${label}`}
+        title="Suggested: click to add"
+        {...fieldEvents}
+        onClick={(event) => {
+          stopFieldEvent(event);
+          onAccept();
+        }}
+        className="flex min-w-0 flex-1 items-center gap-2.5 text-left font-bureau text-[14px] text-typography-secondary hover:text-typography-primary"
+      >
+        <Plus className="size-4 shrink-0" />
+        <span className="truncate">{label}</span>
+      </button>
+      {onDismiss && (
+        <button
+          type="button"
+          aria-label={`Dismiss suggested item: ${label}`}
+          {...fieldEvents}
+          onClick={(event) => {
+            stopFieldEvent(event);
+            onDismiss();
+          }}
+          className="grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/suggested:opacity-100 hover:bg-gray-6 focus-visible:opacity-100"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -203,6 +275,10 @@ export function TrackerShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
+  suggested,
+  onDismissSuggestion,
   className,
 }: ShellProps<TrackerShellData>) {
   const [hideDone, setHideDone] = useState(false);
@@ -264,32 +340,76 @@ export function TrackerShell({
         onSubmit={onSubmit}
         aside={
           large && data.items.length > 0 ? (
-            <span className="flex items-center gap-3 font-bureau text-[13px] text-typography-secondary tabular-nums">
+            <span className="font-bureau text-[13px] text-typography-secondary tabular-nums">
               {done} of {data.items.length} done
-              <button
-                type="button"
-                aria-pressed={hideDone}
-                {...fieldEvents}
-                onClick={(event) => {
-                  stopFieldEvent(event);
-                  setHideDone((value) => !value);
-                }}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-[12px] transition-colors",
-                  hideDone ? "bg-gray-6 text-typography-primary" : "hover:bg-gray-6",
-                )}
-              >
-                {hideDone ? "Show done" : "Hide done"}
-              </button>
             </span>
           ) : undefined
         }
       />
+      {large && (
+        <ShellToolbar tools={tools} actions={actions}>
+          <ShellToolButton label="New item" disabled={!addItem} onPress={() => addItem?.(data.groups[0])}>
+            <Plus />
+          </ShellToolButton>
+          <ShellToolButton
+            label="New list"
+            disabled={!update}
+            onPress={() => {
+              let n = data.groups.length + 1;
+              while (data.groups.includes(`List ${n}`)) n += 1;
+              const group = `List ${n}`;
+              update?.({ groups: [...data.groups, group], items: [...data.items, { id: shellId("item"), label: "", done: false, group }] });
+            }}
+          >
+            <ListPlus />
+          </ShellToolButton>
+          <ShellToolDivider />
+          <ShellToolMenu
+            label="Sort by"
+            icon={<ArrowUpDown />}
+            disabled={!update || data.items.length < 2}
+            items={[
+              { id: "due", label: "Due date", icon: <CalendarClock />, onSelect: () => update?.({ items: sortItems(data.items, "due") }) },
+              { id: "owner", label: "Owner", icon: <User />, onSelect: () => update?.({ items: sortItems(data.items, "owner") }) },
+              { id: "title", label: "Title", icon: <ArrowDownAZ />, onSelect: () => update?.({ items: sortItems(data.items, "title") }) },
+              { id: "open", label: "Not done first", icon: <ListChecks />, onSelect: () => update?.({ items: sortItems(data.items, "open") }) },
+            ]}
+          />
+          <ShellToolButton
+            label={hideDone ? "Show completed" : "Hide completed"}
+            active={hideDone}
+            disabled={done === 0}
+            onPress={() => setHideDone((value) => !value)}
+          >
+            {hideDone ? <EyeOff /> : <Eye />}
+          </ShellToolButton>
+          <ShellToolDivider />
+          <ShellToolButton
+            label="Mark all as done"
+            disabled={!update || done === data.items.length}
+            onPress={() => update?.({ items: data.items.map((item) => ({ ...item, done: true })) })}
+          >
+            <CheckCheck />
+          </ShellToolButton>
+          <ShellToolButton
+            label="Clear completed"
+            disabled={!update || done === 0}
+            onPress={() => update?.({ items: data.items.filter((item) => !item.done) })}
+          >
+            <ListX />
+          </ShellToolButton>
+          <ShellToolButton label="Copy as a checklist" disabled={data.items.length === 0} onPress={() => copyText(checklistText(data))}>
+            <Copy />
+          </ShellToolButton>
+        </ShellToolbar>
+      )}
       <ShellBody size={size} className={large ? "gap-5" : "gap-2"}>
         {large && data.items.length > 0 && <Progress items={data.items} />}
         {data.items.length === 0 && <GhostRows large={large} />}
         {data.items.length > 0 &&
-          sections.map(({ group, items }) => (
+          sections.map((section) => {
+            const { group, items } = section;
+            return (
             <section key={group ?? "ungrouped"} className="flex flex-col">
               {group && <GroupHeading name={group} index={data.groups.indexOf(group)} large={large} />}
               <ul className={cn("flex flex-col", large && "divide-y divide-gray-3/10")}>
@@ -304,9 +424,20 @@ export function TrackerShell({
                   />
                 ))}
               </ul>
+              {/* Suggested items join the first list, outlined, until added or dismissed. */}
+              {large && update && section === sections[0] &&
+                unusedSuggestions(suggested?.items, data.items.map((item) => item.label)).map((label) => (
+                  <SuggestedItem
+                    key={label}
+                    label={label}
+                    onAccept={() => update({ items: [...data.items, { id: shellId("item"), label, done: false, group }] })}
+                    onDismiss={onDismissSuggestion && (() => onDismissSuggestion("items", label))}
+                  />
+                ))}
               {addItem && large && <AddItem large onAdd={() => addItem(group)} />}
             </section>
-          ))}
+            );
+          })}
         {addItem && (!large || data.items.length === 0) && <AddItem large={large} onAdd={() => addItem()} />}
         {large && update && (
           <AddChip

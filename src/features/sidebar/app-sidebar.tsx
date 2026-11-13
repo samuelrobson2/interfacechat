@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   LayoutTemplate,
   PanelsTopLeft,
+  Sparkles,
   Wrench,
 } from "lucide-react";
 import { useState } from "react";
@@ -57,6 +58,14 @@ const workbenchItem: MenuItem = {
   icon: <PanelsTopLeft className="size-5" />,
 };
 
+// Where a generated toolbar belongs on the large Document, Table and Checklist.
+const generativeToolsItem: MenuItem = {
+  title: "Generative Tools",
+  url: ROUTES.GENERATIVE_TOOLS,
+  matchPaths: [{ path: ROUTES.GENERATIVE_TOOLS, end: true }],
+  icon: <Sparkles className="size-5" />,
+};
+
 const pharosItems: MenuItem[] = [
   {
     title: "Build",
@@ -95,6 +104,7 @@ const pharosItems: MenuItem[] = [
   interfaceLibraryItem,
   interfaceStatesItem,
   workbenchItem,
+  generativeToolsItem,
   ...(isChatVisualizeEnabled()
     ? [
         {
