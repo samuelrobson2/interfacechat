@@ -245,25 +245,32 @@ const Divider = ({ density }: { density: EditorDensity }) => (
 
 function LengthField({
   value,
+  guess,
   editable,
   onChange,
 }: {
   value?: string;
+  /** The model's guess for this document, shown in the field in the AI colours until they set their own. */
+  guess?: string;
   editable: boolean;
   onChange: (length: string | undefined) => void;
 }) {
   if (!editable) return value ? <span>{value}</span> : null;
-  const shown = value || "~1,500 words";
+  const placeholder = guess || "~1,500 words";
+  const shown = value || placeholder;
   return (
     <input
       value={value ?? ""}
-      placeholder="~1,500 words"
+      placeholder={placeholder}
       aria-label="Target length"
       title="Change the target length"
       size={Math.max(shown.length, 12)}
       {...fieldEvents}
       onChange={(event) => onChange(event.target.value || undefined)}
-      className="w-auto max-w-[9rem] cursor-text bg-transparent text-right font-bureau text-[11px] text-typography-secondary underline decoration-dotted decoration-typography-secondary/35 underline-offset-[3px] outline-none placeholder:text-typography-secondary/55 hover:decoration-typography-secondary/70 focus:decoration-typography-secondary"
+      className={cn(
+        "w-auto max-w-[9rem] cursor-text bg-transparent text-right font-bureau text-[11px] text-typography-secondary underline decoration-dotted decoration-typography-secondary/35 underline-offset-[3px] outline-none hover:decoration-typography-secondary/70 focus:decoration-typography-secondary",
+        guess && !value ? "placeholder:text-[#6b86ad]" : "placeholder:text-typography-secondary/55",
+      )}
     />
   );
 }
@@ -280,8 +287,11 @@ export function DocumentEditor({
   actions,
   tools,
   suggestions,
+  lengthGuess,
   className,
 }: {
+  /** Medium plus: the model's guess for the length, shown in the length field. */
+  lengthGuess?: string;
   data: DocumentShellData;
   onChange?: (data: DocumentShellData) => void;
   onSubmit?: () => void;
@@ -312,7 +322,7 @@ export function DocumentEditor({
   const [lastFocusedId, setLastFocusedId] = useState<string | null>(null);
   const pendingCaret = useRef<{ id: string; start: number; end?: number } | null>(null);
   const areas = useRef(new Map<string, HTMLTextAreaElement>());
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const [focusTick, bumpFocus] = useReducer((tick: number) => tick + 1, 0);
 
   useLayoutEffect(() => {
@@ -824,37 +834,57 @@ export function DocumentEditor({
     );
   };
 
+  const titleKeys = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    stopFieldEvent(event);
+    if (isSubmitShortcut(event)) {
+      event.preventDefault();
+      onSubmit?.();
+      return;
+    }
+    if (event.key === "Enter" || event.key === "ArrowDown") {
+      event.preventDefault();
+      const first = blocks[0];
+      if (first) focusBlock(first.id, 0);
+    }
+  };
+  // Medium plus: the title may take two lines before it's cut, so a longer topic still reads.
   const titleText = editable ? (
-    <input
-      ref={titleRef}
-      value={data.title}
-      placeholder={titlePlaceholder}
-      aria-label="Document title"
-      {...fieldEvents}
-      onChange={(event) => onChange?.({ ...data, title: event.target.value })}
-      onKeyDown={(event) => {
-        stopFieldEvent(event);
-        if (isSubmitShortcut(event)) {
-          event.preventDefault();
-          onSubmit?.();
-          return;
-        }
-        if (event.key === "Enter" || event.key === "ArrowDown") {
-          event.preventDefault();
-          const first = blocks[0];
-          if (first) focusBlock(first.id, 0);
-        }
-      }}
-      className={cn(
-        "w-full shrink-0 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary",
-        compact ? "text-[13px] font-normal leading-[1.3]" : SHELL_TITLE_LARGE,
-      )}
-    />
+    compact ? (
+      <AutoTextarea
+        textareaRef={(node) => {
+          titleRef.current = node;
+        }}
+        value={data.title}
+        rows={1}
+        placeholder={titlePlaceholder}
+        aria-label="Document title"
+        {...fieldEvents}
+        onChange={(event) => onChange?.({ ...data, title: event.target.value.replace(/\s*\n\s*/g, " ") })}
+        onKeyDown={titleKeys}
+        className="block max-h-[34px] w-full shrink-0 resize-none overflow-hidden bg-transparent font-bureau text-[13px] font-normal leading-[1.3] text-typography-primary outline-none placeholder:text-typography-secondary"
+      />
+    ) : (
+      <input
+        ref={(node) => {
+          titleRef.current = node;
+        }}
+        value={data.title}
+        placeholder={titlePlaceholder}
+        aria-label="Document title"
+        {...fieldEvents}
+        onChange={(event) => onChange?.({ ...data, title: event.target.value })}
+        onKeyDown={titleKeys}
+        className={cn(
+          "w-full shrink-0 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary",
+          SHELL_TITLE_LARGE,
+        )}
+      />
+    )
   ) : (
     <div
       className={cn(
-        "shrink-0 truncate font-bureau",
-        compact ? "text-[13px] font-normal leading-[1.3]" : SHELL_TITLE_LARGE,
+        "shrink-0 font-bureau",
+        compact ? "line-clamp-2 text-[13px] font-normal leading-[1.3]" : "truncate " + SHELL_TITLE_LARGE,
         data.title ? "text-typography-primary" : "text-typography-secondary",
       )}
     >
@@ -862,7 +892,8 @@ export function DocumentEditor({
     </div>
   );
   const title = (
-    <div className="flex min-w-0 items-center gap-2">
+    // Starts at the top, so a two-line title keeps its glyph on the first line.
+    <div className={cn("flex min-w-0 gap-2", compact ? "items-start [&>svg]:mt-px" : "items-center")}>
       {titleMark}
       <div className="min-w-0 flex-1">{titleText}</div>
     </div>
@@ -894,6 +925,7 @@ export function DocumentEditor({
           detail={
             <LengthField
               value={data.length}
+              guess={lengthGuess}
               editable={editable}
               onChange={(length) => onChange?.({ ...data, length })}
             />

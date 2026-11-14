@@ -364,6 +364,7 @@ export function ReaderShell({
   tools,
   actions,
   className,
+  suggestions,
 }: ShellProps<ReaderShellData>) {
   const article = useRef<HTMLElement>(null);
   const [step, setStep] = useState(0);
@@ -442,6 +443,8 @@ export function ReaderShell({
             at={at}
             onStep={(delta) => setStep((s) => s + delta)}
           />
+          {/* On the chat home: what the request leaves open. */}
+          {suggestions?.brief}
           <FileDrop
             onFile={update}
             replacing={Boolean(data.source)}

@@ -687,6 +687,8 @@ export function GeneratorShell({
               {data.mode === "text" ? `${data.controls.tone} · ${data.controls.length}` : `${data.controls.style} · ${data.controls.aspect}`}
             </span>
           </div>
+          {/* On the chat home: what the request leaves open. */}
+          {suggestions?.brief}
           <References large={false} references={data.references} onChange={update && ((references) => update({ references }))} />
           <div className="grid grid-cols-3 gap-1.5">
             {[0, 1, 2].map((i) => {

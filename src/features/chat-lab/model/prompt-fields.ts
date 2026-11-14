@@ -30,7 +30,9 @@ export type PromptSpans = {
   columns?: Span;
   /** "10 rows" */
   rowCount?: Span;
-  filters: { value: string; span: Span }[];
+  filters: { value: string; span: Span; listed?: boolean }[];
+  /** "…, filtered to Past year and Reviews": filters with no wording of their own, kept together. */
+  filterList?: Span;
 };
 
 export type ParsedPrompt<K extends ChatShellKind = ChatShellKind> = {
@@ -148,6 +150,7 @@ function clausesOf(kind: ChatShellKind, prompt: string): Clause[] {
       "filter",
       (m) => m[0].replace(/^,?\s*/, ""),
     ),
+    ...findAll(prompt, /,?\s*\bfiltered\s+(?:to|by)\s+([^.;]+)/i, "filterList", (m) => m[1]!.trim()),
     ...findAll(prompt, /,?\s*\bpeer[- ]reviewed\b/i, "filter", (m) =>
       m[0].replace(/^,?\s*/, ""),
     ),
@@ -250,7 +253,11 @@ export function parsePrompt<K extends ChatShellKind>(
   for (const clause of clauses) {
     if (clause.field === "filter")
       spans.filters.push({ value: clause.value, span: clause.span });
-    else if (clause.field !== "each") spans[clause.field] = clause.span;
+    else if (clause.field === "filterList") {
+      spans.filterList = clause.span;
+      for (const value of splitList(clause.value))
+        spans.filters.push({ value, span: clause.span, listed: true });
+    } else if (clause.field !== "each") spans[clause.field] = clause.span;
   }
 
   let data: ShellDataByKind[ChatShellKind];
@@ -418,7 +425,7 @@ export function writePromptField(
       return setClause(
         prompt,
         spans.columns,
-        labels.length ? `with ${joinList(labels.map(lowerFirst))}` : "",
+        labels.length ? `with columns for ${joinList(labels.map(lowerFirst))}` : "",
         " ",
       );
     }
@@ -435,18 +442,27 @@ export function writePromptField(
       const next = (value as string[] | undefined) ?? [];
       const keep = new Set(next.map((item) => item.toLowerCase()));
       let out = prompt;
-      // Remove from the end so earlier spans stay valid.
+      // Filters with wording of their own ("since 2020", "in Lisbon") go one by one, from the end so earlier spans stay valid.
       for (const filter of [...spans.filters].reverse()) {
-        if (!keep.has(filter.value.toLowerCase()))
+        if (!filter.listed && !keep.has(filter.value.toLowerCase()))
           out = splice(out, filter.span, "");
       }
-      const had = new Set(
-        (data as SearchShellData).filters?.map((item) => item.toLowerCase()) ??
-          [],
-      );
-      for (const item of next)
-        if (!had.has(item.toLowerCase())) out = append(out, item, ", ");
-      return out;
+      void data;
+      // A new filter that reads as its own wording ("in North Beach", "since 2020") is added as itself.
+      const ownFilters = () =>
+        new Set(parsePrompt(kind, out).spans.filters.filter((filter) => !filter.listed).map((filter) => filter.value.toLowerCase()));
+      for (const item of next) {
+        if (ownFilters().has(item.toLowerCase())) continue;
+        const tried = append(out, item, ", ");
+        const read = parsePrompt(kind, tried).spans.filters.some((filter) => !filter.listed && filter.value.toLowerCase() === item.toLowerCase());
+        if (read) out = tried;
+      }
+      // The rest live together in one clause, written again whole: "…, filtered to Past year and Reviews".
+      const reparsed = parsePrompt(kind, out).spans;
+      const own = ownFilters();
+      const listed = next.filter((item) => !own.has(item.toLowerCase()));
+      if (reparsed.filterList) out = splice(out, reparsed.filterList, "");
+      return listed.length ? append(out, `filtered to ${joinList(listed)}`, ", ") : out;
     }
   }
 }

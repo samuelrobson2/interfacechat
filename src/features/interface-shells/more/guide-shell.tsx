@@ -203,6 +203,7 @@ export function GuideShell({
   tools,
   actions,
   className,
+  suggestions,
 }: ShellProps<GuideShellData>) {
   const [cooking, setCooking] = useState(false);
   // What the recipe said before scaling, so each step scales from it and rounding never adds up.
@@ -357,6 +358,8 @@ export function GuideShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <ShellTitle kind="guide" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
         <ShellBody size={size} className="gap-2">
+          {/* On the chat home: what the request leaves open. */}
+          {suggestions?.brief}
           {facts}
           {steps}
           {update && <Add label="Add a step" size={size} onAdd={() => update({ steps: [...data.steps, { id: shellId("step"), text: "", done: false }] })} />}

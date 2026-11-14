@@ -120,7 +120,7 @@ describe("writePromptField", () => {
     );
   });
 
-  it("rewrites a table's columns as a 'with' clause, keeping the 'each' word", () => {
+  it("rewrites a table's columns as a 'with columns for' clause, keeping the 'each' word", () => {
     const prompt = "Make a shot list with framing and cast for each shot";
     expect(
       writePromptField("table", prompt, "columns", [
@@ -129,7 +129,7 @@ describe("writePromptField", () => {
         "Cast",
         "Lens",
       ]),
-    ).toBe("Make a shot list with framing, cast and lens for each shot");
+    ).toBe("Make a shot list with columns for framing, cast and lens for each shot");
   });
 });
 
@@ -176,5 +176,18 @@ describe("reframePrompt", () => {
 
   it("seeds an empty prompt", () => {
     expect(reframePrompt("", "document")).toBe("Write a paper on ");
+  });
+});
+
+describe("filters with no wording of their own", () => {
+  it("go together in one clause the parser reads back", () => {
+    let prompt = writePromptField("search", "Search for the best noise cancelling headphones", "filters", ["Past year"]);
+    expect(prompt).toBe("Search for the best noise cancelling headphones, filtered to Past year");
+    prompt = writePromptField("search", prompt, "filters", ["Past year", "Reviews"]);
+    expect(prompt).toBe("Search for the best noise cancelling headphones, filtered to Past year and Reviews");
+    expect(parsePrompt("search", prompt).data).toMatchObject({ query: "best noise cancelling headphones", filters: ["Past year", "Reviews"] });
+    prompt = writePromptField("search", prompt, "filters", ["Reviews"]);
+    expect(prompt).toBe("Search for the best noise cancelling headphones, filtered to Reviews");
+    expect(writePromptField("search", prompt, "filters", [])).toBe("Search for the best noise cancelling headphones");
   });
 });

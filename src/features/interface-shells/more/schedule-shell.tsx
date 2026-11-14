@@ -619,6 +619,23 @@ export function ScheduleShell({
         ) : (
           <TimelineFields data={data} size={size} update={update} />
         )}
+        {/* On the chat home: what the request leaves open, and constraints to plan around, outlined. */}
+        {!large && suggestions?.brief}
+        {!large && update && unusedSuggestions(suggested?.constraints, data.constraints).length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {unusedSuggestions(suggested?.constraints, data.constraints)
+              .slice(0, 3)
+              .map((constraint) => (
+                <SuggestedChip
+                  key={constraint}
+                  label={constraint}
+                  size="sm"
+                  onAccept={() => update({ constraints: [...data.constraints, constraint] })}
+                  onDismiss={onDismissSuggestion && (() => onDismissSuggestion("constraints", constraint))}
+                />
+              ))}
+          </div>
+        )}
         {large && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-bureau text-[12px] text-typography-secondary">Plan around</span>

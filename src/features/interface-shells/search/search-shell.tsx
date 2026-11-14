@@ -531,6 +531,7 @@ export function SearchShell({
   tools,
   suggested,
   onDismissSuggestion,
+  suggestions,
   className,
 }: SearchShellProps) {
   const editable = Boolean(onChange);
@@ -599,9 +600,32 @@ export function SearchShell({
           <ShellField index={0}>{query}</ShellField>
         </div>
         <div className={cn("mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col gap-3 p-3", CONTENT_PANEL)}>
-          <ShellField index={1}>{filters}</ShellField>
+          <ShellField index={1}>
+            {filters}
+            {/* Suggested filters, outlined, among the real ones: one click adds it. */}
+            {editable && unusedSuggestions(suggested?.filters, data.filters).length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {unusedSuggestions(suggested?.filters, data.filters)
+                  .slice(0, 4)
+                  .map((chip) => (
+                    <SuggestedChip
+                      key={chip}
+                      label={chip}
+                      size="sm"
+                      onAccept={() => toggleFilter(chip)}
+                      onDismiss={onDismissSuggestion && (() => onDismissSuggestion("filters", chip))}
+                    />
+                  ))}
+              </div>
+            )}
+          </ShellField>
           <ShellField index={2}>
-            {data.results.length > 0 ? <Reading data={data} large={false} /> : <ResultShapes rows={4} />}
+            {data.results.length > 0 ? (
+              <Reading data={data} large={false} />
+            ) : (
+              // On the chat home: what the search leaves open, where the empty results would be.
+              (suggestions?.brief ?? <ResultShapes rows={4} />)
+            )}
           </ShellField>
         </div>
         <div className="flex shrink-0 items-center justify-end px-2.5 pt-2 pb-2.5">

@@ -81,3 +81,20 @@ export function unusedSuggestions(values: string[] | undefined, present: string[
   const have = new Set(present.map((value) => value.trim().toLowerCase()));
   return (values ?? []).filter((value) => value.trim() && !have.has(value.trim().toLowerCase()));
 }
+
+/**
+ * The rule for suggestions inside a field (a column name, a filter, an item):
+ * nothing until the person starts typing there, then the suggestions that
+ * match what they've typed, best first: a word that starts with it before
+ * one that only contains it. An empty field, or one already holding a
+ * suggestion exactly, offers nothing.
+ */
+export function typeahead(suggestions: string[] | undefined, typed: string, limit = 4): string[] {
+  const query = typed.trim().toLowerCase();
+  if (!query || !suggestions?.length) return [];
+  const starts = (text: string) => text.toLowerCase().split(/\s+/).some((word) => word.startsWith(query)) || text.toLowerCase().startsWith(query);
+  return suggestions
+    .filter((text) => text.toLowerCase() !== query && text.toLowerCase().includes(query))
+    .sort((a, b) => Number(starts(b)) - Number(starts(a)))
+    .slice(0, limit);
+}

@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowDownAZ, ArrowDownZA, ArrowLeftToLine, ArrowRightToLine, ArrowUp, ArrowUpDown, Check, PencilLine, Plus, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/shared/lib/css";
 import {
   shellId,
@@ -471,7 +472,7 @@ export function TableGrid({
 }
 
 /** Sheets' column menu: sort, insert, rename, type, delete. */
-function ColumnMenu({
+export function ColumnMenu({
   menu,
   column,
   index,
@@ -518,7 +519,8 @@ function ColumnMenu({
   // Keep the menu on screen.
   const left = Math.min(menu.x, window.innerWidth - 232);
   const top = Math.min(menu.y, window.innerHeight - 380);
-  return (
+  // On the body: inside a moving card (the chat home's), "fixed" would be relative to the card, under the page.
+  return createPortal(
     <>
       <div
         className="fixed inset-0 z-40"
@@ -551,6 +553,7 @@ function ColumnMenu({
         {rule}
         {item("Delete column", <Trash2 />, onRemove, { danger: true })}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

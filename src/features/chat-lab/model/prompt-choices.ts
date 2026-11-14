@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChatShellKind } from "@/features/interface-shells";
+import { SUGGESTION_KINDS, type ChatShellKind, type SuggestedGroup } from "@/features/interface-shells";
 import { joinList } from "./prompt-fields";
 
 /**
@@ -15,7 +15,7 @@ import { joinList } from "./prompt-fields";
  */
 
 /** Interfaces with a list of what usually changes the result (the route's FORKS). */
-export const CHOICE_KINDS: ChatShellKind[] = ["document"];
+export const CHOICE_KINDS = SUGGESTION_KINDS as ChatShellKind[];
 /** Not too much: the card has room for three. */
 export const MAX_SHOWN = 3;
 const SETTLE_MS = 700;
@@ -30,9 +30,28 @@ export type PromptChoice = {
   guess: string[];
   multi: boolean;
   lead?: string;
+  /** How an answer they type themselves reads in the request, {} for it: "for {}". */
+  template: string;
   impact: number;
   said: number;
 };
+
+/** When the model gives no template, how a typed answer reads, by kind of choice. */
+const TEMPLATES: Record<string, string> = {
+  audience: "for {}",
+  purpose: "to {}",
+  form: "as {}",
+  voice: "in a {} tone",
+  fact: "with {}",
+};
+
+/** Their own words as an option, reading in the request through the choice's template. */
+export function ownOption(choice: Pick<PromptChoice, "template" | "multi">, text: string): PromptChoiceOption {
+  const label = text.trim();
+  // A multi choice's items are noun phrases joined after its lead ("covering the budget"), so they go in as typed.
+  const phrase = choice.multi ? label : choice.template.includes("{}") ? choice.template.replace("{}", label) : `${choice.template} ${label}`;
+  return { label, phrase: phrase.trim() };
+}
 type Row = PromptChoice & { order: number; picked?: string[] };
 
 const clamp = (value: unknown, low: number, high: number, fallback: number) =>
@@ -52,14 +71,17 @@ export function readChoice(raw: unknown): PromptChoice | null {
   if (!key || !ask || options.length < 2) return null;
   const labels = new Set(options.map((option) => option.label));
   const guess = (Array.isArray(r.guess) ? r.guess : []).filter((label): label is string => typeof label === "string" && labels.has(label));
+  const kind = text(r.kind, 20) || "other";
+  const template = text(r.template, 60);
   return {
     key,
-    kind: text(r.kind, 20) || "other",
+    kind,
     ask,
     options,
     guess: guess.length ? guess : [options[0]!.label],
     multi: r.multi === true,
     lead: text(r.lead, 30) || undefined,
+    template: template || TEMPLATES[kind] || "{}",
     impact: clamp(r.impact, 1, 5, 3),
     said: clamp(r.said, 0, 1, 0),
   };
@@ -98,7 +120,12 @@ export function withBrief(prompt: string, previous: string, next: string) {
 async function streamChoices(
   body: unknown,
   signal: AbortSignal,
-  on: { choice: (choice: PromptChoice) => void; score: (key: string, impact: number, said: number) => void; drop: (keys: string[]) => void },
+  on: {
+    choice: (choice: PromptChoice) => void;
+    score: (key: string, impact: number, said: number) => void;
+    drop: (keys: string[]) => void;
+    fill: (group: SuggestedGroup, values: string[]) => void;
+  },
 ) {
   const response = await fetch("/api/prompt-choices", {
     method: "POST",
@@ -119,8 +146,15 @@ async function streamChoices(
       const line = buffer.slice(0, end).trim();
       buffer = buffer.slice(end + 1);
       if (!line) continue;
-      const event = JSON.parse(line) as { choice?: unknown; score?: { key: string; impact: number; said: number }; drop?: string[]; error?: string };
+      const event = JSON.parse(line) as {
+        choice?: unknown;
+        score?: { key: string; impact: number; said: number };
+        drop?: string[];
+        fill?: { group: SuggestedGroup; values: string[] };
+        error?: string;
+      };
       if (event.error) throw new Error(event.error);
+      if (event.fill) on.fill(event.fill.group, event.fill.values);
       if (event.drop) on.drop(event.drop);
       if (event.score) on.score(event.score.key, event.score.impact, event.score.said);
       if (event.choice) {
@@ -135,16 +169,40 @@ export type PromptChoicesState = {
   /** What the card shows: picked ones, then the best of the rest, in the order they came. */
   shown: (PromptChoice & { picked?: string[] })[];
   thinking: boolean;
-  /** Pick (or, for multi, set) the options a choice holds; returns the prompt with its brief. */
-  pick: (key: string, labels: string[], prompt: string) => string;
+  /**
+   * Pick (or, for multi, set) the options a choice holds; returns the prompt
+   * with its brief. `own` is an answer they typed: it joins the options and is
+   * picked (added to the rest, for multi).
+   */
+  pick: (key: string, labels: string[], prompt: string, own?: string) => string;
+  /** Values for the card's own parts (a table's columns, a search's filters), shown in place for one-click adding. */
+  suggested: Partial<Record<SuggestedGroup, string[]>>;
+  /** Not this one: it won't be suggested again for this request. */
+  dismiss: (group: SuggestedGroup, value: string) => void;
 };
 
 /**
  * The choices for `kind` while `draft` is typed. `kind` is null when no
  * interface card is open, or the open one has no list of choices.
  */
-export function usePromptChoices(kind: ChatShellKind | null, label: string, draft: string): PromptChoicesState {
+export function usePromptChoices(
+  kind: ChatShellKind | null,
+  label: string,
+  draft: string,
+  /** What the card's own parts hold now, by group: its columns, filters, items, length. */
+  has: Partial<Record<SuggestedGroup, string[]>> = {},
+): PromptChoicesState {
   const [rows, setRows] = useState<Record<string, Row>>({});
+  const [fills, setFills] = useState<Partial<Record<SuggestedGroup, string[]>>>({});
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const fillsRef = useRef(fills);
+  const hasRef = useRef(has);
+  const dismissedRef = useRef(dismissed);
+  useEffect(() => {
+    fillsRef.current = fills;
+    hasRef.current = has;
+    dismissedRef.current = dismissed;
+  });
   const [thinking, setThinking] = useState(false);
   // The request the choices were last worked out for: until then, the card shows they're coming.
   const [judged, setJudged] = useState("");
@@ -163,6 +221,8 @@ export function usePromptChoices(kind: ChatShellKind | null, label: string, draf
     setShownFor(kind);
     setRows({});
     setBrief("");
+    setFills({});
+    setDismissed([]);
   }
 
   // The request without the brief the choices wrote: what the model judges.
@@ -183,7 +243,12 @@ export function usePromptChoices(kind: ChatShellKind | null, label: string, draf
         said: row.said,
         ...(row.picked?.length ? { picked: row.picked } : {}),
       }));
-      streamChoices({ kind, label, prompt: request, table }, controller.signal, {
+      const shown = Object.fromEntries(
+        Object.entries(fillsRef.current).map(([group, values]) => [group, (values ?? []).filter((value) => !dismissedRef.current.includes(value))]),
+      );
+      streamChoices({ kind, label, prompt: request, table, has: hasRef.current, shown }, controller.signal, {
+        fill: (group, values) =>
+          setFills((current) => ({ ...current, [group]: values.filter((value) => !dismissedRef.current.includes(value)) })),
         choice: (choice) =>
           setRows((current) => {
             const row = current[choice.key];
@@ -225,11 +290,19 @@ export function usePromptChoices(kind: ChatShellKind | null, label: string, draf
     return [...picked, ...open].sort((a, b) => a.order - b.order);
   }, [rows]);
 
-  const pick = useCallback((key: string, labels: string[], prompt: string) => {
+  const pick = useCallback((key: string, labels: string[], prompt: string, own?: string) => {
     const current = rowsRef.current;
     const row = current[key];
     if (!row) return prompt;
-    const updated = { ...current, [key]: { ...row, picked: labels.length ? labels : undefined } };
+    let options = row.options;
+    let chosen = labels;
+    if (own?.trim()) {
+      const option = ownOption(row, own);
+      if (!options.some((item) => item.label.toLowerCase() === option.label.toLowerCase())) options = [...options, option];
+      const label = options.find((item) => item.label.toLowerCase() === option.label.toLowerCase())!.label;
+      chosen = row.multi ? [...labels.filter((item) => item !== label), label] : [label];
+    }
+    const updated = { ...current, [key]: { ...row, options, picked: chosen.length ? chosen : undefined } };
     rowsRef.current = updated;
     setRows(updated);
     const nextBrief = briefOf(Object.values(updated));
@@ -239,5 +312,14 @@ export function usePromptChoices(kind: ChatShellKind | null, label: string, draf
 
   // Before the first choices land, "thinking" covers the pause before the call too, so something shows at once.
   const waiting = active && !shown.length && request !== judged;
-  return { shown: active || shown.some((row) => row.picked) ? shown : [], thinking: active && (thinking || waiting), pick };
+  const suggested = useMemo(
+    () =>
+      active
+        ? Object.fromEntries(Object.entries(fills).map(([group, values]) => [group, (values ?? []).filter((value) => !dismissed.includes(value))]))
+        : {},
+    [fills, active, dismissed],
+  );
+  const dismiss = useCallback((_group: SuggestedGroup, value: string) => setDismissed((current) => [...current, value]), []);
+
+  return { shown: active || shown.some((row) => row.picked) ? shown : [], thinking: active && (thinking || waiting), pick, suggested, dismiss };
 }

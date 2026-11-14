@@ -14,8 +14,24 @@ type Shown = PromptChoice & { picked?: string[] };
 /** What a choice holds now: what they picked, or the guess the request will go with. */
 const valueOf = (choice: Shown) => (choice.picked?.length ? choice.picked : choice.guess);
 
-function ChoiceRow({ choice, thinking, onPick }: { choice: Shown; thinking: boolean; onPick: (labels: string[]) => void }) {
+function ChoiceRow({
+  choice,
+  thinking,
+  onPick,
+}: {
+  choice: Shown;
+  thinking: boolean;
+  onPick: (labels: string[], own?: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState("");
+  // Their own answer: picked, and for multi added to what's already chosen.
+  const submitOwn = () => {
+    if (!own.trim()) return;
+    onPick(choice.multi ? value : [], own);
+    setOwn("");
+    if (!choice.multi) setOpen(false);
+  };
   const picked = Boolean(choice.picked?.length);
   const value = valueOf(choice);
   const toggle = (label: string) => {
@@ -87,6 +103,21 @@ function ChoiceRow({ choice, thinking, onPick }: { choice: Shown; thinking: bool
               );
             })}
           </div>
+          <form
+            className="mt-1.5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitOwn();
+            }}
+          >
+            <input
+              value={own}
+              onChange={(event) => setOwn(event.target.value)}
+              placeholder={choice.multi ? "Add your own" : "Something else"}
+              aria-label={`${choice.ask}: your own answer`}
+              className="h-7 w-full rounded-full bg-gray-6 px-2.5 font-bureau text-[12px] text-typography-primary outline-none placeholder:text-typography-secondary/70 focus:ring-1 focus:ring-[#a9bad1]"
+            />
+          </form>
         </PopoverContent>
       </PopoverPortal>
     </Popover>
@@ -122,7 +153,7 @@ export function PromptChoices({
 }: {
   choices: Shown[];
   thinking: boolean;
-  onPick: (key: string, labels: string[]) => void;
+  onPick: (key: string, labels: string[], own?: string) => void;
   className?: string;
 }) {
   const reduce = Boolean(useReducedMotion());
@@ -150,7 +181,7 @@ export function PromptChoices({
                 exit={{ opacity: 0, transition: { duration: 0.14 } }}
                 transition={{ duration: 0.26, ease: EASE }}
               >
-                <ChoiceRow choice={choice} thinking={thinking} onPick={(labels) => onPick(choice.key, labels)} />
+                <ChoiceRow choice={choice} thinking={thinking} onPick={(labels, own) => onPick(choice.key, labels, own)} />
               </motion.div>
             ))}
       </AnimatePresence>

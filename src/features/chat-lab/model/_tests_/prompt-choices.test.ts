@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { briefOf, readChoice, usePromptChoices, withBrief } from "../prompt-choices";
+import { briefOf, ownOption, readChoice, usePromptChoices, withBrief } from "../prompt-choices";
 
 const audience = {
   key: "audience",
@@ -49,6 +49,14 @@ describe("the brief the choices write", () => {
     expect(withBrief("Write a document about the plan.", "For leadership.", "For customers.")).toBe("Write a document about the plan. For customers.");
   });
 
+  it("reads their own answer through the choice's template", () => {
+    expect(ownOption(readChoice({ ...audience, template: "for {}" })!, "my lab group")).toEqual({ label: "my lab group", phrase: "for my lab group" });
+    // No template from the model: the kind's own.
+    expect(ownOption(readChoice(audience)!, "the board").phrase).toBe("for the board");
+    // A multi choice's items go in as typed, after its lead.
+    expect(ownOption(readChoice(covers)!, "the budget").phrase).toBe("the budget");
+  });
+
   it("drops a choice it can't show", () => {
     expect(readChoice({ ...audience, options: [audience.options[0]] })).toBeNull();
     expect(readChoice({ ...audience, guess: ["Nobody"] })?.guess).toEqual(["Leadership"]);
@@ -87,5 +95,15 @@ describe("usePromptChoices", () => {
     });
     expect(prompt).toBe("Write a document about our Q3 launch plan. For the launch team.");
     expect(result.current.shown.find((choice) => choice.key === "audience")?.picked).toEqual(["The team"]);
+
+    // Their own words: picked, and in the prompt through the template.
+    act(() => {
+      prompt = result.current.pick("audience", [], prompt, "my lab group");
+    });
+    expect(prompt).toBe("Write a document about our Q3 launch plan. For my lab group.");
+    act(() => {
+      prompt = result.current.pick("covers", ["Timeline"], prompt, "the budget");
+    });
+    expect(prompt).toBe("Write a document about our Q3 launch plan. For my lab group, covering the timeline and the budget.");
   });
 });

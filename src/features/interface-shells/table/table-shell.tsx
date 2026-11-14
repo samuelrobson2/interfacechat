@@ -1,5 +1,6 @@
 import { Columns3, Copy, Download, Eraser, ImageIcon, Plus, Rows3, X } from "lucide-react";
 import { Fragment, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/shared/lib/css";
 import {
   shellId,
@@ -20,7 +21,8 @@ import {
   stopFieldEvent,
 } from "../ui/shell-surface";
 import { COLUMN_TYPE_ICON, NEXT_COLUMN_TYPE, TagChip, Thumbnail } from "./table-cells";
-import { TableGrid } from "./table-grid";
+import { ColumnMenu, sortRows, TableGrid } from "./table-grid";
+import { SuggestedRing, typeahead, unusedSuggestions } from "../ui/suggested-chip";
 
 /** The table as CSV, for pasting into a spreadsheet. */
 function tableAsCsv(data: TableShellData) {
@@ -179,24 +181,71 @@ function TablePreview({ data }: { data: TableShellData }) {
  * the type icon cycles text → tag → image, and + adds a column. Scrolls
  * sideways when there are more columns than fit.
  */
+function SuggestedHeader({ label, onAccept, onDismiss }: { label: string; onAccept: () => void; onDismiss?: () => void }) {
+  return (
+    <span className="group/suggested relative flex h-6 min-w-0 flex-1 items-center rounded-[6px] bg-white">
+      <SuggestedRing />
+      <button
+        type="button"
+        title={`Suggested: name it ${label}`}
+        aria-label={`Use suggested column: ${label}`}
+        {...fieldEvents}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          stopFieldEvent(event);
+          onAccept();
+        }}
+        className="flex min-w-0 flex-1 items-center gap-1 px-1.5 text-left font-bureau text-[11px] text-typography-secondary hover:text-typography-primary"
+      >
+        <Plus className="size-3 shrink-0" />
+        <span className="whitespace-nowrap">{label}</span>
+      </button>
+      {onDismiss && (
+        <button
+          type="button"
+          aria-label={`Dismiss suggested column: ${label}`}
+          {...fieldEvents}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => {
+            stopFieldEvent(event);
+            onDismiss();
+          }}
+          className="mr-0.5 grid size-4 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/suggested:opacity-100 hover:text-typography-primary focus-visible:opacity-100"
+        >
+          <X className="size-2.5" />
+        </button>
+      )}
+    </span>
+  );
+}
+
 function EditableGrid({
   data,
   editable,
   onChange,
   onSubmit,
+  suggestedColumns = [],
+  onDismissColumn,
 }: {
   data: TableShellData;
   editable: boolean;
   onChange?: (data: TableShellData) => void;
   onSubmit?: () => void;
+  /** Column names suggested for this table: offered under a header once they start typing its name. */
+  suggestedColumns?: string[];
+  onDismissColumn?: (label: string) => void;
 }) {
+  // Suggestions only once they start typing a column's name (`typeahead`): then the ones that match, under it.
+  // Where the list goes: under the field being typed in, measured as they type (the grid clips anything inside it).
+  const [typing, setTyping] = useState<{ columnId: string; left: number; top: number } | null>(null);
+  const nameColumn = (columnId: string, label: string) => {
+    onChange?.({ ...data, columns: data.columns.map((column) => (column.id === columnId ? { ...column, label } : column)) });
+    setTyping(null);
+  };
   const [focusId, setFocusId] = useState<string | null>(null);
   const rows = data.rows.slice(0, 4);
   const fillerRows = Math.max(0, 4 - rows.length);
-  const template = [
-    ...data.columns.map((column) => (column.type === "image" ? "52px" : "104px")),
-    ...(editable ? ["32px"] : []),
-  ].join(" ");
+  const template = data.columns.map((column) => (column.type === "image" ? "52px" : "104px")).join(" ");
 
   const updateColumn = (columnId: string, patch: Partial<TableColumn>) =>
     onChange?.({
@@ -205,11 +254,13 @@ function EditableGrid({
     });
   const removeColumn = (columnId: string) =>
     onChange?.({ ...data, columns: data.columns.filter((column) => column.id !== columnId) });
-  const addColumn = () => {
+  const addColumn = (at = data.columns.length) => {
     const column: TableColumn = { id: shellId("col"), label: "", type: "text" };
-    onChange?.({ ...data, columns: [...data.columns, column] });
+    onChange?.({ ...data, columns: [...data.columns.slice(0, at), column, ...data.columns.slice(at)] });
     setFocusId(column.id);
   };
+  // Right-click a header, as on the large table: sort, insert, rename, type, delete.
+  const [menu, setMenu] = useState<{ columnId: string; x: number; y: number } | null>(null);
 
   const cell = "flex min-w-0 items-center bg-white px-2";
 
@@ -219,9 +270,7 @@ function EditableGrid({
         className="grid min-h-0 w-max min-w-full shrink-0 gap-px overflow-hidden rounded-[8px] bg-gray-3/15"
         style={{
           gridTemplateColumns: template,
-          gridTemplateRows: editable
-            ? "30px repeat(4, minmax(0, 1fr)) auto"
-            : "30px repeat(4, minmax(0, 1fr))",
+          gridTemplateRows: "30px repeat(4, minmax(0, 1fr))",
         }}
       >
         {data.columns.map((column, index) => {
@@ -229,9 +278,15 @@ function EditableGrid({
           return (
             <div
               key={column.id}
+              onContextMenu={(event) => {
+                if (!editable) return;
+                event.preventDefault();
+                stopFieldEvent(event);
+                setMenu({ columnId: column.id, x: event.clientX, y: event.clientY });
+              }}
               className={cn(
-                "group/column relative flex min-w-0 items-center gap-1 bg-gray-6 pl-1.5",
-                editable ? "pr-6" : "pr-1.5",
+                "group/column relative flex min-w-0 items-center gap-1 bg-gray-6 px-1.5",
+                menu?.columnId === column.id && "bg-gray-3/20",
               )}
             >
               <button
@@ -260,7 +315,12 @@ function EditableGrid({
                   placeholder={`Column ${index + 1}`}
                   aria-label={`Column ${index + 1} name`}
                   {...fieldEvents}
-                  onChange={(event) => updateColumn(column.id, { label: event.target.value })}
+                  onChange={(event) => {
+                    updateColumn(column.id, { label: event.target.value });
+                    const box = event.currentTarget.getBoundingClientRect();
+                    setTyping({ columnId: column.id, left: box.left - 6, top: box.bottom + 6 });
+                  }}
+                  onBlur={() => setTyping((current) => (current?.columnId === column.id ? null : current))}
                   onKeyDown={(event) => {
                     stopFieldEvent(event);
                     if (isSubmitShortcut(event)) {
@@ -287,38 +347,28 @@ function EditableGrid({
                   {column.label || `Column ${index + 1}`}
                 </span>
               )}
-              {editable && (
-                <button
-                  type="button"
-                  aria-label={`Remove ${column.label || `column ${index + 1}`}`}
-                  {...fieldEvents}
-                  onClick={(event) => {
-                    stopFieldEvent(event);
-                    removeColumn(column.id);
-                  }}
-                  className="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded-full text-typography-secondary hover:bg-background-primary hover:text-typography-primary"
+              {typing?.columnId === column.id && typeahead(suggestedColumns, column.label).length > 0 && createPortal(
+                <div
+                  role="listbox"
+                  aria-label="Suggested column names"
+                  className="fixed z-50 flex w-max max-w-[220px] flex-col gap-1 rounded-[10px] bg-background-primary p-1 shadow-[0_6px_20px_rgba(26,23,24,0.14)]"
+                  style={{ left: typing.left, top: typing.top }}
                 >
-                  <X className="size-2.5" />
-                </button>
+                  {typeahead(suggestedColumns, column.label).map((label) => (
+                    <SuggestedHeader
+                      key={label}
+                      label={label}
+                      // Keeps the field focused, so the click lands before blur closes the list.
+                      onAccept={() => nameColumn(column.id, label)}
+                      onDismiss={onDismissColumn && (() => onDismissColumn(label))}
+                    />
+                  ))}
+                </div>,
+                document.body,
               )}
             </div>
           );
         })}
-        {editable && (
-          <button
-            type="button"
-            aria-label="Add column"
-            title="Add column"
-            {...fieldEvents}
-            onClick={(event) => {
-              stopFieldEvent(event);
-              addColumn();
-            }}
-            className="grid place-items-center bg-gray-6 text-typography-secondary transition-colors hover:bg-gray-3/20 hover:text-typography-primary"
-          >
-            <Plus className="size-3.5" />
-          </button>
-        )}
 
         {rows.map((row) => (
           <Fragment key={row.id}>
@@ -336,7 +386,6 @@ function EditableGrid({
                 </div>
               );
             })}
-            {editable && <div className="bg-white" />}
           </Fragment>
         ))}
         {Array.from({ length: fillerRows }, (_, r) => (
@@ -346,24 +395,23 @@ function EditableGrid({
                 <Bar width={35 + ((r * 19 + c * 29) % 40)} className="bg-gray-3/15" />
               </div>
             ))}
-            {editable && <div className="bg-white" />}
           </Fragment>
         ))}
-        {editable && (
-          <button
-            type="button"
-            {...fieldEvents}
-            onClick={(event) => {
-              stopFieldEvent(event);
-              addColumn();
-            }}
-            style={{ gridColumn: "1 / -1" }}
-            className="bg-white px-2 py-1.5 text-left font-bureau text-[11px] leading-[1.35] font-light text-typography-secondary"
-          >
-            Add / remove columns
-          </button>
-        )}
       </div>
+      {menu && (
+        <ColumnMenu
+          menu={menu}
+          column={data.columns.find((column) => column.id === menu.columnId)}
+          index={data.columns.findIndex((column) => column.id === menu.columnId)}
+          canSort={data.rows.length > 1}
+          onClose={() => setMenu(null)}
+          onSort={(direction) => onChange?.(sortRows(data, menu.columnId, direction))}
+          onInsert={(at) => addColumn(at)}
+          onRename={() => setFocusId(menu.columnId)}
+          onType={(type) => updateColumn(menu.columnId, { type })}
+          onRemove={() => removeColumn(menu.columnId)}
+        />
+      )}
     </div>
   );
 }
@@ -379,6 +427,7 @@ export function TableShell({
   tools,
   suggested,
   onDismissSuggestion,
+  suggestions,
   className,
 }: ShellProps<TableShellData>) {
   const editable = Boolean(onChange);
@@ -465,9 +514,20 @@ export function TableShell({
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
           <div className="flex flex-col gap-0.5">
             {titleField(false)}
-            {descriptionField(false)}
+            {/* Only when it says something: an empty "What is one row?" just asks them to think. */}
+            {data.description ? descriptionField(false) : null}
           </div>
-          <EditableGrid data={data} editable={editable} onChange={onChange} onSubmit={onSubmit} />
+          {/* On the chat home: what the request leaves open, above the columns it shapes. */}
+          {suggestions?.brief}
+          {/* Suggested columns, offered in a header once they start typing its name. */}
+          <EditableGrid
+            data={data}
+            editable={editable}
+            onChange={onChange}
+            onSubmit={onSubmit}
+            suggestedColumns={editable ? unusedSuggestions(suggested?.columns, data.columns.map((column) => column.label)) : []}
+            onDismissColumn={onDismissSuggestion && ((label) => onDismissSuggestion("columns", label))}
+          />
           <ShellFooter />
         </div>
       </ShellSurface>

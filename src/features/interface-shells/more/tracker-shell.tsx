@@ -80,9 +80,25 @@ const checklistText = (data: TrackerShellData) =>
     .join("\n");
 
 /** An item the model suggests: a row with the AI outline. Click to add it to the list. */
-function SuggestedItem({ label, onAccept, onDismiss }: { label: string; onAccept: () => void; onDismiss?: () => void }) {
+function SuggestedItem({
+  label,
+  compact = false,
+  onAccept,
+  onDismiss,
+}: {
+  label: string;
+  /** Medium plus: a checklist row's size, not the window's. */
+  compact?: boolean;
+  onAccept: () => void;
+  onDismiss?: () => void;
+}) {
   return (
-    <div className="group/suggested relative my-1 flex items-center gap-2.5 rounded-[10px] bg-white py-2 pr-2 pl-2.5">
+    <div
+      className={cn(
+        "group/suggested relative flex items-center bg-white",
+        compact ? "my-0.5 gap-1.5 rounded-[8px] py-1 pr-1 pl-1.5" : "my-1 gap-2.5 rounded-[10px] py-2 pr-2 pl-2.5",
+      )}
+    >
       <SuggestedRing />
       <button
         type="button"
@@ -93,9 +109,12 @@ function SuggestedItem({ label, onAccept, onDismiss }: { label: string; onAccept
           stopFieldEvent(event);
           onAccept();
         }}
-        className="flex min-w-0 flex-1 items-center gap-2.5 text-left font-bureau text-[14px] text-typography-secondary hover:text-typography-primary"
+        className={cn(
+          "flex min-w-0 flex-1 items-center text-left font-bureau text-typography-secondary hover:text-typography-primary",
+          compact ? "gap-1.5 text-[12px] font-light" : "gap-2.5 text-[14px]",
+        )}
       >
-        <Plus className="size-4 shrink-0" />
+        <Plus className={cn("shrink-0", compact ? "size-3" : "size-4")} />
         <span className="truncate">{label}</span>
       </button>
       {onDismiss && (
@@ -107,9 +126,12 @@ function SuggestedItem({ label, onAccept, onDismiss }: { label: string; onAccept
             stopFieldEvent(event);
             onDismiss();
           }}
-          className="grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/suggested:opacity-100 hover:bg-gray-6 focus-visible:opacity-100"
+          className={cn(
+            "grid shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/suggested:opacity-100 hover:bg-gray-6 focus-visible:opacity-100",
+            compact ? "size-5" : "size-6",
+          )}
         >
-          <X className="size-3.5" />
+          <X className={compact ? "size-3" : "size-3.5"} />
         </button>
       )}
     </div>
@@ -279,6 +301,7 @@ export function TrackerShell({
   actions,
   suggested,
   onDismissSuggestion,
+  suggestions,
   className,
 }: ShellProps<TrackerShellData>) {
   const [hideDone, setHideDone] = useState(false);
@@ -405,7 +428,9 @@ export function TrackerShell({
       )}
       <ShellBody size={size} className={large ? "gap-5" : "gap-2"}>
         {large && data.items.length > 0 && <Progress items={data.items} />}
-        {data.items.length === 0 && <GhostRows large={large} />}
+        {/* On the chat home: what the request leaves open, where the empty rows would be. */}
+        {!large && suggestions?.brief}
+        {data.items.length === 0 && !(!large && (suggestions?.brief || suggested?.items?.length)) && <GhostRows large={large} />}
         {data.items.length > 0 &&
           sections.map((section) => {
             const { group, items } = section;
@@ -438,6 +463,20 @@ export function TrackerShell({
             </section>
             );
           })}
+        {/* Medium plus: suggested first items, after the real ones, outlined, until added or dismissed. */}
+        {!large &&
+          update &&
+          unusedSuggestions(suggested?.items, data.items.map((item) => item.label))
+            .slice(0, 3)
+            .map((label) => (
+              <SuggestedItem
+                key={label}
+                label={label}
+                compact
+                onAccept={() => update({ items: [...data.items, { id: shellId("item"), label, done: false, group: data.groups?.[0] }] })}
+                onDismiss={onDismissSuggestion && (() => onDismissSuggestion("items", label))}
+              />
+            ))}
         {addItem && (!large || data.items.length === 0) && <AddItem large={large} onAdd={() => addItem()} />}
         {large && update && (
           <AddChip

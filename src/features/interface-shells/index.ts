@@ -92,3 +92,4 @@ export * from "./apps/app-types";
 export { appToCatalogue, catalogueToApp } from "./apps/app-catalogue";
 export { appDetail, blockLabel } from "./apps/app-detail";
 export { BLANK_TOKEN, resolveBlanks } from "./model/markdown-blocks";
+export { fillParts, SUGGESTION_KINDS, SUGGESTION_PARTS, type PartGroup, type PartKind, type SuggestionPart } from "./model/suggestion-parts";

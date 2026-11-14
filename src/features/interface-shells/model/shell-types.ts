@@ -20,7 +20,7 @@ export const SHELL_KINDS = [
 export type ShellKind = (typeof SHELL_KINDS)[number];
 
 /** Built after P0: the rest of the library is P0. */
-export const P1_KINDS: readonly ShellKind[] = ["calendar", "guide", "moodboard", "map", "chart"];
+export const P1_KINDS: readonly ShellKind[] = ["calendar", "moodboard", "map", "chart"];
 export const isP0Kind = (kind: ShellKind) => !P1_KINDS.includes(kind);
 
 /** Every interface can sit on the chat home and open beside a conversation. */

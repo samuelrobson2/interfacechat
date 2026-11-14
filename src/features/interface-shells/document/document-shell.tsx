@@ -119,6 +119,7 @@ export function DocumentShell({
   actions,
   tools,
   suggestions,
+  suggested,
   className,
 }: ShellProps<DocumentShellData>) {
   const mark = useShellMark(size);
@@ -143,6 +144,7 @@ export function DocumentShell({
           onSubmit={onSubmit}
           status={status}
           suggestions={suggestions}
+          lengthGuess={suggested?.lengths?.[0]}
         />
       </ShellSurface>
     );

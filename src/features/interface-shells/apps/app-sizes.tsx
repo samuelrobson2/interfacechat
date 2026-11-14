@@ -64,11 +64,14 @@ function AppOutline({
   data,
   onChange,
   onSubmit,
+  brief,
 }: {
   kind: AppKind;
   data: AppShellData;
   onChange?: (data: AppShellData) => void;
   onSubmit?: () => void;
+  /** On the chat home: what the request leaves open. */
+  brief?: React.ReactNode;
 }) {
   return (
     <>
@@ -96,7 +99,8 @@ function AppOutline({
             ))}
           </div>
         )}
-        {data.blocks.length === 0 ? (
+        {brief}
+        {data.blocks.length === 0 && brief ? null : data.blocks.length === 0 ? (
           [70, 52, 64].map((width, index) => <Bar key={index} width={`${width}%`} className="my-1" />)
         ) : (
           <ul className="flex flex-col gap-1">
@@ -162,7 +166,7 @@ export function AppShellBySize({
         {size === "medium" ? (
           <AppPreview kind={kind} data={data} />
         ) : (
-          <AppOutline kind={kind} data={data} onChange={onChange} onSubmit={onSubmit} />
+          <AppOutline kind={kind} data={data} onChange={onChange} onSubmit={onSubmit} brief={props.suggestions?.brief} />
         )}
       </ShellSurface>
     );

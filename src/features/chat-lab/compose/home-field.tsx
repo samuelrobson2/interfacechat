@@ -2,7 +2,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { X } from "lucide-react";
 
-import { EMPTY_SHELL_DATA, InterfaceShell, SHELL_DIMENSIONS, type ShellSuggestions } from "@/features/interface-shells";
+import {
+  EMPTY_SHELL_DATA,
+  InterfaceShell,
+  SHELL_DIMENSIONS,
+  type ShellSuggestions,
+  type SuggestedGroup,
+  type SuggestedValues,
+} from "@/features/interface-shells";
 import { PromptChoices } from "./prompt-choices";
 import { cn } from "@/shared/lib/css";
 import { HOME_POSITIONS, panTo } from "../model/home-layout";
@@ -40,12 +47,16 @@ function Shell({
   onChange,
   onSubmit,
   suggestions,
+  suggested,
+  onDismissSuggestion,
 }: {
   value: KindData;
   size: "medium" | "medium-plus";
   onChange?: (next: KindData) => void;
   onSubmit?: () => void;
   suggestions?: ShellSuggestions;
+  suggested?: SuggestedValues;
+  onDismissSuggestion?: (group: SuggestedGroup, value: string) => void;
 }) {
   return (
     <InterfaceShell
@@ -56,6 +67,8 @@ function Shell({
         onChange: onChange && ((data: unknown) => onChange({ kind: value.kind, data } as KindData)),
         onSubmit,
         suggestions,
+        suggested,
+        onDismissSuggestion,
       } as Parameters<typeof InterfaceShell>[0])}
     />
   );
@@ -129,6 +142,9 @@ function FieldTile({
                 }
               : undefined
           }
+          // The card's own parts, filled in place: a table's columns, a search's filters, a checklist's first items.
+          suggested={open && card?.editable ? field.suggested : undefined}
+          onDismissSuggestion={open && card?.editable ? field.dismissSuggestion : undefined}
         />
         {open && (
           <button

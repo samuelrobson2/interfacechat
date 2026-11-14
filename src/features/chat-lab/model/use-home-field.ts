@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { SHELL_META, type ShellDataByKind, type ChatShellKind } from "@/features/interface-shells";
+import { SHELL_META, type ShellDataByKind, type ChatShellKind, type SuggestedGroup } from "@/features/interface-shells";
 import { useChatLabStore } from "./chat-lab-store";
 import {
   EMPTY_MEMORY,
@@ -35,6 +35,24 @@ const sameMemory = (a: HomeRankingMemory, b: HomeRankingMemory) =>
   a.leaderId === b.leaderId &&
   a.challengerId === b.challengerId &&
   a.challengerWins === b.challengerWins;
+
+/** What the card's fillable parts hold now, by group: a table's named columns, a search's filters, a checklist's items. */
+function partsOf(value: KindData | undefined): Partial<Record<SuggestedGroup, string[]>> {
+  if (!value) return {};
+  const data = value.data as {
+    columns?: { label: string }[];
+    filters?: string[];
+    items?: { label: string }[];
+    constraints?: string[];
+    length?: string;
+  };
+  if (value.kind === "table") return { columns: (data.columns ?? []).map((column) => column.label).filter(Boolean) };
+  if (value.kind === "search") return { filters: data.filters ?? [] };
+  if (value.kind === "tracker") return { items: (data.items ?? []).map((item) => item.label) };
+  if (value.kind === "schedule") return { constraints: data.constraints ?? [] };
+  if (value.kind === "document") return data.length ? { lengths: [data.length] } : {};
+  return {};
+}
 
 /** Parsed fields win where they have a value; the tile's own content fills the rest. */
 function overlay<K extends ChatShellKind>(
@@ -136,7 +154,7 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
 
   // The few choices the request leaves open, for the card that's open (Document, for now).
   const choiceKind = card?.editable ? card.interface.kind : null;
-  const choices = usePromptChoices(choiceKind, choiceKind ? SHELL_META[choiceKind].label : "", draft);
+  const choices = usePromptChoices(choiceKind, choiceKind ? SHELL_META[choiceKind].label : "", draft, partsOf(card?.interface));
 
   const choose = (tileId: string, nextDraft: string) => {
     setDismissed(false);
@@ -166,9 +184,12 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     /** What the open card's request leaves open: at most three, each with options and a guess. */
     choices: choices.shown,
     choicesThinking: choices.thinking,
+    /** Values for the card's own parts, shown in place: columns, filters, items. */
+    suggested: choices.suggested,
+    dismissSuggestion: choices.dismiss,
     /** Settle a choice: its phrase goes into the prompt, in the one sentence the choices write. */
-    pickChoice(key: string, labels: string[]) {
-      const next = choices.pick(key, labels, draft);
+    pickChoice(key: string, labels: string[], own?: string) {
+      const next = choices.pick(key, labels, draft, own);
       if (next !== draft) setDraft(next);
       if (card) choose(card.leader.tileId, next);
     },
