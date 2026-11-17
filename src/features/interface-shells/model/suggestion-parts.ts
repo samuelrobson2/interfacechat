@@ -13,6 +13,11 @@
  * - default: a value the card already has a field for (a document's length).
  *   The guess sits in the field itself, in the AI colours, until changed.
  *
+ * A question is only ever something they'd know offhand: a fact about their
+ * situation (how many, when, who, a must-have). Never a decision to make
+ * (what done looks like, what success means, priorities, scope): proposing
+ * those is the assistant's job, later, not a hurdle on the card.
+ *
  * Read by the card and by the route (`api/_ai-prompt-choices.ts`), so it
  * imports nothing.
  */
@@ -34,6 +39,17 @@ export type SuggestionProfile = {
 const q = (key: string, ask: string): SuggestionPart => ({ kind: "question", key, ask });
 
 export const SUGGESTION_PARTS: Record<string, SuggestionProfile> = {
+  // A goal being worked out: the questions are about the goal, not about any artifact.
+  notes: {
+    phrases: '"for 6 to 8 guests", "on a budget of about £200", "one guest is vegetarian"',
+    parts: [
+      q("who", "who it's for or who's involved, when it changes the plan (how many guests, who's coming, the team)"),
+      q("when", "when it happens, only if the request doesn't say"),
+      q("scale", "how big or how much (a budget, a size, a length of time)"),
+      q("style", "the feel or standard it should have (relaxed, formal, polished, quick)"),
+      q("constraints", "something that must be worked around (dietary needs, access, a fixed time, kit they have)"),
+    ],
+  },
   document: {
     phrases: '"for the leadership team", "as a one-page memo", "covering the timeline and risks"',
     parts: [
@@ -67,7 +83,6 @@ export const SUGGESTION_PARTS: Record<string, SuggestionProfile> = {
   tracker: {
     phrases: '"due by Friday", "grouped by week", "split between the team"',
     parts: [
-      q("goal", "what done looks like, when the request is broad (moving in, the launch going live)"),
       q("deadline", "when it all has to be done by"),
       q("owners", "who does the work (just me, the team, named people)"),
       q("grouping", "how the items are grouped (by phase, by week, by owner)"),

@@ -85,6 +85,10 @@ export const SHELL_PART_TYPE_HINT: Record<ShellPartType, string> = {
 
 /** The parts each interface is made of, in the order they appear. */
 export const SHELL_PARTS: Record<ShellKind, ShellPart[]> = {
+  notes: [
+    { key: "title", label: "Goal", type: "text", required: true, description: "What they're trying to do, short." },
+    { key: "body", label: "Notes", type: "text", description: "Plain text, one note per line: the facts so far (When: next Thursday), decisions, and what's still open." },
+  ],
   chat: [
     { key: "title", label: "Message", type: "text", required: true, description: "What the person asked or said." },
     { key: "format", label: "Reply", type: "format", description: "How the reply's text is laid out: Chat, Explainer, Pros & cons or Ranked list. Chosen from the query." },

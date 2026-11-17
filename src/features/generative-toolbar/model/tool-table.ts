@@ -17,7 +17,14 @@ import { clampScores, toolScore, type GeneratedTool, type ToolScores, type ToolS
  * dismissed tool never shows again. It stays in the table so the model knows
  * not to bring it, or anything like it, back.
  */
-export type ToolRow<D> = { tool: GeneratedTool<D>; order: number; pinned: boolean; dismissed?: boolean };
+export type ToolRow<D> = {
+  tool: GeneratedTool<D>;
+  order: number;
+  pinned: boolean;
+  dismissed?: boolean;
+  /** An action that's been used: done, so gone (it reads as dismissed). Undo brings it back. */
+  spent?: boolean;
+};
 const settled = (row: { pinned: boolean; dismissed?: boolean } | undefined) => !!row && (row.pinned || !!row.dismissed);
 export type ToolTable<D> = { rows: Record<string, ToolRow<D>>; next: number };
 
@@ -73,6 +80,24 @@ export function pinTool<D>(table: ToolTable<D>, id: string, value?: ToolValue): 
   if (!row) return table;
   const tool = value === undefined || row.tool.type === "action" ? row.tool : ({ ...row.tool, value } as GeneratedTool<D>);
   return { ...table, rows: { ...table.rows, [id]: { ...row, tool, pinned: true } } };
+}
+
+/**
+ * An action once used ("Name 3 columns"): it's done, so it goes, and the model
+ * won't offer it again (it reads as dismissed). A setting is pinned instead
+ * (`pinTool`), and stays at the value it was set to.
+ */
+export function spendTool<D>(table: ToolTable<D>, id: string): ToolTable<D> {
+  const row = table.rows[id];
+  if (!row) return table;
+  return { ...table, rows: { ...table.rows, [id]: { ...row, pinned: false, dismissed: true, spent: true } } };
+}
+
+/** Undo after using an action: it's back where it was. */
+export function restoreTool<D>(table: ToolTable<D>, id: string): ToolTable<D> {
+  const row = table.rows[id];
+  if (!row?.spent) return table;
+  return { ...table, rows: { ...table.rows, [id]: { ...row, dismissed: false, spent: false } } };
 }
 
 /** Closed with ×: it never shows again, and the model won't offer it again. */

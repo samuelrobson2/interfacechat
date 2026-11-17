@@ -8,9 +8,12 @@ import { blockSchema, variableSchema } from "../apps/app-types.js";
  * (`api/_ai-chat-lab.ts`), so it imports nothing but zod (and the app
  * schemas, which import nothing but zod).
  *
- * Document (with or without live pieces), Table, Tracker and Dashboard.
+ * Every P0 interface the model writes: Document (with or without live
+ * pieces), Table, Tracker, Dashboard, Guide, Schedule and Generator. (Search
+ * is written as results after a web search; Notes through its tracking tools;
+ * Reader holds the person's own file.)
  */
-export const CATALOGUE_KINDS = ["document", "table", "tracker", "dashboard"] as const;
+export const CATALOGUE_KINDS = ["document", "table", "tracker", "dashboard", "guide", "schedule", "generator"] as const;
 export type CatalogueKind = (typeof CATALOGUE_KINDS)[number];
 
 /** One entry per interface, not per size: the app places it, and this is the model's say. */
@@ -112,11 +115,66 @@ const dashboardSchema = z.object({
   ...appParts,
 });
 
+const guideSchema = z.object({
+  title: z.string().describe("What it makes or does, such as Fish stew for six."),
+  placement,
+  facts: z
+    .array(z.object({ label: z.string(), value: z.string() }))
+    .describe("Two or three short facts this kind of guide calls for: Serves and Time for a recipe; Time, Difficulty and People for assembly."),
+  needs: z
+    .array(z.object({ text: z.string().describe("One thing needed, amount first: 400g white fish"), group: z.string().optional().describe("A section, such as Ingredients or Equipment") }))
+    .describe("What's needed before starting, in the order it's used."),
+  steps: z
+    .array(
+      z.object({
+        text: z.string().describe("One step, in the imperative."),
+        minutes: z.number().optional().describe("A timer for the step, when there's waiting."),
+        note: z.string().optional().describe("A tip or warning for this step."),
+      }),
+    )
+    .describe("The steps in order."),
+});
+
+const TIME = /^\d{1,2}:\d{2}$/;
+const scheduleSchema = z.object({
+  title: z.string().describe("What's being scheduled, such as Skincare shoot."),
+  placement,
+  start: z.string().optional().describe("The first day as an ISO date (2026-11-20), when it's known."),
+  dayCount: z.number().int().min(1).max(14).describe("How many days it covers."),
+  hours: z.array(z.string()).length(2).describe('The working hours each day spans, as ["08:00", "13:00"].'),
+  constraints: z.array(z.string()).describe("Limits to plan around, short: Loft from 8am, Model until 1pm."),
+  tasks: z
+    .array(
+      z.object({
+        label: z.string().describe("What happens, in a few words."),
+        day: z.number().int().min(1).describe("Which day, from 1."),
+        start: z.string().regex(TIME).describe("Start time, 24-hour HH:MM."),
+        end: z.string().regex(TIME).describe("End time, 24-hour HH:MM."),
+        type: z.enum(["setup", "shoot", "travel", "break"]).describe("setup for preparing or packing down; shoot for the main work; travel; break for meals and rests."),
+      }),
+    )
+    .describe("The blocks of the day, in time order."),
+});
+
+const generatorSchema = z.object({
+  title: z.string().describe("The prompt: what to make, written as the person would ask for it."),
+  placement,
+  mode: z.enum(["text", "image"]).describe("text for words (a tagline, a caption, a name); image for pictures."),
+  tone: z.string().optional().describe("Text: the tone, such as Warm or Confident."),
+  length: z.string().optional().describe('Text: "short", "medium" or "long", or their own ("Under 10 words").'),
+  style: z.string().optional().describe("Image: the style, such as Cinematic or Studio light."),
+  aspect: z.enum(["1:1", "3:2", "2:3"]).optional().describe("Image: the shape."),
+  variations: z.array(z.string()).optional().describe("Text only: three variations to choose from. Images are made when the person presses Generate; leave this out for images."),
+});
+
 const SCHEMAS = {
   document: documentSchema,
   table: tableSchema,
   tracker: trackerSchema,
   dashboard: dashboardSchema,
+  guide: guideSchema,
+  schedule: scheduleSchema,
+  generator: generatorSchema,
 };
 
 export type CatalogueValueByKind = {
@@ -124,6 +182,9 @@ export type CatalogueValueByKind = {
   table: z.infer<typeof tableSchema>;
   tracker: z.infer<typeof trackerSchema>;
   dashboard: z.infer<typeof dashboardSchema>;
+  guide: z.infer<typeof guideSchema>;
+  schedule: z.infer<typeof scheduleSchema>;
+  generator: z.infer<typeof generatorSchema>;
 };
 export type AppCatalogueDataset = z.infer<typeof appDatasetSchema>;
 export type CatalogueValue = CatalogueValueByKind[CatalogueKind];
@@ -215,6 +276,41 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
       ...APP_BLOCK_GUIDANCE,
     ],
     schema: dashboardSchema,
+  },
+  guide: {
+    kind: "guide",
+    label: "Guide",
+    tool: "fill_guide",
+    description: "A recipe or how-to to follow: what's needed, then the steps in order, with timers where there's waiting.",
+    guidance: [
+      "Needs start with the amount (400g white fish, 2 onions) so servings can scale them; group them only when there are clear sections.",
+      "Steps are short and in the imperative, one action each; give minutes only where there's waiting.",
+      "Facts: the two or three this kind of guide calls for, from what they've said (Serves 8, Time 1 hour).",
+    ],
+    schema: guideSchema,
+  },
+  schedule: {
+    kind: "schedule",
+    label: "Schedule",
+    tool: "fill_schedule",
+    description: "A plan of tasks across hours and days, drawn as a Gantt: a shoot day, an event, a trip.",
+    guidance: [
+      "Fit the tasks inside the hours, in time order, with no overlaps on a day unless two things really run at once.",
+      "Include set-up, breaks and pack-down where the work needs them; label tasks in a few words.",
+      "Put limits they've given (access times, people's hours) in constraints, and plan around them.",
+    ],
+    schema: scheduleSchema,
+  },
+  generator: {
+    kind: "generator",
+    label: "Generator",
+    tool: "fill_generator",
+    description: "Makes words or pictures from a prompt: taglines, names, captions, images, with tone, style and length to steer it.",
+    guidance: [
+      "Write the prompt as the person would ask for it, specific about the subject, and set the controls that matter.",
+      "Text: write three variations that differ in a real way. Images: leave variations out; the person presses Generate.",
+    ],
+    schema: generatorSchema,
   },
 };
 
@@ -332,6 +428,64 @@ export function readCatalogueValue(kind: CatalogueKind, input: unknown): Catalog
     return { ...base, ...(line ? { description: line } : {}), ...readPieces(source) } as CatalogueValue;
   }
 
+  if (kind === "guide") {
+    const facts = list(source.facts).flatMap((fact) => {
+      const label = text(record(fact)?.label).trim();
+      const value = text(record(fact)?.value).trim();
+      return label && value ? [{ label, value }] : [];
+    });
+    const needs = list(source.needs).flatMap((need) => {
+      const fields = record(need);
+      const line = text(fields?.text).trim();
+      return line ? [{ text: line, ...(optionalText(fields?.group) ? { group: optionalText(fields?.group) } : {}) }] : [];
+    });
+    const steps = list(source.steps).flatMap((step) => {
+      const fields = record(step);
+      const line = text(fields?.text).trim();
+      if (!line) return [];
+      const minutes = typeof fields?.minutes === "number" && fields.minutes > 0 ? Math.round(fields.minutes) : undefined;
+      return [{ text: line, ...(minutes ? { minutes } : {}), ...(optionalText(fields?.note) ? { note: optionalText(fields?.note) } : {}) }];
+    });
+    return { ...base, facts, needs, steps } as CatalogueValue;
+  }
+
+  if (kind === "schedule") {
+    const hhmm = (value: unknown, fallback: string) => (typeof value === "string" && TIME.test(value.trim()) ? value.trim() : fallback);
+    const hours = list(source.hours);
+    const tasks = list(source.tasks).flatMap((task) => {
+      const fields = record(task);
+      const label = text(fields?.label).trim();
+      if (!fields || !label || typeof fields.start !== "string" || !TIME.test(fields.start)) return [];
+      const type = ["setup", "shoot", "travel", "break"].includes(fields.type as string) ? (fields.type as "setup") : "shoot";
+      const day = typeof fields.day === "number" && fields.day >= 1 ? Math.floor(fields.day) : 1;
+      return [{ label, day, start: fields.start, end: hhmm(fields.end, fields.start), type }];
+    });
+    const dayCount = typeof source.dayCount === "number" && source.dayCount >= 1 ? Math.min(14, Math.floor(source.dayCount)) : Math.max(1, ...tasks.map((task) => task.day));
+    return {
+      ...base,
+      ...(optionalText(source.start) ? { start: optionalText(source.start) } : {}),
+      dayCount,
+      hours: [hhmm(hours[0], "09:00"), hhmm(hours[1], "17:00")],
+      constraints: list(source.constraints).filter((line): line is string => typeof line === "string" && !!line.trim()),
+      tasks,
+    } as CatalogueValue;
+  }
+
+  if (kind === "generator") {
+    const mode = source.mode === "image" ? "image" : "text";
+    const aspect = ["1:1", "3:2", "2:3"].includes(source.aspect as string) ? (source.aspect as "1:1") : undefined;
+    const variations = list(source.variations).filter((line): line is string => typeof line === "string" && !!line.trim());
+    return {
+      ...base,
+      mode,
+      ...(optionalText(source.tone) ? { tone: optionalText(source.tone) } : {}),
+      ...(optionalText(source.length) ? { length: optionalText(source.length) } : {}),
+      ...(optionalText(source.style) ? { style: optionalText(source.style) } : {}),
+      ...(aspect ? { aspect } : {}),
+      ...(variations.length ? { variations } : {}),
+    } as CatalogueValue;
+  }
+
   if (kind === "table") {
     const columns = list(source.columns).flatMap((column) => {
       const label = text(record(column)?.label);
@@ -429,6 +583,18 @@ export function applyCatalogueOperations<K extends CatalogueKind>(
 
 /** One line on what a fill holds, for the tool's result. */
 export function catalogueSummary(kind: CatalogueKind, value: CatalogueValue): string {
+  if (kind === "guide") {
+    const guide = value as CatalogueValueByKind["guide"];
+    return `${guide.needs.length} things needed, ${guide.steps.length} steps`;
+  }
+  if (kind === "schedule") {
+    const schedule = value as CatalogueValueByKind["schedule"];
+    return `${schedule.tasks.length} tasks over ${schedule.dayCount} day${schedule.dayCount === 1 ? "" : "s"}`;
+  }
+  if (kind === "generator") {
+    const generator = value as CatalogueValueByKind["generator"];
+    return generator.mode === "text" ? `${generator.variations?.length ?? 0} variations` : "an image prompt";
+  }
   if (kind === "table") {
     const table = value as CatalogueValueByKind["table"];
     return `${table.columns.length} columns, ${table.rows.length} rows`;

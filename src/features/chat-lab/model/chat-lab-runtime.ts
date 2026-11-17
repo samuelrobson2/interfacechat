@@ -5,6 +5,10 @@ import {
   assistantInstruction,
   formatInstruction,
   readCatalogueValue,
+  applyRoleTool,
+  isCatalogueKind,
+  PROGRESS_START,
+  ROLE_TOOL_OWNER,
   SHELL_META,
   type CatalogueKind,
   type CatalogueOperation,
@@ -25,11 +29,12 @@ import {
   getActiveArtefact,
   findLatestMessage,
   getMessageText,
+  roleOf,
   useChatLabStore,
   type ChatLabArtefactKind,
   type ChatLabMessage,
 } from "./chat-lab-store";
-import { flash, hasWindow, isChatMinimized, layoutOf, openWindow, peekReply, settleActive } from "./chat-lab-workbench";
+import { flash, hasWindow, isChatMinimized, isWindowOpen, layoutOf, openWindow, peekReply, settleActive } from "./chat-lab-workbench";
 import {
   matchVisualInterface,
   opensAsOf,
@@ -166,8 +171,8 @@ function syncOpenInterface(id: string, messages: ChatLabMessage[]) {
       const libraryKind = input.id as VisualInterfaceKind;
       const opensAs = opensAsOf(libraryKind);
       const title = input.title?.trim() || libraryKind;
-      // A tracker or dashboard is a library interface holding its own data.
-      const tracker = opensAs === "tracker" || opensAs === "dashboard" ? newCatalogueArtefact(opensAs, title) : null;
+      // A tracker, dashboard, guide, schedule or generator is a library interface holding its own data.
+      const tracker = opensAs !== "document" && opensAs !== "table" && isCatalogueKind(opensAs) ? newCatalogueArtefact(opensAs, title) : null;
       const kind = tracker?.kind ?? input.opensAs ?? resolveImplementableKind(libraryKind);
 
       // One per turn and kind.
@@ -296,7 +301,10 @@ function syncCatalogue(id: string, userMessageId: string, replies: ChatLabMessag
         const now = Date.now();
         if (streaming && now - (lastStreamedAt.get(id) ?? 0) < STREAM_FILL_MS) continue;
 
-        const target = catalogueTarget(id, userMessageId, kind, value.title);
+        // A fill that names an open interface writes over it; otherwise the turn's, or a new one.
+        const named = (part.input as { id?: unknown } | undefined)?.id;
+        const byId = typeof named === "string" ? useChatLabStore.getState().sessions[id]?.artefacts[named] : undefined;
+        const target = byId && artefactCatalogueKind(byId) === kind ? byId : catalogueTarget(id, userMessageId, kind, value.title);
         if (!target) continue;
         lastStreamedAt.set(id, now);
         appliedCalls.set(callId, signature);
@@ -307,13 +315,97 @@ function syncCatalogue(id: string, userMessageId: string, replies: ChatLabMessag
       if (name !== "update_interface" || part.state !== "output-available") continue;
       appliedCalls.set(callId, "done");
       if (!(part.output as { ok?: boolean } | undefined)?.ok) continue;
-      const target = turnTarget(id, userMessageId);
+      // The interface it names, or the one the turn is working on.
+      const named = (part.input as { id?: unknown } | undefined)?.id;
+      const target = (typeof named === "string" ? useChatLabStore.getState().sessions[id]?.artefacts[named] : undefined) ?? turnTarget(id, userMessageId);
       const targetKind = target && artefactCatalogueKind(target);
       const current = target && artefactCatalogueValue(target);
       const operations = (part.input as { operations?: CatalogueOperation[] } | undefined)?.operations;
       if (!target || !targetKind || !current || !operations) continue;
       const result = applyCatalogueOperations(targetKind, current, operations);
       if (result.ok) applyCatalogueValue(id, target.id, result.value);
+    }
+  }
+}
+
+/** How many recent turns an interface still in its reply (no window) counts as in use. */
+const RECENT_TURNS = 4;
+
+/**
+ * Whether an interface is in use, and so in the model's context: not closed,
+ * and either in a window that's showing or in one of the last few replies.
+ * Minimized ones are put away; closed ones are out until opened again.
+ */
+function inUse(sessionId: string, artefactId: string) {
+  const session = useChatLabStore.getState().sessions[sessionId];
+  const artefact = session?.artefacts[artefactId];
+  if (!session || !artefact || session.closed?.includes(artefactId)) return false;
+  if (session.layout?.entries[artefactId]) return isWindowOpen(session.layout, artefactId);
+  const recent = session.messages.filter((message) => message.role === "user").slice(-RECENT_TURNS).map((message) => message.id);
+  // Made this turn (not yet bound to a message) or in one of the last few.
+  return !artefact.sourceUserMessageId || recent.includes(artefact.sourceUserMessageId) || artefact.id === session.activeArtefactId;
+}
+
+/** The thread's tracked interfaces (Notes, a progress tracker): what the model keeps current every turn, unless closed. */
+function trackedArtefacts(sessionId: string) {
+  const session = useChatLabStore.getState().sessions[sessionId];
+  return Object.values(session?.artefacts ?? {}).filter(
+    (artefact) => artefact.kind === "shell" && artefact.shell && roleOf(artefact) === "track" && !session?.closed?.includes(artefact.id),
+  );
+}
+
+function trackedForRequest(sessionId: string) {
+  const tracked = trackedArtefacts(sessionId);
+  if (!tracked.length) return undefined;
+  return tracked.map((artefact) => ({
+    id: artefact.id,
+    kind: artefact.shell!.kind,
+    role: "track" as const,
+    label: SHELL_META[artefact.shell!.kind].label,
+    title: artefact.title,
+    data: artefact.shell!.data,
+  }));
+}
+
+/**
+ * This turn's calls to tracked interfaces' tools, applied once the server has
+ * run them: the same `apply` it ran, on the interface as it is here. A
+ * progress tracker the model starts is made here, docked beside the chat.
+ */
+function syncTracked(id: string, userMessageId: string, replies: ChatLabMessage[]) {
+  for (const message of replies) {
+    for (const part of message.parts as ToolPart[]) {
+      const name = toolNameOf(part);
+      const callId = part.toolCallId;
+      if (!name || !callId || part.state !== "output-available" || appliedCalls.get(callId) === "done") continue;
+      if (name !== PROGRESS_START.name && !ROLE_TOOL_OWNER[name]) continue;
+      appliedCalls.set(callId, "done");
+      if (!(part.output as { ok?: boolean } | undefined)?.ok) continue;
+      const store = useChatLabStore.getState();
+
+      if (name === PROGRESS_START.name) {
+        if (trackedArtefacts(id).some((artefact) => artefact.shell?.kind === "tracker")) continue;
+        const input = part.input as { title?: string; stages?: string[] };
+        const title = input.title?.trim() || "Progress";
+        const items = (input.stages ?? []).map((label, i) => ({ id: `stage-${i}`, label, done: false }));
+        const artefactId = store.createArtefact(id, {
+          kind: "shell",
+          title,
+          role: "track",
+          sourceUserMessageId: userMessageId,
+          shell: { kind: "tracker", data: { title, groups: [], items } },
+        });
+        if (artefactId) flash(openWindow(id, artefactId, "support"));
+        continue;
+      }
+
+      const owner = ROLE_TOOL_OWNER[name]!;
+      const target = trackedArtefacts(id).find((artefact) => artefact.shell?.kind === owner.kind);
+      if (!target?.shell) continue;
+      const result = applyRoleTool(name, target.shell.data, part.input);
+      if (!result.ok) continue;
+      store.updateArtefact(id, { shell: { kind: owner.kind, data: result.data } as typeof target.shell }, target.id);
+      flash(target.id);
     }
   }
 }
@@ -326,6 +418,7 @@ function syncArtefact(id: string, messages: ChatLabMessage[]) {
   if (!userMessageId) return;
 
   syncCatalogue(id, userMessageId, replies);
+  syncTracked(id, userMessageId, replies);
 
   let input: InterfaceToolInput | null = null;
   for (const message of replies) {
@@ -374,7 +467,9 @@ const CATALOGUE_SNAPSHOT_CHARS = 200_000;
 function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]) {
   const session = useChatLabStore.getState().sessions[sessionId];
   const active = getActiveArtefact(session);
-  if (!active) return undefined;
+  // A tracked interface isn't what's being made: it goes with every turn on its own (trackedForRequest).
+  // A closed one is out of context altogether.
+  if (!active || roleOf(active) === "track" || !inUse(sessionId, active.id)) return undefined;
 
   const users = messages.filter((message) => message.role === "user");
   const lastUser = users.at(-1);
@@ -390,6 +485,7 @@ function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]
   if (catalogueKind) {
     const value = JSON.stringify(artefactCatalogueValue(active));
     return {
+      id: active.id,
       kind: catalogueKind,
       title: active.title,
       ...(value.length <= CATALOGUE_SNAPSHOT_CHARS ? { value } : {}),
@@ -399,6 +495,7 @@ function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]
   // A library interface: tell the model what's open and what's in it, briefly.
   if (active.kind === "shell" && active.shell) {
     return {
+      id: active.id,
       kind: "shell" as const,
       title: active.title,
       label: SHELL_META[active.shell.kind].label,
@@ -411,10 +508,46 @@ function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]
   if (active.kind === "shell") return undefined;
 
   return {
+    id: active.id,
     kind: active.kind,
     title: active.title,
     filters: active.filters ?? [],
+    // Search results and canvas notes, as they are now: the history keeps no versions.
+    ...(active.content ? { content: active.content.slice(0, 20_000) } : {}),
   };
+}
+
+/** How many other interfaces the model sees at once: the newest, windows first. */
+const IN_VIEW = 6;
+
+/**
+ * Every other interface in use, so the model sees them all, not just the one
+ * used last: each with its id and what it holds now (its latest version
+ * only), whether it's in a window or in a recent reply. Windows come first,
+ * then the newest. Closed and minimized ones are left out; tracked ones go on
+ * their own (trackedForRequest).
+ */
+function openForRequest(sessionId: string, focusedId: string | undefined) {
+  const session = useChatLabStore.getState().sessions[sessionId];
+  if (!session) return undefined;
+  const order = Object.keys(session.artefacts);
+  const open = Object.values(session.artefacts)
+    .filter((artefact) => artefact.id !== focusedId && roleOf(artefact) !== "track" && inUse(sessionId, artefact.id))
+    .sort((a, b) => Number(isWindowOpen(session.layout, b.id)) - Number(isWindowOpen(session.layout, a.id)) || order.indexOf(b.id) - order.indexOf(a.id))
+    .slice(0, IN_VIEW);
+  if (!open.length) return undefined;
+  return open.map((artefact) => {
+    const kind = artefactCatalogueKind(artefact);
+    const label = artefact.shell ? SHELL_META[artefact.shell.kind].label : SHELL_META[artefact.kind === "moodboard" ? "moodboard" : artefact.kind === "shell" ? "document" : artefact.kind].label;
+    if (kind) {
+      const value = JSON.stringify(artefactCatalogueValue(artefact));
+      return { id: artefact.id, kind, label, title: artefact.title, ...(value.length <= CATALOGUE_SNAPSHOT_CHARS / 10 ? { value } : {}) };
+    }
+    const snapshot = artefact.shell
+      ? JSON.stringify(artefact.shell.data, (_key, value: unknown) => (typeof value === "string" && value.startsWith("data:") ? "[image]" : value)).slice(0, 2000)
+      : artefact.content.slice(0, 2000);
+    return { id: artefact.id, kind: artefact.shell ? ("shell" as const) : artefact.kind, label, title: artefact.title, snapshot };
+  });
 }
 
 function interfaceCandidatesForRequest(
@@ -483,6 +616,8 @@ export function getChatLabChat(id: string) {
         artefact,
         interfaceCandidates: interfaceCandidatesForRequest(id, messages),
         chatModes: chatModesForRequest(id, messages),
+        tracked: trackedForRequest(id),
+        open: openForRequest(id, artefact?.id),
       },
       };
     },

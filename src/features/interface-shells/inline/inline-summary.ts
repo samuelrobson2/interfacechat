@@ -66,6 +66,10 @@ export function inlineTitle(kind: ShellKind, data: ShellData): string {
 
 export function inlineDetail(kind: ShellKind, data: ShellData): string {
   switch (kind) {
+    case "notes": {
+      const lines = (data as ShellDataByKind["notes"]).body.split("\n").filter((line) => line.trim()).length;
+      return lines ? plural(lines, "note") : "Nothing noted yet";
+    }
     case "document": {
       const words = countWords(parseBlocks((data as ShellDataByKind["document"]).body));
       return words ? plural(words, "word") : "Nothing written yet";

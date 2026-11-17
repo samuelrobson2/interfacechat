@@ -181,6 +181,8 @@ export function AppSidebar({ className }: { className?: string }) {
   const isSandbox = useMatch({ path: ROUTES.WORKBENCH, end: true }) != null;
   const isThread = useMatch({ path: ROUTES.CHAT_LAB_SESSION, end: true }) != null;
   const isWorkbench = isSandbox || isThread;
+  // The chat home matches a thread: the menu in the top-left corner.
+  const isChatHome = useMatch({ path: ROUTES.CHAT_LAB, end: true }) != null;
 
   return (
     // Minimized by default: the rail stays collapsed and expands on hover (or
@@ -195,7 +197,7 @@ export function AppSidebar({ className }: { className?: string }) {
         isNewChat &&
           !isMobile &&
           "bottom-12 pointer-events-none [&>*]:pointer-events-auto",
-        isWorkbench && !isMobile && "md:top-3 md:left-3",
+        (isWorkbench || isChatHome) && !isMobile && "md:top-3 md:left-3",
         className,
       )}
     >

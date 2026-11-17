@@ -2,24 +2,33 @@ import { useEffect, useState } from "react";
 import type { ChatShellKind } from "@/features/interface-shells";
 
 /**
- * One small call once a request is typed on the chat home (`/api/interface-title`):
- * a short name for the interface it opened, since a request is often a long
- * sentence, and for the interfaces made of steps (Guide, Schedule) their first
- * few steps, which the card adds one at a time as suggestions, so it fills in
- * as you watch. Waits for a pause in typing; a newer request replaces it.
+ * The card names itself from the request at once, without the model
+ * (`parsePrompt`). One small call (`/api/interface-title`) runs only when it's
+ * needed: to condense a name that came out very long, and for the interfaces
+ * made of steps (Guide, Schedule) to write their first few steps, which the
+ * card adds one at a time as suggestions. Waits for a pause in typing; a newer
+ * request replaces it.
  */
 const SETTLE_MS = 900;
 const MIN_WORDS = 3;
 /** How far apart the steps arrive. */
 const STEP_MS = 260;
+/** Past this, the rules' name is too long for a title, and the model condenses it. */
+const LONG_CHARS = 42;
+const LONG_WORDS = 7;
+export const tooLongForTitle = (title: string) => title.length > LONG_CHARS || title.trim().split(/\s+/).length > LONG_WORDS;
+/** Interfaces that start with steps the model writes. */
+const STEPPED: ChatShellKind[] = ["guide", "schedule"];
 /** Interfaces whose title is their name (Search's is its query, Chat's the message). */
-const NAMED: ChatShellKind[] = ["document", "table", "schedule", "tracker", "reader", "guide", "generator", "dashboard", "calendar", "moodboard", "chart"];
+const NAMED: ChatShellKind[] = ["notes", "document", "table", "schedule", "tracker", "reader", "guide", "generator", "dashboard", "calendar", "moodboard", "chart"];
 
-export function useInterfaceName(kind: ChatShellKind | null, label: string, draft: string) {
-  const [named, setNamed] = useState<{ for: string; title: string; steps: string[] } | null>(null);
+export function useInterfaceName(kind: ChatShellKind | null, label: string, draft: string, ruleTitle: string) {
+  const [named, setNamed] = useState<{ for: string; title?: string; steps: string[] } | null>(null);
   const [shown, setShown] = useState(0);
   const request = draft.trim();
-  const active = Boolean(kind && NAMED.includes(kind) && request.split(/\s+/).length >= MIN_WORDS);
+  const long = Boolean(kind && NAMED.includes(kind) && tooLongForTitle(ruleTitle));
+  const stepped = Boolean(kind && STEPPED.includes(kind));
+  const active = Boolean(kind && (long || stepped) && request.split(/\s+/).length >= MIN_WORDS);
 
   useEffect(() => {
     if (!active || !kind) return;
@@ -28,12 +37,12 @@ export function useInterfaceName(kind: ChatShellKind | null, label: string, draf
       fetch("/api/interface-title", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind, label, prompt: request }),
+        body: JSON.stringify({ kind, label, prompt: request, want: { title: long, steps: stepped } }),
         signal: controller.signal,
       })
         .then((response) => (response.ok ? response.json() : null))
         .then((body: { title?: string; steps?: string[] } | null) => {
-          if (!body?.title) return;
+          if (!body || (!body.title && !body.steps?.length)) return;
           setNamed({ for: `${kind}:${request}`, title: body.title, steps: body.steps ?? [] });
           setShown(0);
         })
@@ -43,7 +52,7 @@ export function useInterfaceName(kind: ChatShellKind | null, label: string, draf
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [active, kind, label, request]);
+  }, [active, long, stepped, kind, label, request]);
 
   // The steps arrive one by one.
   const total = named?.steps.length ?? 0;
@@ -55,5 +64,6 @@ export function useInterfaceName(kind: ChatShellKind | null, label: string, draf
 
   // Kept until a new name lands, so the title doesn't flicker back while they type on; dropped with the interface.
   const current = active && named?.for.startsWith(`${kind}:`) ? named : null;
-  return { title: current?.title, steps: current ? current.steps.slice(0, shown) : [] };
+  // The condensed name only stands while the rules' one is still too long.
+  return { title: long ? current?.title : undefined, steps: current ? current.steps.slice(0, shown) : [] };
 }

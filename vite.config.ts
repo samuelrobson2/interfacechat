@@ -94,10 +94,18 @@ async function handleApi(
       body = Buffer.concat(chunks);
     }
 
+    // A request the browser drops (a newer one replaced it) stops its model
+    // call too, as it does on Vercel, rather than running on and holding up
+    // the rest.
+    const aborted = new AbortController();
+    res.on("close", () => {
+      if (!res.writableFinished) aborted.abort();
+    });
     const request = new Request(`http://localhost/api/${name}${queryString}`, {
       method,
       headers,
       body,
+      signal: aborted.signal,
     });
 
     const response = await handler(request);

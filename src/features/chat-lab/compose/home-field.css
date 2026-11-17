@@ -1,0 +1,105 @@
+/* The chat home's tiles. The icon by the title stays still. The glyphs (the
+ * shapes drawn in the interaction area: a Bar marked data-shell-ink, or, where
+ * an interface draws its own, the body's contents) draw themselves in when the
+ * tile lands, and on hover the whole card lifts while they ripple a little.
+ * Colours never change: only position and scale. */
+
+[data-home-tile] [data-home-card] {
+  transition:
+    transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The glyphs: bars, or the body's own pieces where it draws no bars. */
+[data-home-tile]:not([data-open]) [data-shell-part="body"] [data-shell-ink],
+[data-home-tile]:not([data-open]) [data-shell-part="body"]:not(:has([data-shell-ink])) > * {
+  transform-origin: left center;
+  transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: calc(var(--ink-step, 0) * 30ms);
+}
+
+/* In flight: drawn in only once the tile's in place. */
+[data-home-tile]:not([data-landed]):not([data-open]) [data-shell-part="body"] [data-shell-ink],
+[data-home-tile]:not([data-landed]):not([data-open]) [data-shell-part="body"]:not(:has([data-shell-ink])) > * {
+  opacity: 0;
+}
+
+/* Landing: each bar grows from its left end, one after another; other pieces rise into place. */
+[data-home-tile][data-landing] [data-shell-part="body"] [data-shell-ink] {
+  animation: home-ink-draw 560ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  animation-delay: calc(var(--ink-step, 0) * 55ms);
+}
+[data-home-tile][data-landing] [data-shell-part="body"]:not(:has([data-shell-ink])) > * {
+  animation: home-ink-rise 560ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  animation-delay: calc(var(--ink-step, 0) * 55ms);
+}
+
+@keyframes home-ink-draw {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes home-ink-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* One after another, down the list: the step the landing and the hover ripple are delayed by. */
+[data-home-tile] [data-shell-part="body"] :nth-child(1) { --ink-step: 0; }
+[data-home-tile] [data-shell-part="body"] :nth-child(2) { --ink-step: 1; }
+[data-home-tile] [data-shell-part="body"] :nth-child(3) { --ink-step: 2; }
+[data-home-tile] [data-shell-part="body"] :nth-child(4) { --ink-step: 3; }
+[data-home-tile] [data-shell-part="body"] :nth-child(5) { --ink-step: 4; }
+[data-home-tile] [data-shell-part="body"] :nth-child(6) { --ink-step: 5; }
+[data-home-tile] [data-shell-part="body"] :nth-child(n + 7) { --ink-step: 6; }
+
+@media (hover: hover) {
+  [data-home-tile][data-landed]:not([data-open]):not([data-peek]):hover [data-home-card] {
+    transform: translateY(-4px) scale(1.035) rotate(-0.6deg);
+    box-shadow: 0 14px 30px rgb(26 23 24 / 0.14);
+  }
+  [data-home-tile][data-landed]:not([data-open]):not([data-peek]):active [data-home-card] {
+    transform: translateY(-1px) scale(0.99);
+    transition-duration: 120ms;
+  }
+  /* The glyphs ripple: each bar shortens a touch and slides along, one after another. */
+  [data-home-tile][data-landed]:not([data-open]):not([data-peek]):hover [data-shell-part="body"] [data-shell-ink] {
+    transform: translateX(3px) scaleX(0.9);
+  }
+  [data-home-tile][data-landed]:not([data-open]):not([data-peek]):hover [data-shell-part="body"]:not(:has([data-shell-ink])) > * {
+    transform: translateY(-2px) scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-home-tile] [data-home-card],
+  [data-home-tile] [data-shell-part="body"] [data-shell-ink],
+  [data-home-tile] [data-shell-part="body"]:not(:has([data-shell-ink])) > * {
+    animation: none !important;
+    transition: box-shadow 200ms ease;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* A peek, while its request types in: the card's sections wait, and come in one by one, top to
+ * bottom, once it's typed (PeekShell). The panel itself stays, so the card keeps its shape.
+ * Important: an interface's own fields fade themselves in as they mount (ShellField), and their
+ * inline opacity mustn't show them early and then again. */
+[data-peek-stage="typing"] [data-shell-part="tools"] > *,
+[data-peek-stage="typing"] [data-shell-part="body"] > *,
+[data-peek-stage="typing"] [data-shell-part="meta"] {
+  opacity: 0 !important;
+}

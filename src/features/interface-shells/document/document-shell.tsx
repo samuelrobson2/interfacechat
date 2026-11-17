@@ -107,7 +107,7 @@ export function DocumentShell({
 
   if (size === "medium") {
     return (
-      <ShellSurface size={size} surface={surface} className={className}>
+      <ShellSurface size={size} kind="document" surface={surface} className={className}>
         <DocumentPreview data={data} />
       </ShellSurface>
     );
@@ -115,7 +115,7 @@ export function DocumentShell({
 
   if (size === "medium-plus") {
     return (
-      <ShellSurface size={size} surface={surface} className={className}>
+      <ShellSurface size={size} kind="document" surface={surface} className={className}>
         <DocumentEditor
           density="compact"
           titleMark={mark && <ShellGlyph kind="document" className={SHELL_TITLE_GLYPH} />}

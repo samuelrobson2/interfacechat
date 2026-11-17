@@ -1,12 +1,12 @@
 import type { ModelMessage } from "ai";
 import { describe, expect, it } from "vitest";
-import { compactArtifactHistory } from "../artifact-history";
+import { compactArtifactHistory, LEFT_OUT } from "../artifact-history";
 
 const fill = (id: string, toolName: string, input: unknown): ModelMessage => ({
   role: "assistant",
   content: [{ type: "tool-call", toolCallId: id, toolName, input }],
 });
-const writes = { fill_document: "document", fill_table: "table", write_interface: "write" };
+const writes = ["fill_document", "fill_table", "write_interface", "update_interface"];
 const inputs = (messages: ModelMessage[]) =>
   messages
     .flatMap((message): unknown[] => (Array.isArray(message.content) ? message.content : []))
@@ -18,29 +18,24 @@ describe("compactArtifactHistory", () => {
     fill("1", "fill_document", { title: "Plan", body: "v1" }),
     { role: "user", content: "Longer" },
     fill("2", "fill_document", { title: "Plan", body: "v2" }),
-    fill("3", "fill_table", { title: "Costs", rows: [["a"]] }),
-    fill("4", "update_interface", { operations: [{ op: "replace", path: "/title", value: "Plan B" }] }),
+    fill("3", "fill_table", { id: "t1", title: "Costs", rows: [["a"]] }),
+    fill("4", "update_interface", { id: "t1", operations: [{ op: "replace", path: "/title", value: "Plan B" }] }),
+    fill("5", "notes_add", { lines: ["When: Saturday"] }),
   ];
 
-  it("keeps only the newest version of each interface", () => {
-    const out = inputs(compactArtifactHistory(history, { writes, open: null }));
-    expect(out[0]).toMatchObject({ title: "Plan", note: expect.stringContaining("Earlier version") });
-    expect(out[0]).not.toHaveProperty("body");
-    expect(out[1]).toEqual({ title: "Plan", body: "v2" });
-    expect(out[2]).toEqual({ title: "Costs", rows: [["a"]] });
-    // Small edits stay as they are.
-    expect(out[3]).toEqual({ operations: [{ op: "replace", path: "/title", value: "Plan B" }] });
-  });
-
-  it("leaves out the open interface's newest version too, since its contents are sent separately", () => {
-    const out = inputs(compactArtifactHistory(history, { writes, open: "document" }));
-    expect(out[1]).toMatchObject({ note: expect.stringContaining("given at the end") });
-    expect(out[2]).toEqual({ title: "Costs", rows: [["a"]] });
+  it("keeps no version of any interface in the history: only the call, its title and id", () => {
+    const out = inputs(compactArtifactHistory(history, { writes }));
+    expect(out[0]).toEqual({ title: "Plan", note: LEFT_OUT });
+    expect(out[1]).toEqual({ title: "Plan", note: LEFT_OUT });
+    expect(out[2]).toEqual({ id: "t1", title: "Costs", note: LEFT_OUT });
+    expect(out[3]).toEqual({ id: "t1", note: LEFT_OUT });
+    // Not a write to an interface's contents: left as it is.
+    expect(out[4]).toEqual({ lines: ["When: Saturday"] });
   });
 
   it("writes the same note every turn, so earlier turns stay a cacheable prefix", () => {
-    const once = compactArtifactHistory(history, { writes, open: null });
-    const later = compactArtifactHistory([...history, { role: "user", content: "Thanks" }], { writes, open: null });
+    const once = compactArtifactHistory(history, { writes });
+    const later = compactArtifactHistory([...history, fill("6", "fill_document", { title: "Plan", body: "v3" })], { writes });
     expect(JSON.stringify(later.slice(0, history.length))).toBe(JSON.stringify(once));
   });
 });

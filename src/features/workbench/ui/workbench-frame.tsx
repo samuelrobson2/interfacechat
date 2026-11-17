@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { ArrowLeft, ArrowRight, ChevronDown, Clock, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Clock, Minus, Plus, X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { SHELL_META, ShellGlyph } from "@/features/interface-shells";
 import { HighlightIcon } from "@/shared/assets/icons/general/Highlight";
@@ -286,6 +286,7 @@ export function WorkbenchFrame({
   controls,
   motion: frameMotion,
   dragHandle,
+  onMinimize,
   onClose,
   onHighlightEdit,
   ordinal,
@@ -298,8 +299,10 @@ export function WorkbenchFrame({
   controls: LayoutControls;
   motion: FrameMotion;
   dragHandle: { onPointerDown: (event: React.PointerEvent) => void; onClickCapture: (event: React.MouseEvent) => void };
-  /** Close puts it away in the top bar; it's never removed. */
-  onClose: () => void;
+  /** Minimize puts it away in the top bar, to bring back with a click. */
+  onMinimize: () => void;
+  /** Close takes it off the workbench; what it holds is kept. Chat has no close. */
+  onClose?: () => void;
   /** A change asked for on something highlighted in this interface. */
   onHighlightEdit: (quote: string, instruction: string) => void;
   /** 1, 2… when more than one interface of this kind is open. */
@@ -411,9 +414,14 @@ export function WorkbenchFrame({
         </HeaderButton>
         {!isChat && <NavControls id={instance.id} saveView={saveView} />}
         <LayoutButton instance={instance} entry={entry} controls={controls} />
-        <HeaderButton label={`Close ${SHELL_META[instance.kind].label.toLowerCase()} to the top bar`} onClick={onClose}>
-          <X className="size-4" strokeWidth={ICON_STROKE} />
+        <HeaderButton label={`Minimize ${SHELL_META[instance.kind].label.toLowerCase()} to the top bar`} onClick={onMinimize}>
+          <Minus className="size-4" strokeWidth={ICON_STROKE} />
         </HeaderButton>
+        {onClose && !isChat && (
+          <HeaderButton label={`Close ${SHELL_META[instance.kind].label.toLowerCase()}`} onClick={onClose}>
+            <X className="size-4" strokeWidth={ICON_STROKE} />
+          </HeaderButton>
+        )}
       </header>
       <div ref={bodyRef} className="relative min-h-0 flex-1 overflow-hidden">
         {children}

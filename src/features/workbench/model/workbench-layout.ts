@@ -56,6 +56,8 @@ export type LayoutChange =
    */
   | { type: "support"; id: InstanceId }
   | { type: "present"; id: InstanceId; presentation: Presentation }
+  /** Take it off the workbench altogether: no window, no icon in the strip. What it holds is kept, so it can be opened again. Chat can't be closed. */
+  | { type: "close"; id: InstanceId }
   /** Dragged somewhere. The presentation follows the region. `stacked` says how the main area is shared from then on. */
   | { type: "move"; id: InstanceId; region: Region; order: number; stacked?: boolean }
   /** Same presentation, the other side (or the other main slot: left is first, so the top when stacked). */
@@ -338,6 +340,13 @@ export function applyLayoutChange(
 
   const entry = layout.entries[change.id];
   if (!entry) return unchanged;
+
+  if (change.type === "close") {
+    if (entry.chat) return unchanged;
+    delete next.entries[change.id];
+    normalize(next);
+    return { layout: next, evicted: [], changed: true };
+  }
 
   let placement: Placement;
   switch (change.type) {

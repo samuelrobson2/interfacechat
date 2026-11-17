@@ -27,7 +27,8 @@ import { suggestValues } from "./model/suggest-values";
 import { blankFollowUp, blanksStillOpen, rewriteDocument, runTool } from "./model/toolbar-api";
 import { toolbarFixture } from "./model/toolbar-fixtures";
 import { useGeneratedTools, type ToolSource } from "./model/use-generated-tools";
-import { GenerativeToolbar, TOOLS_ATTRIBUTE } from "./ui/generative-toolbar";
+import { GenerativeToolbar } from "./ui/generative-toolbar";
+import { useSelectionIn } from "./ui/use-selection-in";
 
 /**
  * A test bed for the toolbar every large interface has: its standard tools,
@@ -97,47 +98,6 @@ function pick<T extends string>(value: string | null, options: readonly T[], fal
 const startingData = <K extends ToolbarKind>(kind: K, content: Content) =>
   toolbarFixture(kind, content === "empty" ? "empty" : "history");
 
-/** Text selected inside `root`, in a field or in rendered content. */
-function useSelectionIn(root: React.RefObject<HTMLElement | null>) {
-  const [selection, setSelection] = useState<string | null>(null);
-
-  useEffect(() => {
-    const read = () => {
-      const container = root.current;
-      if (!container) return;
-      const active = document.activeElement;
-      // Using a tool (a slider, the 2×2) isn't leaving the selection.
-      if (active?.closest(`[${TOOLS_ATTRIBUTE}]`)) return;
-      let text = "";
-      if (
-        (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
-        container.contains(active)
-      ) {
-        const { selectionStart: start, selectionEnd: end } = active;
-        if (start != null && end != null && end > start) text = active.value.slice(start, end);
-      } else {
-        const range = window.getSelection();
-        if (range && !range.isCollapsed && range.anchorNode && container.contains(range.anchorNode)) {
-          text = range.toString();
-        }
-      }
-      const next = text.trim().length > 1 ? text.trim() : null;
-      setSelection((current) => (current === next ? current : next));
-    };
-    document.addEventListener("selectionchange", read);
-    // Field selections don't fire selectionchange everywhere; these catch the rest.
-    document.addEventListener("mouseup", read);
-    document.addEventListener("keyup", read);
-    return () => {
-      document.removeEventListener("selectionchange", read);
-      document.removeEventListener("mouseup", read);
-      document.removeEventListener("keyup", read);
-    };
-  }, [root]);
-
-  return selection;
-}
-
 function Segmented<T extends string>({
   label,
   value,
@@ -186,7 +146,9 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content, source }: { kind: K;
   const [note, setNote] = useState<Note | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const selection = useSelectionIn(stage);
-  const { tools, placed, status, from, error, timing, regenerate, pin, dismiss: dismissTool } = useGeneratedTools(
+  // The action the last run used up, so Undo can bring it back.
+  const spent = useRef<string | null>(null);
+  const { tools, placed, status, from, error, timing, regenerate, markUsed, restore, dismiss: dismissTool } = useGeneratedTools(
     kind,
     data,
     { selection },
@@ -262,8 +224,9 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content, source }: { kind: K;
       const apply = tool.apply as ((data: Data, value: ToolValue) => Data) | undefined;
       const next = apply?.(data, value);
       const use = describeUse(tool, value);
-      // Used, it's the person's: it stays, at this value, and the model leaves it alone.
-      pin(tool.id, value);
+      // Used: an action is done, so it goes; a setting stays, at this value, and the model leaves it alone.
+      markUsed(tool, value);
+      spent.current = tool.type === "action" ? tool.id : null;
       if (next && JSON.stringify(next) !== JSON.stringify(data)) {
         setPrevious(data);
         setData(next);
@@ -281,7 +244,7 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content, source }: { kind: K;
             }));
       carryOut(data, tool.label, use, work);
     },
-    [data, kind, selection, pin, rewrite, carryOut],
+    [data, kind, selection, markUsed, rewrite, carryOut],
   );
 
   /**
@@ -319,6 +282,9 @@ function ToolbarLab<K extends ToolbarKind>({ kind, content, source }: { kind: K;
     if (!previous) return;
     setData(previous);
     setPrevious(null);
+    // Undone, the action that did it is offered again.
+    if (spent.current) restore(spent.current);
+    spent.current = null;
     setNote(null);
   };
 

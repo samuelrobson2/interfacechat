@@ -5,6 +5,10 @@ export const SHELL_META: Record<ShellKind, { label: string; description: string 
     label: "Chat",
     description: "A plain conversation: questions, ideas and quick answers.",
   },
+  notes: {
+    label: "Notes",
+    description: "A scratchpad for working something out: the goal, what's known and what's still open, a line at a time. The other interfaces are made from it.",
+  },
   document: {
     label: "Document",
     description: "Create and edit writing: papers, reports, memos, emails, with live stats, charts and tables between the paragraphs when it needs them.",

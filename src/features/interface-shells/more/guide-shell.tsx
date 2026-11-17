@@ -315,7 +315,7 @@ export function GuideShell({
   // Real steps keep their numbers; a suggestion between them has none, one after the last takes the next.
   const suggestedStep = (placed: PlacedSuggestion, at: number, number?: number) => (
     <li key={placed.value} data-shell-part="suggest" className={cn("flex min-w-0 items-start gap-2.5", large && "rounded-[14px] px-4 py-3")}>
-      <span className={cn("shrink-0 pt-0.5 font-bureau text-shell-suggest tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]")}>{number}</span>
+      <span className={cn("shrink-0 pt-0.5 font-bureau text-gradient-suggest tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]")}>{number}</span>
       <SuggestedText
         text={placed.value}
         onAccept={update && (() => update({ steps: [...data.steps.slice(0, at), { id: shellId("step"), text: placed.value, done: false }, ...data.steps.slice(at)] }))}

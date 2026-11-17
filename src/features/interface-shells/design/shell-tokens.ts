@@ -45,7 +45,7 @@ export const PART_META: Record<Part, { label: string; description: string }> = {
   },
   body: { label: "Interaction area", description: "The core of the interface: where the work happens." },
   meta: { label: "Detail", description: "The quiet line for a count or a length." },
-  suggest: { label: "Suggestions", description: "What the model offers, as the thing itself where it would go: violet words, the control's outline in violet, drawn content shimmering; generated tools in the toolbar." },
+  suggest: { label: "Suggestions", description: "What the model offers, as the thing itself where it would go: words in the suggestion gradient, the control's outline in violet, drawn content shimmering; generated tools in the toolbar." },
 };
 
 /**
@@ -130,6 +130,20 @@ export function shellVars(tokens: TokenGroup, size: string): Record<string, stri
   // The colour roles are the same at every size; set here too so an edit shows live.
   for (const role of primitives(tokens, "color")) vars[`--shell-color-${role.name}`] = String(resolveToken(tokens, role.value));
   return vars;
+}
+
+/**
+ * An interface's colour at medium and medium plus (the `tint` group): drawn as a
+ * border round its card, `width` thick. None when the file has no entry for it.
+ */
+export function tintOf(tokens: TokenGroup, kind: string): { border: string; width: string } | undefined {
+  const border = tokenAt(tokens, `tint.${kind}.border`);
+  if (!border) return undefined;
+  const width = tokenAt(tokens, "tint.width");
+  return {
+    border: String(resolveToken(tokens, border.$value)),
+    width: String(resolveToken(tokens, width?.$value ?? "2px")),
+  };
 }
 
 /** The parts that can be removed at a size: everything but the frame and the shared edge. */
@@ -230,7 +244,7 @@ export const SPEC_RULES: { group: string; rules: { rule: string; how: string }[]
     rules: [
       { rule: "A suggestion is the thing itself", how: "It takes the exact form of what it would become, where it would go: a checklist item is a checklist row, a schedule line is a line with its bar, a column is a header with its cells, a step is a step, writing is writing, a filter is a filter chip. Never a card, a list or a panel of its own." },
       { rule: "It can be whole content, not just a value", how: "A sentence, a step, a line, a row, a column: whatever the interface is made of can be suggested, at the size it would really be." },
-      { rule: "Two marks, and only these", how: "Its words are in the suggestion colour (violet, #6a4cc9). The control it would get, a checkbox, a tick, a chip's edge, is drawn with a violet or AI outline. No + icons in text, no badges, no labels saying 'suggested'." },
+      { rule: "Two marks, and only these", how: "Its words are in the suggestion gradient (violet into blue and a deep rose, every stop 4.5:1 or better: text-gradient-suggest). The control it would get, a checkbox, a tick, a chip's edge, is drawn with a violet or AI outline. No + icons in text, no badges, no labels saying 'suggested'." },
       { rule: "What isn't words shimmers", how: "Drawn content (a schedule bar, a table cell, a swatch) shimmers in the suggestion colour where it would go (shell-suggest-shimmer), so it reads as proposed, not real. Still when motion is reduced." },
       { rule: "In an empty list, suggestions fill the placeholders", how: "An empty list's placeholder rows (Step 1, Item 1, Task 1) are where suggestions go: each suggestion takes the next placeholder's place and number as it arrives, and only what isn't suggested yet stays a placeholder (ghostsAfter). Never placeholders above and suggestions numbered again below." },
       { rule: "Chips keep the AI outline", how: "A chip among chips (a filter, a tone, a constraint) is the same chip with violet words, a + and the AI gradient outline: the outline marks the control, the colour the words." },
@@ -238,11 +252,11 @@ export const SPEC_RULES: { group: string; rules: { rule: string; how: string }[]
       { rule: "Use it to accept it", how: "Click its words (or Enter); it becomes ordinary content and the violet and shimmer go. × on hover dismisses it, and it isn't offered again. Every suggestion is a real button with a name (\"Suggested: … Add it\")." },
       { rule: "Medium plus and large only", how: "Medium is a glance: no tools, no suggestions." },
       { rule: "What the request says shows in the interface", how: "Typed on the chat home, a request fills the interface's own controls: a time goes in Guide's Time, \"for six\" in Serves, words like vegetarian or quick become facts. Never left only in the prompt." },
-      { rule: "What it doesn't say is suggested in the control", how: "Numbers and amounts the interface has a control for (how many people, how long) are standard controls, not questions: the guess sits in the control in violet until they set it or the request says. Questions are only for what has no control (who it's for, their level)." },
+      { rule: "What it doesn't say is suggested in the control", how: "Numbers and amounts the interface has a control for (how many people, how long) are standard controls, not questions: the guess sits in the control in the suggestion gradient until they set it or the request says. Questions are only for what has no control (who it's for, their level)." },
       { rule: "The request stays as they typed it", how: "Choices picked on the card and edits made on it never rewrite the prompt: edits stay on the card, picks go with the interface as context for the first reply. Choices can be picked and unpicked; none starts picked." },
       { rule: "The interface names itself", how: "Once they pause typing, one small call names the card (a few words: the dish, the subject, not the request) and, for interfaces made of steps, adds its first steps one by one as suggestions. Their own title always wins." },
       { rule: "Every interface shows its icon by its title", how: "At medium, medium plus and large (Search's sits in its query box). A host whose own frame shows the icon can turn it off (ShellMarkContext)." },
-      { rule: "Generated tools go in the toolbar, after the standard ones", how: "In the same row as the standard tools, as chips after a divider, at medium plus and large; never folded into a group. When the row is longer than the toolbar it scrolls: move the pointer towards either end and it glides that way, with a fade showing there's more (wheel, trackpad and Tab work too)." },
+      { rule: "Generated tools go in the toolbar, after the standard ones", how: "In the same row as the standard tools, as chips after a divider, at medium plus and large; never folded into a group. A chip is a step smaller than the standard tools (tools.generated-height: 24px at medium plus, 28px at large) and has no shadow: the AI outline is what marks it. When the row is longer than the toolbar it scrolls: move the pointer towards either end and it glides that way, with a fade showing there's more (wheel, trackpad and Tab work too)." },
       { rule: "Or beside what they act on", how: "A tool with a place sits in that part instead: Schedule's pace by the day settings, Generator's prompt tools in the prompt box. Never in Document's word count. At most three per place (PER_PLACE)." },
       { rule: "Accessible like everything else", how: "Violet text is 6:1 on panel and 5.4:1 on fill; the tests enforce it, and axe runs on every interface with suggestions in place." },
     ],

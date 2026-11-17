@@ -72,7 +72,8 @@ export const TOOLS_ATTRIBUTE = "data-generative-tools";
 
 const CARD_WIDTH = 188;
 const CARD_HEIGHT = 92;
-const CHIP_HEIGHT: Record<ToolSize, number> = { sm: 30, md: 36 };
+/** In an interface, a chip takes its size's generated-height token (a step under the standard tools); elsewhere these. */
+const CHIP_HEIGHT: Record<ToolSize, string> = { sm: "var(--shell-tools-generated-height, 30px)", md: "36px" };
 const EASE = [0.23, 1, 0.32, 1] as const;
 /** The violet that marks a tool's live value. */
 const VALUE_TEXT = "text-[#6a4cc9]";
@@ -112,7 +113,8 @@ function ChipFrame({
     <SurfaceFrame
       asChild
       gradientStroke="always"
-      className="shrink-0 rounded-full [--hairline-radius:999px] hover:shadow-elevated-hover"
+      // No shadow: the AI outline already marks it as offered.
+      className="shrink-0 rounded-full shadow-none [--hairline-radius:999px]"
     >
       {button ? (
         <button type="button" {...props} className={classes} style={style}>
@@ -476,7 +478,7 @@ function ToolSkeleton({ style, size, index }: { style: ToolStyle; size: ToolSize
     <SurfaceFrame
       gradientStroke="always"
       aria-hidden
-      className={cn("shrink-0", style === "chip" && "rounded-full [--hairline-radius:999px]")}
+      className={cn("shrink-0", style === "chip" && "rounded-full shadow-none [--hairline-radius:999px]")}
       style={
         style === "chip"
           ? { width: width + 28, height: CHIP_HEIGHT[size] }
@@ -617,7 +619,7 @@ export function GenerativeToolbar<D>({
         disabled={generating}
         className={cn(
           "grid shrink-0 cursor-pointer place-items-center rounded-full text-[#6a4cc9] transition-colors hover:bg-white/60 disabled:opacity-40",
-          column ? "size-8 self-center" : size === "sm" ? "size-7" : "size-8",
+          column ? "size-8 self-center" : size === "sm" ? "size-[var(--shell-tools-generated-height,28px)]" : "size-8",
         )}
       >
         <RefreshCw className={cn("size-3.5", generating && "animate-spin")} strokeWidth={1.75} />

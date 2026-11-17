@@ -238,12 +238,13 @@ function EditableGrid({
 
   return (
     // Its own rounded box, clipped on every side, so the header row sits wholly inside it; wide tables scroll within.
-    <div className="no-scrollbar flex min-h-0 flex-1 overflow-x-auto rounded-[8px]">
+    // It fills the room there is, but never less than its rows' height: with less, the panel scrolls instead.
+    <div className="no-scrollbar flex flex-[1_0_auto] overflow-x-auto rounded-[8px]">
       <div
         className="grid min-h-0 w-max min-w-full shrink-0 gap-px overflow-hidden rounded-[8px] bg-shell-ink-faint"
         style={{
           gridTemplateColumns: template,
-          gridTemplateRows: "30px repeat(4, minmax(0, 1fr))",
+          gridTemplateRows: "30px repeat(4, minmax(28px, 1fr))",
         }}
       >
         {data.columns.map((column, index) => {
@@ -503,8 +504,13 @@ export function TableShell({
           {titleField(false)}
         </div>
         <ShellToolbar tools={tools} actions={actions}>{standardTools}</ShellToolbar>
-        {/* The grid sits in the panel with room on every side, as on the medium card. */}
-        <div data-shell-part="body" className={cn("flex min-h-0 flex-1 flex-col", SHELL_BODY_BOX, CONTENT_PANEL)}>
+        {/* The grid sits in the panel with room on every side, as on the medium card. The panel scrolls: what's
+            above the grid (the choices on the chat home) pushes it down rather than squeezing its rows. */}
+        <div
+          data-shell-part="body"
+          tabIndex={0}
+          className={cn("no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50", SHELL_BODY_BOX, CONTENT_PANEL)}
+        >
           {/* On the chat home: what the request leaves open, above the columns it shapes. */}
           {suggestions?.brief}
           {/* Suggested columns, offered in a header once they start typing its name. */}

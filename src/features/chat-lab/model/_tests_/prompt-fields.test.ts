@@ -49,6 +49,17 @@ describe("parsePrompt", () => {
     expect(data.filters).toEqual(["in North Beach"]);
   });
 
+  it("reads columns from a list at the end ('by price and range')", () => {
+    const { data } = parsePrompt("table", "Make a table comparing electric cars sold in the UK by price, range and charging time");
+    expect(data.columns.map((column) => column.label)).toEqual(["Price", "Range", "Charging time"]);
+    expect(data.title).toBe("Electric cars sold in the UK");
+  });
+
+  it("leaves a single word after 'by' in the title", () => {
+    const { data } = parsePrompt("table", "Make a table of launches due by Friday");
+    expect(data.title).toContain("Friday");
+  });
+
   it("reads a table's title and columns, with the 'each' word first", () => {
     const { data } = parsePrompt(
       "table",

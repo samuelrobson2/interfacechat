@@ -58,6 +58,13 @@ describe("colour contrast (WCAG 1.4.3, 1.4.11)", () => {
   it.each(BACKGROUNDS)("suggested text is 4.5:1 or better on %s", (bg) => {
     expect(contrast(surface("suggest"), surface(bg))).toBeGreaterThanOrEqual(4.5);
   });
+  it.each(BACKGROUNDS)("every colour in the suggestion gradient is 4.5:1 or better on %s", (bg) => {
+    const css = readFileSync(join(process.cwd(), "src/app/styles/gradients.css"), "utf8");
+    const block = css.slice(css.indexOf("@utility text-gradient-suggest"), css.indexOf("}", css.indexOf("@utility text-gradient-suggest")));
+    const stops = [...block.matchAll(/#[0-9a-f]{6}/gi)].map((m) => m[0]);
+    expect(stops.length).toBeGreaterThan(1);
+    for (const stop of stops) expect(contrast(rgba(stop).slice(0, 3), surface(bg)), stop).toBeGreaterThanOrEqual(4.5);
+  });
   it.each(["panel", "fill"] as const)("a control's outline is 3:1 or better on %s", (bg) => {
     expect(contrast(surface("control"), surface(bg))).toBeGreaterThanOrEqual(3);
   });

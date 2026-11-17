@@ -168,6 +168,17 @@
   color: transparent;
 }
 
+/* A suggestion's words, in the interfaces: the AI hues, each stop dark enough
+ * to read at 4.5:1 or better on the panel, the fill and the frame (the
+ * accessibility test checks every stop). Violet into blue into a deep rose, across each run of words. */
+@utility text-gradient-suggest {
+  background-image: linear-gradient(90deg, #6a4cc9 0%, #2f6f9e 50%, #8f5a86 100%);
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 @keyframes ai-text-shimmer {
   0% {
     background-position: 0% 50%;

@@ -35,7 +35,7 @@ export function SuggestedChip({
     <span
       data-shell-part="suggest"
       className={cn(
-        // The same chip as the real ones beside it (fill, size, shape); its words in violet and the AI outline say it's a suggestion.
+        // The same chip as the real ones beside it (fill, size, shape); its words in the suggestion gradient and the AI outline say it's a suggestion.
         "group/suggested relative inline-flex shrink-0 items-center rounded-full bg-shell-fill font-bureau whitespace-nowrap text-shell-suggest",
         // Inside an interface, the design system's chip size for the size it's drawn at.
         size === "sm"
@@ -59,7 +59,7 @@ export function SuggestedChip({
         className={cn("flex h-full items-center gap-1", size === "sm" ? "pl-1.5" : "pl-2", onDismiss ? "pr-0.5" : size === "sm" ? "pr-2" : "pr-2.5")}
       >
         <Plus className={size === "sm" ? "size-3" : "size-3.5"} />
-        {label}
+        <span className="text-gradient-suggest">{label}</span>
       </button>
       {onDismiss && (
         <button
@@ -114,7 +114,8 @@ export function SuggestedText({
         onAccept?.();
       }}
       className={cn(
-        "-mx-1 block rounded-[6px] px-1 text-left text-shell-suggest transition-colors enabled:cursor-pointer enabled:hover:bg-shell-suggest/8 focus-visible:ring-2 focus-visible:ring-shell-suggest/40 focus-visible:outline-none",
+        // The words in the suggestion gradient; the hover wash and focus ring stay violet.
+        "-mx-1 block rounded-[6px] px-1 text-left text-gradient-suggest transition-colors enabled:cursor-pointer enabled:hover:bg-shell-suggest/8 focus-visible:ring-2 focus-visible:ring-shell-suggest/40 focus-visible:outline-none",
         className,
       )}
     >

@@ -8,7 +8,7 @@ import {
 } from "./generate-tools";
 import { describeChanges, streamToolDiff } from "./toolbar-api";
 import { placeOf } from "./tool-places";
-import { applyDiff, clearUnpinned, dismissTool, emptyTable, pinTool, visibleTools, type ToolTable } from "./tool-table";
+import { applyDiff, clearUnpinned, dismissTool, emptyTable, pinTool, restoreTool, spendTool, visibleTools, type ToolTable } from "./tool-table";
 import type { ToolValue } from "./tool-spec";
 
 /** How long the content has to sit still before the toolbar rethinks. The first look goes almost at once. */
@@ -46,7 +46,9 @@ function rulesTable<D>(kind: ToolbarKind, table: ToolTable<D>, all: GeneratedToo
  * and merges each as it streams in. So tools arrive one by one, a changed tool
  * updates in place, and the rest keep their places.
  *
- * - `pin` marks a tool as the person's once used: the model leaves it alone.
+ * - `markUsed` records a tool being used: an action is done, so it goes (`restore`
+ *   brings it back on Undo); a setting is pinned, the person's, at its value.
+ * - `pin` marks a tool as the person's: the model leaves it alone.
  * - `dismiss` closes a tool for good: the model won't offer it again.
  * - `regenerate` clears every open tool and asks for others.
  * - With `source: "rules"`, or when the model can't be reached, the
@@ -58,6 +60,10 @@ export function useGeneratedTools<K extends ToolbarKind>(
   context: ToolContext,
   count: number,
   source: ToolSource = "rules",
+  /** Off: nothing is asked for and the table stays as it is (an interface too small for tools, or tools turned off). */
+  enabled = true,
+  /** How long the content sits still before the model is asked, first look included: longer where it changes as someone types. */
+  settleMs?: number,
 ) {
   type D = ToolbarDataByKind[K];
   const [table, setTable] = useState<ToolTable<D>>(emptyTable);
@@ -80,16 +86,17 @@ export function useGeneratedTools<K extends ToolbarKind>(
   const judged = useRef<D | null>(null);
 
   // The rules' set: instant, and the fallback when the model can't be reached.
-  const rules = useMemo(() => generateTools(kind, data, { selection }), [kind, data, selection]);
+  const rules = useMemo(() => (enabled ? generateTools(kind, data, { selection }) : []), [enabled, kind, data, selection]);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     const fallBack = () => {
       setTable((current) => rulesTable(kind, current, rules, count, round));
       setFrom("rules");
       setStatus("ready");
     };
-    const delay = source === "rules" ? SETTLE_MS.rules : asked.current ? SETTLE_MS.model : SETTLE_MS.first;
+    const delay = source === "rules" ? SETTLE_MS.rules : settleMs ?? (asked.current ? SETTLE_MS.model : SETTLE_MS.first);
     const timer = window.setTimeout(() => {
       asked.current = true;
       setStatus("generating");
@@ -129,7 +136,7 @@ export function useGeneratedTools<K extends ToolbarKind>(
       window.clearTimeout(timer);
     };
     // `rules` changes with kind, data and selection; avoid only matters with the round that set it.
-  }, [rules, source, count, round]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enabled, rules, source, count, round]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const regenerate = useCallback(() => {
     const { table: kept, cleared } = clearUnpinned(tableRef.current);
@@ -139,8 +146,14 @@ export function useGeneratedTools<K extends ToolbarKind>(
   }, []);
 
   const pin = useCallback((id: string, value?: ToolValue) => setTable((current) => pinTool(current, id, value)), []);
+  const markUsed = useCallback(
+    (tool: GeneratedTool<D>, value?: ToolValue) =>
+      setTable((current) => (tool.type === "action" ? spendTool(current, tool.id) : pinTool(current, tool.id, value))),
+    [],
+  );
+  const restore = useCallback((id: string) => setTable((current) => restoreTool(current, id)), []);
   const dismiss = useCallback((id: string) => setTable((current) => dismissTool(current, id)), []);
 
   const shown = useMemo(() => visibleTools(kind, table, count), [kind, table, count]);
-  return { ...shown, status, from, error, timing, regenerate, pin, dismiss };
+  return { ...shown, status, from, error, timing, regenerate, pin, markUsed, restore, dismiss };
 }

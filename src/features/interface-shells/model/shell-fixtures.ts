@@ -5,6 +5,7 @@ import { GENERATOR_EMPTY, GENERATOR_FIXTURES } from "./shell-fixtures-generator"
 import { fillToShellData } from "./shell-fill";
 import type {
   DocumentShellData,
+  NotesShellData,
   SearchShellData,
   ShellDataByKind,
   ShellKind,
@@ -22,6 +23,29 @@ export type ShellFixture<K extends ShellKind> = {
 };
 
 const emptyDocument: DocumentShellData = { title: "", body: "" };
+
+const emptyNotes: NotesShellData = { title: "", body: "" };
+
+const notesFixture: ShellFixture<"notes"> = {
+  suggestionPrompt: "Help me plan a half-day shoot for our skincare brand next Thursday",
+  history: { chatTitle: "Skincare shoot", when: "Yesterday" },
+  states: {
+    empty: emptyNotes,
+    suggestion: { title: "Skincare shoot", body: "Goal: plan a half-day marketing shoot\nWhen: next Thursday\nLength: half day" },
+    history: {
+      title: "Skincare shoot",
+      body: [
+        "Goal: plan a half-day marketing shoot for the skincare brand",
+        "When: next Thursday, 9am to 1pm",
+        "Shots: 3 product shots, 2 lifestyle scenes",
+        "Cast: one model (Ana)",
+        "Location: a rented loft in the Mission",
+        "Decided: natural light only, no flash",
+        "Open: who brings the props?",
+      ].join("\n"),
+    },
+  },
+};
 
 const documentFixture: ShellFixture<"document"> = {
   suggestionPrompt: "Write a paper on urban heat islands",
@@ -233,6 +257,7 @@ const tableFixture: ShellFixture<"table"> = {
 };
 
 export const SHELL_FIXTURES: { [K in ShellKind]: ShellFixture<K> } = {
+  notes: notesFixture,
   document: documentFixture,
   search: searchFixture,
   table: tableFixture,
@@ -243,6 +268,7 @@ export const SHELL_FIXTURES: { [K in ShellKind]: ShellFixture<K> } = {
 };
 
 export const EMPTY_SHELL_DATA: { [K in ShellKind]: ShellDataByKind[K] } = {
+  notes: emptyNotes,
   document: emptyDocument,
   search: emptySearch,
   table: emptyTable,

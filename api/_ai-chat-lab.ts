@@ -20,6 +20,14 @@ import {
   type CatalogueKind,
   type CatalogueValue,
 } from "../src/features/interface-shells/model/shell-catalogue.js";
+import {
+  applyRoleTool,
+  PROGRESS_START,
+  roleSpec,
+  rulesFor,
+  type InPlay,
+} from "../src/features/interface-shells/model/interface-roles.js";
+import type { InterfaceRole, ShellKind } from "../src/features/interface-shells/model/shell-types.js";
 import { chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT } from "./_chat-lab.js";
 import { compactArtifactHistory } from "../src/features/chat-lab/model/artifact-history.js";
 import {
@@ -34,19 +42,91 @@ import {
 // pharos backend. Requires OPENAI_API_KEY; OPENAI_CHAT_MODEL picks the model.
 export const maxDuration = 60;
 
-type InterfaceKind = "document" | "search" | "table" | "moodboard" | "tracker" | "dashboard";
+type InterfaceKind = "document" | "search" | "table" | "moodboard" | CatalogueKind;
 
 type ArtefactContext = {
+  /** Its id in the thread, so tools can name it. */
+  id?: string;
   kind: InterfaceKind | "shell";
   title: string;
   /** A catalogue interface's contents, as JSON in its schema's shape. */
   value?: string;
   /** Active filter chips already on the search interface. */
   filters?: string[];
+  /** Search and Canvas: what they hold now, as text. */
+  content?: string;
   /** kind "shell": which library interface is open, and its contents as JSON. */
   label?: string;
   snapshot?: string;
 };
+
+/** Another interface open beside the chat (not the one used last, not a tracked one): the model sees it too. */
+type OpenContext = { id: string; kind: InterfaceKind | "shell"; label: string; title: string; value?: string; snapshot?: string };
+
+/** An interface the thread keeps current (Notes, a progress tracker), sent every turn whatever is open. */
+type TrackedContext = { id: string; kind: ShellKind; role: InterfaceRole; label: string; title: string; data: unknown };
+
+/**
+ * The tools of each tracked interface, from its role spec. Each call is run
+ * against the interface's data here, so the model hears what changed (or what
+ * to fix), and the app applies the same call to the interface.
+ */
+function trackedTools(tracked: TrackedContext[]): ToolSet {
+  const tools: ToolSet = {};
+  for (const entry of tracked) {
+    const spec = roleSpec(entry.kind, entry.role);
+    let current = entry.data;
+    for (const roleTool of spec?.tools ?? []) {
+      tools[roleTool.name] = tool({
+        description: `${roleTool.description} (${entry.label} "${entry.title}")`,
+        inputSchema: roleTool.input as z.ZodType<Record<string, unknown>>,
+        execute: async (input: unknown) => {
+          const result = applyRoleTool(roleTool.name, current, input);
+          if (!result.ok) return { ok: false as const, error: result.error };
+          current = result.data;
+          return { ok: true as const, summary: result.summary };
+        },
+      });
+    }
+  }
+  // Notes tracked and no progress tracker yet: the model can start one for the goal's stages.
+  if (tracked.some((entry) => entry.kind === "notes") && !tracked.some((entry) => entry.kind === "tracker")) {
+    tools[PROGRESS_START.name] = tool({
+      description: PROGRESS_START.description,
+      inputSchema: PROGRESS_START.input,
+      execute: async ({ stages }) => ({ ok: true as const, summary: `Started with ${stages.length} stages.` }),
+    });
+  }
+  return tools;
+}
+
+/** What every interface in view is, with its id, so a write can name the one it's for. */
+function inViewAddon(inView: { id: string; label: string; title: string; focused: boolean }[], others: OpenContext[]) {
+  const rest = others.filter((entry) => !inView.some((view) => view.id === entry.id));
+  if (inView.length + rest.length < 2 && !inView.some((entry) => !entry.focused)) return null;
+  return `Interfaces in this thread, in a window or in the reply that made them (what each holds now is at the end of the conversation):
+${[...inView.map((entry) => `- id=${entry.id}: ${entry.label} "${entry.title}"${entry.focused ? " (the one they used last)" : ""}`), ...rest.map((entry) => `- id=${entry.id}: ${entry.label} "${entry.title}" (read it; you can't write to it)`)].join("\n")}
+- Work on the ones the request is about. To change part of one, call update_interface with its id; to rewrite one, call its fill tool with its id; leave the id out of a fill to make a new one.
+- Keep what they say in one consistent across the others (a time moved in the schedule moves in the shot list).`;
+}
+
+/** Another open interface's contents, after the conversation. */
+const openContents = (entry: OpenContext): string | null => {
+  if (isCatalogueKind(entry.kind) && entry.value) return `The open ${CATALOGUE[entry.kind].label} "${entry.title}" (id=${entry.id}), as it is now (JSON, list positions start at 0):\n${entry.value}`;
+  if (entry.snapshot) return `The open ${entry.label} "${entry.title}" (id=${entry.id}), as it is now (JSON):\n${entry.snapshot}`;
+  return null;
+};
+
+/** What the tracked interfaces hold now, after the conversation (they change every turn). */
+const trackedContents = (tracked: TrackedContext[]) =>
+  tracked.length
+    ? `Tracked interfaces, as they are now:\n\n${tracked
+        .map((entry) => {
+          const spec = roleSpec(entry.kind, entry.role);
+          return spec ? spec.contents(entry.data) : `${entry.label} "${entry.title}"`;
+        })
+        .join("\n\n")}`
+    : null;
 
 type InterfaceCandidate = {
   /** "format" shapes the reply; only an "interface" opens. */
@@ -63,6 +143,9 @@ const PART_WORDS: Record<CatalogueKind, string> = {
   table: "a cell, row or column",
   tracker: "an item, an owner, what's done",
   dashboard: "a block, a chart's type, a filter, a dataset's label",
+  guide: "a step, an amount, a fact such as Serves",
+  schedule: "a task's time or day, a constraint, the hours",
+  generator: "the prompt, a control such as tone or style, a variation",
 };
 
 /** A catalogue interface that's open: how to fill it and how to change part of it. */
@@ -87,7 +170,6 @@ ${contents}
 Routing rules:
 - To write it or rewrite most of it, call ${entry.tool}. It appears in the ${name} as you write it.
 ${change}
-${entry.guidance.map((line) => `- ${line}`).join("\n")}
 - Keep chat messages short: what you did, or a question. Do not paste the ${name} into chat.
 - If the user is just chatting, reply in chat only and skip the tools.`;
 };
@@ -103,6 +185,9 @@ const artefactContents = (artefact: ArtefactContext): string | null => {
   }
   if (artefact.kind === "shell") {
     return `The open ${artefact.label ?? "library"} interface "${artefact.title}", as it is now (JSON):\n${artefact.snapshot ?? "{}"}`;
+  }
+  if (artefact.content) {
+    return `The open ${artefact.kind === "search" ? "Search" : "Canvas"} "${artefact.title}", as it is now:\n${artefact.content}`;
   }
   return null;
 };
@@ -254,10 +339,16 @@ export async function POST(req: Request) {
     artefact,
     interfaceCandidates,
     chatModes,
+    tracked: trackedInput,
+    open: openInput,
   }: {
     messages: UIMessage[];
     system?: string;
     artefact?: ArtefactContext | null;
+    /** Interfaces this thread keeps current, whatever is open. */
+    tracked?: TrackedContext[] | null;
+    /** Every other interface open beside the chat. */
+    open?: OpenContext[] | null;
     interfaceCandidates?: InterfaceCandidate[] | null;
     /** From a Chat card: who replies (each turn) and how the first reply is laid out. */
     chatModes?: { persona?: { label: string; instruction: string }; format?: string } | null;
@@ -265,6 +356,41 @@ export async function POST(req: Request) {
   const model = chatLabModel();
   const baseSystem = system?.trim() || DEFAULT_CHAT_LAB_SYSTEM_PROMPT;
   const candidates = interfaceCandidates?.slice(0, 5) ?? [];
+  const tracked = (trackedInput ?? []).filter((entry) => roleSpec(entry.kind, entry.role));
+  const others = (openInput ?? []).slice(0, 6);
+
+  // Every catalogue interface in view (the one used last and the others open), by id, with what it holds now.
+  const parse = (kind: CatalogueKind, value?: string) => {
+    if (!value) return null;
+    try {
+      return readCatalogueValue(kind, JSON.parse(value));
+    } catch {
+      return null;
+    }
+  };
+  type InView = { id: string; kind: CatalogueKind; label: string; title: string; current: CatalogueValue | null; focused: boolean };
+  const inView: InView[] = [
+    ...(artefact && isCatalogueKind(artefact.kind)
+      ? [{ id: artefact.id ?? "open", kind: artefact.kind, label: CATALOGUE[artefact.kind].label, title: artefact.title, current: parse(artefact.kind, artefact.value), focused: true }]
+      : []),
+    ...others.flatMap((entry) =>
+      isCatalogueKind(entry.kind) ? [{ id: entry.id, kind: entry.kind, label: CATALOGUE[entry.kind].label, title: entry.title, current: parse(entry.kind, entry.value), focused: false }] : [],
+    ),
+  ];
+
+  // The rules for what's in play: each interface being made (its kind's lines once), and each tracked one.
+  const inPlay: InPlay[] = [
+    ...[...new Map(inView.map((entry) => [entry.kind, entry])).values()].map((entry) => ({ kind: entry.kind as ShellKind, role: "make" as const, label: entry.label })),
+    ...tracked.map((entry) => ({ kind: entry.kind, role: entry.role, label: entry.label })),
+  ];
+  const roleRules =
+    [
+      inViewAddon(inView, others),
+      inPlay.length ? rulesFor(inPlay) : null,
+      !tracked.some((entry) => entry.kind === "tracker") && tracked.some((entry) => entry.kind === "notes") ? PROGRESS_START.rules.map((line) => `- ${line}`).join("\n") : null,
+    ]
+      .filter(Boolean)
+      .join("\n\n") || null;
   const fullSystem = [
     baseSystem,
     chatModes?.persona ? `Assistant for this thread: ${chatModes.persona.label}. ${chatModes.persona.instruction}` : null,
@@ -273,6 +399,7 @@ export async function POST(req: Request) {
     !artefact && candidates.length > 0
       ? candidatesSystemAddon(candidates)
       : null,
+    roleRules,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -291,53 +418,69 @@ export async function POST(req: Request) {
         })
       : null;
 
-  // Catalogue interfaces: the one that's open, or the ones this turn could open.
+  // Catalogue interfaces: those in view, or the ones this turn could open.
   const openKind = artefact && isCatalogueKind(artefact.kind) ? artefact.kind : null;
-  const fillKinds: CatalogueKind[] = openKind
-    ? [openKind]
-    : artefact
-      ? []
-      : CATALOGUE_KINDS.filter((kind) => candidates.some((candidate) => candidate.layer !== "format" && candidate.opensAs === kind));
-  // What the open interface holds as this request goes on, so a later change is checked against it.
-  let current: CatalogueValue | null = null;
-  if (openKind && artefact?.value) {
-    try {
-      current = readCatalogueValue(openKind, JSON.parse(artefact.value));
-    } catch {
-      current = null;
-    }
-  }
-  const fillTools: ToolSet = Object.fromEntries(
-    fillKinds.map((kind) => [
-      CATALOGUE[kind].tool,
-      tool({
-        description: `Fill the ${CATALOGUE[kind].label} interface. ${CATALOGUE[kind].description} It is drawn as you write, so put the title first.`,
-        inputSchema: CATALOGUE[kind].schema,
-        execute: async (input: unknown) => {
-          const value = readCatalogueValue(kind, input);
-          if (!value) return { ok: false as const, error: "Nothing to fill." };
-          if (kind === openKind) current = value;
-          return { ok: true as const, filled: catalogueSummary(kind, value) };
-        },
-      }),
+  const fillKinds: CatalogueKind[] = [
+    ...new Set([
+      ...inView.map((entry) => entry.kind),
+      ...(artefact ? [] : CATALOGUE_KINDS.filter((kind) => candidates.some((candidate) => candidate.layer !== "format" && candidate.opensAs === kind))),
     ]),
+  ];
+  const fillTools: ToolSet = Object.fromEntries(
+    fillKinds.map((kind) => {
+      const ofKind = inView.filter((entry) => entry.kind === kind);
+      const focused = ofKind.find((entry) => entry.focused);
+      const schema = ofKind.length
+        ? CATALOGUE[kind].schema.extend({
+            id: z
+              .enum(ofKind.map((entry) => entry.id) as [string, ...string[]])
+              .optional()
+              .describe(
+                focused
+                  ? `Which open ${CATALOGUE[kind].label.toLowerCase()} to write over. Leave out for the one they used last (${focused.id}).`
+                  : `Which open ${CATALOGUE[kind].label.toLowerCase()} to write over. Leave out to make a new one.`,
+              ),
+          })
+        : CATALOGUE[kind].schema;
+      return [
+        CATALOGUE[kind].tool,
+        tool({
+          description: `Write a ${CATALOGUE[kind].label}. ${CATALOGUE[kind].description} It is drawn as you write, so put the title first.`,
+          inputSchema: schema as typeof CATALOGUE[typeof kind]["schema"],
+          execute: async (input: unknown) => {
+            const value = readCatalogueValue(kind, input);
+            if (!value) return { ok: false as const, error: "Nothing to fill." };
+            const id = (input as { id?: string }).id;
+            const target = ofKind.find((entry) => entry.id === id) ?? focused;
+            if (target) target.current = value;
+            return { ok: true as const, filled: catalogueSummary(kind, value) };
+          },
+        }),
+      ];
+    }),
   );
-  const updateTool: ToolSet =
-    openKind && current
-      ? {
-          update_interface: tool({
-            description: `Change part of the open ${CATALOGUE[openKind].label} without rewriting it: add, replace or remove at a path.`,
-            inputSchema: z.object({ operations: z.array(operationSchema).min(1) }),
-            execute: async ({ operations }) => {
-              if (!current) return { ok: false as const, error: "Nothing is open to change." };
-              const result = applyCatalogueOperations(openKind, current, operations);
-              if (!result.ok) return { ok: false as const, error: result.error };
-              current = result.value;
-              return { ok: true as const, now: catalogueSummary(openKind, result.value) };
-            },
+  const patchable = inView.filter((entry) => entry.current);
+  const updateTool: ToolSet = patchable.length
+    ? {
+        update_interface: tool({
+          description: `Change part of an open interface without rewriting it: add, replace or remove at a path. Open: ${patchable.map((entry) => `${entry.label} "${entry.title}" (${entry.id})`).join(", ")}.`,
+          inputSchema: z.object({
+            id: (patchable.length > 1 ? z.enum(patchable.map((entry) => entry.id) as [string, ...string[]]) : z.enum([patchable[0]!.id]).optional()).describe(
+              "Which interface, by id",
+            ),
+            operations: z.array(operationSchema).min(1),
           }),
-        }
-      : {};
+          execute: async ({ id, operations }) => {
+            const target = patchable.find((entry) => entry.id === id) ?? patchable.find((entry) => entry.focused) ?? patchable[0];
+            if (!target?.current) return { ok: false as const, error: "Nothing open to change by that id." };
+            const result = applyCatalogueOperations(target.kind, target.current, operations);
+            if (!result.ok) return { ok: false as const, error: result.error };
+            target.current = result.value;
+            return { ok: true as const, now: catalogueSummary(target.kind, result.value) };
+          },
+        }),
+      }
+    : {};
   // Search and Moodboard are still written as text.
   const needsWrite = artefact
     ? !openKind && artefact.kind !== "shell"
@@ -355,6 +498,7 @@ export async function POST(req: Request) {
       ...(needsWrite ? { write_interface: writeInterfaceTool } : {}),
       ...fillTools,
       ...updateTool,
+      ...trackedTools(tracked),
       ...(!artefact && openInterfaceSchema
         ? {
             open_interface: tool({
@@ -375,22 +519,25 @@ export async function POST(req: Request) {
         : {}),
     },
     stopWhen: stepCountIs(
-      artefact?.kind === "search" ||
+      // Keeping tracked interfaces current takes a step or two of its own.
+      (tracked.length ? 2 : 0) +
+        (artefact?.kind === "search" ||
         (!artefact &&
           candidates.some((candidate) => candidate.opensAs === "search"))
-        ? 5
-        : artefact || candidates.length
-          ? 4
-          : 2,
+          ? 5
+          : artefact || candidates.length
+            ? 4
+            : 2),
     ),
     system: fullSystem,
     messages: [
-      // Only the latest version of each interface stays in context (see artifact-history.ts).
+      // No version of any interface stays in the history: those in use are sent as they are now, below (see artifact-history.ts).
       ...compactArtifactHistory(await convertToModelMessages(messages), {
-        writes: { ...FILL_TOOL_KIND, write_interface: "write" },
-        open: openKind ?? (artefact && artefact.kind !== "shell" ? "write" : null),
+        writes: [...Object.keys(FILL_TOOL_KIND), "write_interface", "update_interface"],
       }),
       ...(artefact && artefactContents(artefact) ? [{ role: "system" as const, content: artefactContents(artefact)! }] : []),
+      ...others.flatMap((entry) => (openContents(entry) ? [{ role: "system" as const, content: openContents(entry)! }] : [])),
+      ...(trackedContents(tracked) ? [{ role: "system" as const, content: trackedContents(tracked)! }] : []),
     ],
     providerOptions: {
       openai: {

@@ -7,3 +7,5 @@ export { placeOf, PER_PLACE } from "./model/tool-places";
 export { suggestValues } from "./model/suggest-values";
 export type { GeneratedTool } from "./model/tool-spec";
 export { GenerativeToolbar } from "./ui/generative-toolbar";
+export { useInterfaceGenerative, GenerativeSourceSwitch, isToolbarKind } from "./ui/interface-generative";
+export { useGenerativeSource, type GenerativeSource } from "./model/generative-source";

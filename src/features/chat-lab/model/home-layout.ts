@@ -8,13 +8,15 @@ import type { ChatShellKind } from "@/features/interface-shells";
  */
 export const HOME_POSITIONS: Record<ChatShellKind, { x: number; y: number }> = {
   chat: { x: -380, y: -190 },
-  document: { x: 0, y: -220 },
+  // Notes leads the top row: a goal starts there, and the rest are made from it.
+  notes: { x: 0, y: -220 },
   search: { x: 380, y: -190 },
   table: { x: -380, y: 190 },
   tracker: { x: 0, y: 220 },
   guide: { x: 380, y: 190 },
-  schedule: { x: -760, y: 0 },
-  calendar: { x: 760, y: 0 },
+  document: { x: -760, y: 0 },
+  schedule: { x: 760, y: 0 },
+  calendar: { x: 0, y: -600 },
   reader: { x: -760, y: -380 },
   map: { x: 760, y: -380 },
   moodboard: { x: -760, y: 380 },

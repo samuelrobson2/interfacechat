@@ -32,6 +32,7 @@ import type { ChartType, ShellKind } from "../model/shell-types";
 // A white frosted-glass 3D object on a flat colour, the object rendered in
 // the same glass style as the product's other 3D images.
 const ICON_SRC: Record<ShellKind, string> = {
+  notes: documentIcon,
   document: documentIcon,
   search: searchIcon,
   table: tableIcon,
@@ -54,6 +55,10 @@ const ICON_SRC: Record<ShellKind, string> = {
  * borrow Moodboard's, Table's and Document's, shifted in hue so each reads apart.
  */
 const ICON_FILTER: Partial<Record<ShellKind, string>> = {
+  // Search is dark grey, not its artwork's orange: the orange is Notes'.
+  search: "grayscale(1) brightness(0.55) contrast(1.2)",
+  // Notes borrows Document's, turned to a warm yellow, like a notepad.
+  notes: "hue-rotate(185deg) saturate(1.3) brightness(1.05)",
   generator: "hue-rotate(-62deg) saturate(0.9)",
   dashboard: "hue-rotate(130deg) saturate(1.1)",
 };
@@ -76,6 +81,7 @@ export function ShellAppIcon({ kind, className }: { kind: ShellKind; className?:
 }
 
 const GLYPH_SRC: Record<ShellKind, string> = {
+  notes: documentGlyph,
   document: documentGlyph,
   search: searchGlyph,
   table: tableGlyph,

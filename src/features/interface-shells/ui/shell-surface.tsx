@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef } from "react";
+import { useContext, useLayoutEffect, useRef } from "react";
 import { cn } from "@/shared/lib/css";
-import type { ShellSize } from "../model/shell-types";
-import { hiddenParts, shellVars, useShellTokens } from "../design/shell-tokens";
+import { ShellKindContext } from "./shell-mark";
+import type { ShellKind, ShellSize } from "../model/shell-types";
+import { hiddenParts, shellVars, tintOf, useShellTokens } from "../design/shell-tokens";
 
 /** The warm grey behind a card's white content panel. */
 export const CARD_BACKGROUND = "bg-shell-frame";
@@ -19,22 +20,29 @@ const SURFACE: Record<ShellSize, string> = {
 /** The one surface every shell sits on, so sizes read as the same object. */
 export function ShellSurface({
   size,
+  kind,
   surface = true,
   className,
   children,
 }: {
   size: ShellSize;
+  /** The interface, for its colour (the `tint` tokens) as a border at medium and medium plus; InterfaceShell passes it to every shell. */
+  kind?: ShellKind;
   surface?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
   // The design system's tokens for this size, as CSS variables every part inside reads.
   const tokens = useShellTokens();
+  const contextKind = useContext(ShellKindContext);
+  const shellKind = kind ?? contextKind;
+  const tint = surface && shellKind && (size === "medium" || size === "medium-plus") ? tintOf(tokens, shellKind) : undefined;
   return (
     <div
       data-shell-size={size}
       data-hide-parts={hiddenParts(tokens, size)}
-      style={shellVars(tokens, size) as React.CSSProperties}
+      data-shell-tint={tint ? "" : undefined}
+      style={{ ...shellVars(tokens, size), ...(tint && { "--shell-tint-border": tint.border, "--shell-tint-width": tint.width }) } as React.CSSProperties}
       className={cn(
         "relative flex size-full min-h-0 flex-col overflow-hidden font-bureau",
         // Cards are grey so their content panel reads clearly; large is the working surface.
@@ -125,6 +133,7 @@ export function Bar({
   return (
     <span
       aria-hidden
+      data-shell-ink=""
       className={cn("block h-1 shrink-0 rounded-full bg-shell-ink-faint", className)}
       style={{ width: typeof width === "number" ? `${width}%` : width, ...style }}
     />

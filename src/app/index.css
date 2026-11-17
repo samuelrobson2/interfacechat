@@ -629,6 +629,26 @@ body.chat-native-selection-hidden
   .shell-suggest-shimmer { animation: none; }
 }
 
+/* An interface's colour (the `tint` tokens, medium and medium plus), as a border round its card.
+ * Drawn over the card, not in its box, so nothing inside moves; the card, its title and its icon
+ * stay as they are. */
+[data-shell-tint]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: var(--shell-tint-width, 2px) solid var(--shell-tint-border);
+  pointer-events: none;
+}
+
+/* At medium plus the card's shadow is a light version of its border colour. Unlayered, so it wins
+ * over the surface's grey shadow utility. */
+[data-shell-tint][data-shell-size="medium-plus"] {
+  box-shadow:
+    0 3px 10px color-mix(in srgb, var(--shell-tint-border) 20%, transparent),
+    0 1px 2px color-mix(in srgb, var(--shell-tint-border) 14%, transparent);
+}
+
 /* Parts removed at a size on the Design System page (the `visible` tokens): the surface lists
  * them in data-hide-parts, and any part inside with that name isn't drawn. */
 [data-hide-parts~="title"] [data-shell-part="title"],

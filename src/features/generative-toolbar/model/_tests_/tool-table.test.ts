@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ToolSpec } from "../tool-spec";
-import { applyDiff, clearUnpinned, dismissTool, emptyTable, pinTool, SHOW_AT, tableForModel, visibleTools } from "../tool-table";
+import { applyDiff, clearUnpinned, dismissTool, emptyTable, pinTool, restoreTool, SHOW_AT, spendTool, tableForModel, visibleTools } from "../tool-table";
 
 const action = (id: string, extra: Partial<ToolSpec> = {}): ToolSpec =>
   ({ type: "action", id, label: id, detail: "", icon: "sparkles", impact: 3, fit: 0.8, done: 0, ...extra }) as ToolSpec;
@@ -54,5 +54,17 @@ describe("the tool table", () => {
     expect(visibleTools("table", table, 5).tools.map((tool) => tool.id)).toEqual(["b"]);
     expect(clearUnpinned(table).table.rows.a?.dismissed).toBe(true);
     expect(tableForModel(table)[0]).toMatchObject({ id: "a", label: "a", dismissed: true });
+  });
+
+  it("takes an action away once it's used, keeps the model from offering it again, and brings it back on undo", () => {
+    let table = applyDiff("table", emptyTable(), { add: [action("name-columns", { label: "Name 3 columns" }), action("b")] });
+    table = spendTool(table, "name-columns");
+    expect(visibleTools("table", table, 5).tools.map((tool) => tool.id)).toEqual(["b"]);
+    expect(tableForModel(table).find((row) => row.id === "name-columns")).toMatchObject({ dismissed: true });
+    // Offered again by the model: it stays gone.
+    table = applyDiff("table", table, { add: [action("name-columns", { label: "Name 3 columns" })] });
+    expect(visibleTools("table", table, 5).tools.map((tool) => tool.id)).toEqual(["b"]);
+    table = restoreTool(table, "name-columns");
+    expect(visibleTools("table", table, 5).tools.map((tool) => tool.id)).toEqual(["name-columns", "b"]);
   });
 });

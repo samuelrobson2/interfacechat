@@ -156,7 +156,8 @@ export function settleActive(sessionId: string) {
   if (!session || !layout) return;
   const active = session.activeArtefactId;
   const entry = active ? layout.entries[active] : undefined;
-  if (active && session.artefacts[active] && (!entry || entry.presentation !== "minimized")) return;
+  const closed = active ? session.closed?.includes(active) : false;
+  if (active && session.artefacts[active] && !closed && (!entry || entry.presentation !== "minimized")) return;
   const next = Object.values(layout.entries)
     .filter((item) => item.id !== CHAT_WINDOW && item.presentation !== "minimized" && session.artefacts[item.id])
     .sort((a, b) => b.lastInteraction - a.lastInteraction)[0];
@@ -184,6 +185,9 @@ const EMPTY: WorkspaceLayout = { entries: {}, divider: 0.5 };
 export function transact(sessionId: string, change: LayoutChange): LayoutResult {
   const layout = layoutOf(sessionId);
   if (!layout) return UNCHANGED(EMPTY);
+  // Closing takes an interface out of the model's context; showing it again brings it back.
+  if (change.type === "close") store.getState().setClosed(sessionId, change.id, true);
+  else if ((change.type === "open" || change.type === "support") && change.id !== CHAT_WINDOW) store.getState().setClosed(sessionId, change.id, false);
   const result = applyLayoutChange(layout, change, Date.now(), options());
   commit(sessionId, layout, result);
   // Bringing an interface back is choosing to work on it.

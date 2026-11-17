@@ -9,9 +9,29 @@ import {
   type HomeRankingMemory,
 } from "./home-ranking";
 import { collectHomeTiles, libraryTiles, type HomeTile, type KindData } from "./home-tiles";
-import { usePromptChoices } from "./prompt-choices";
+import { usePromptChoices, type PromptChoice } from "./prompt-choices";
 import { useInterfaceName } from "./interface-name";
-import { parsePrompt, reframePrompt } from "./prompt-fields";
+import { joinList, parsePrompt, reframePrompt } from "./prompt-fields";
+
+/** A picked choice as a line of notes: "Guests: 6 to 8", from the choice's own words. */
+function pickedLine(choice: PromptChoice & { picked?: string[] }) {
+  const picked = choice.picked ?? [];
+  if (!picked.length) return null;
+  const labels = joinList(picked);
+  if (choice.lead) return `${choice.lead.charAt(0).toUpperCase()}${choice.lead.slice(1)} ${labels}`;
+  const phrases = picked.map((label) => choice.options.find((option) => option.label === label)?.phrase ?? label);
+  const line = phrases.join(", ");
+  return line.charAt(0).toUpperCase() + line.slice(1);
+}
+
+/** The card's notes, with a line for each choice picked that isn't in them yet. */
+function withPickedLines(card: HomeCard, shown: (PromptChoice & { picked?: string[] })[]): HomeCard {
+  const data = card.interface.data as { title: string; body: string };
+  const have = new Set(data.body.split("\n").map((line) => line.trim().toLowerCase()));
+  const lines = shown.map(pickedLine).filter((line): line is string => Boolean(line) && !have.has(line!.toLowerCase()));
+  if (!lines.length) return card;
+  return { ...card, interface: { kind: "notes", data: { ...data, body: [data.body.replace(/\s+$/, ""), ...lines].filter(Boolean).join("\n") } } as KindData };
+}
 
 /** A chosen tile holds the middle until most of what was typed when it was chosen is gone. */
 const RELEASE_RATIO = 0.3;
@@ -142,9 +162,10 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
   const tile = leader
     ? tiles.find((item) => item.id === leader.tileId)
     : undefined;
-  // A short name for the new interface, and its first steps, from one small call once they pause typing.
+  // The name comes from the request at once; the model only condenses a very long one, and writes a Guide's or Schedule's first steps.
   const nameKind = leader && tile && tile.type !== "history" && tile.type !== "project" ? leader.interface.kind : null;
-  const name = useInterfaceName(nameKind, nameKind ? SHELL_META[nameKind].label : "", draft);
+  const ruleTitle = useMemo(() => (nameKind ? String((parsePrompt(nameKind, draft).data as { title?: unknown }).title ?? "") : ""), [nameKind, draft]);
+  const name = useInterfaceName(nameKind, nameKind ? SHELL_META[nameKind].label : "", draft, ruleTitle);
 
   const card: HomeCard | null = useMemo(() => {
     if (!leader || !tile) return null;
@@ -156,7 +177,7 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     const base =
       tile.type === "suggested" ? overlay(tile.data, parsed) : parsed;
     const kept = extras?.tileId === tile.id ? extras.data : {};
-    // The model's short name, unless they've named it themselves on the card.
+    // The model's condensed name (only for a very long one), unless they've named it themselves on the card.
     const named = name.title && !("title" in kept) && "title" in base ? { title: name.title } : {};
     return {
       leader,
@@ -169,6 +190,8 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
   // The few choices the request leaves open, for the card that's open (Document, for now).
   const choiceKind = card?.editable ? card.interface.kind : null;
   const choices = usePromptChoices(choiceKind, choiceKind ? SHELL_META[choiceKind].label : "", draft, partsOf(card?.interface));
+  // Notes holds what's been settled: a choice picked on its card becomes a line in it.
+  const shownCard = card && card.interface.kind === "notes" ? withPickedLines(card, choices.shown) : card;
 
   const choose = (tileId: string, nextDraft: string) => {
     setDismissed(false);
@@ -179,7 +202,7 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     tiles,
     draft,
     ranking,
-    card,
+    card: shownCard,
     dismissed,
     /** Click a tile on the field. Past work returns its chat id to reopen. */
     pick(picked: HomeTile): { reopen: string } | null {
@@ -194,6 +217,12 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
       if (extras?.tileId !== picked.id) setExtras(null);
       choose(picked.id, nextDraft);
       return null;
+    },
+    /** Take a suggested request for a tile (a peek on the home): it becomes the prompt, and that tile's card opens with it. */
+    tryPrompt(picked: HomeTile, prompt: string) {
+      setDraft(prompt);
+      if (extras?.tileId !== picked.id) setExtras(null);
+      choose(picked.id, prompt);
     },
     /** What the open card's request leaves open: at most three, each with options and a guess. */
     choices: choices.shown,

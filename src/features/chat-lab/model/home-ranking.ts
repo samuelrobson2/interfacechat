@@ -1,4 +1,6 @@
 import {
+  isGoalRequest,
+  isP0Kind,
   SHELL_META,
   SHELL_ROUTE_FLOOR,
   shellKindScore,
@@ -110,8 +112,9 @@ function scoreTile(
   draft: string,
   draftTerms: Set<string>,
 ): Scored {
+  // Only P0 interfaces are picked from what's typed; the rest open when clicked.
   const kindScore =
-    tile.type === "project" ? 0 : shellKindScore(tile.kind, draft);
+    tile.type === "project" || !isP0Kind(tile.kind) ? 0 : shellKindScore(tile.kind, draft);
   const content = tile.type === "blank" ? 0 : contentScore(draftTerms, tile);
   const score =
     tile.type === "blank"
@@ -198,18 +201,23 @@ function phaseOf(entry: Scored, draft: string): HomeLeaderPhase {
   return detailTerms(draft, entry.tile.kind).length >= DETAIL_TERMS ? "suggested" : "hinted";
 }
 
-/** The best claim on the middle this keystroke, before stickiness. Past work wins ties. */
-function bestCandidate(scored: Scored[]): Scored | null {
+/**
+ * The best claim on the middle this keystroke, before stickiness. Past work
+ * wins ties; and for a goal ("help me plan a shoot"), past work on the same
+ * goal wins outright: carrying on beats starting a new brief.
+ */
+function bestCandidate(scored: Scored[], goal: boolean): Scored | null {
   let best: Scored | null = null;
   for (const entry of scored) {
     if (!qualifies(entry, "enter")) continue;
     const strength = leaderStrength(entry);
     const bestStrength = best ? leaderStrength(best) : -1;
-    const pastBeatsBlank =
-      best?.tile.type === "blank" && entry.tile.type !== "blank";
+    const past = entry.tile.type !== "blank";
+    const pastBeatsBlank = best?.tile.type === "blank" && past;
     if (
-      strength > bestStrength ||
-      (strength === bestStrength && pastBeatsBlank)
+      (goal && pastBeatsBlank) ||
+      (!(goal && best && best.tile.type !== "blank" && !past) &&
+        (strength > bestStrength || (strength === bestStrength && pastBeatsBlank)))
     )
       best = entry;
   }
@@ -267,15 +275,19 @@ export function rankHome({
       challengerWins: 0,
     };
   } else if (!dismissed && draft.trim()) {
-    const candidate = bestCandidate(scored);
+    const goal = isGoalRequest(draft);
+    const candidate = bestCandidate(scored, goal);
     const held = previous?.leaderId ? byId.get(previous.leaderId) : undefined;
     const holding = held && qualifies(held, "hold") ? held : undefined;
 
+    // For a goal, past work on it takes over from a new brief at once.
+    const pastOverBrief =
+      goal && holding?.tile.type === "blank" && candidate !== null && candidate.tile.type !== "blank";
     const challenges =
       holding &&
       candidate &&
       candidate.tile.id !== holding.tile.id &&
-      leaderStrength(candidate) > leaderStrength(holding);
+      (pastOverBrief || leaderStrength(candidate) > leaderStrength(holding));
 
     if (!holding || !candidate || !challenges) {
       leaderEntry = holding ?? candidate;
@@ -290,7 +302,7 @@ export function rankHome({
           ? previous.challengerWins + 1
           : 1;
       const clearlyAhead =
-        leaderStrength(candidate) - leaderStrength(holding) >= CLEAR_LEAD;
+        pastOverBrief || leaderStrength(candidate) - leaderStrength(holding) >= CLEAR_LEAD;
       if (clearlyAhead || wins >= CHALLENGER_WINS) {
         leaderEntry = candidate;
         memory = {

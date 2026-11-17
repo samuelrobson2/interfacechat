@@ -87,6 +87,12 @@ ask about the topic itself, or anything they're likely to type next.
 Ask only what the checklist above lists for a ${label}; don't bring in another
 interface's questions (a table or a search has no audience to ask about).
 
+Only ask what they'd know offhand: a fact about their situation (how many, when,
+who, a must-have). Never ask them to make a decision or define something
+abstract (what done looks like, what success means, their priorities, the
+scope, a strategy): that's yours to propose later, not theirs to settle up
+front. If you can't word it so a glance answers it, leave it out.
+
 Options are specific to this request, not generic: for roasters in London, "East
 London", "All of London"; never "Option A" or "Other". Each label is one to three
 words; each phrase reads naturally added to their request ("with a row per

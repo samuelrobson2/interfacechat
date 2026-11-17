@@ -33,6 +33,17 @@ const at = (layout: WorkspaceLayout, id: string) => {
 };
 
 describe("layout controller", () => {
+  it("closes an interface off the workbench, minimize only puts it away", () => {
+    const minimized = applyLayoutChange(research(), { type: "present", id: "search", presentation: "minimized" }, 9).layout;
+    expect(at(minimized, "search")).toMatch(/^minimized strip/);
+    const closed = applyLayoutChange(research(), { type: "close", id: "search" }, 9).layout;
+    expect(closed.entries.search).toBeUndefined();
+    // The rest of the column closes up.
+    expect(at(closed, "table")).toBe("medium right 0");
+    // Chat can't be closed.
+    expect(applyLayoutChange(research(), { type: "close", id: "chat" }, 9).changed).toBe(false);
+  });
+
   it("builds the starting arrangement", () => {
     const layout = research();
     expect(at(layout, "chat")).toBe("sidebar left 0");

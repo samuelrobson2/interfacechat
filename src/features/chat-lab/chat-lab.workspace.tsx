@@ -8,6 +8,7 @@ import { type PathParams, ROUTES } from "@/shared/model/routes";
 import { GradientText } from "@/shared/ui/gradient-text";
 import { Text } from "@/shared/ui/kit/text";
 import { HomeField } from "./compose/home-field";
+import { FadeText } from "./compose/fade-headline";
 import type { StarterField } from "./compose/visual-starter-suggestions";
 import { ChatLabArtefactWindow } from "./compose/chat-lab-artefact";
 import { ChatLabComposer } from "./compose/chat-lab-composer";
@@ -135,6 +136,8 @@ function StarterView({
   };
 
   const focused = Boolean(field.card);
+  // The prompt box waits for the interfaces: it fades in as they spin out of the headline.
+  const [released, setReleased] = useState(false);
 
   return (
     // Absolute + no opacity fade — layoutId children stay put while they morph.
@@ -147,16 +150,20 @@ function StarterView({
       <div className="absolute inset-0">
         <HomeField
           lift={HOME_INPUT_LIFT}
+          onRelease={() => setReleased(true)}
           field={field}
           disabled={isStarting}
           handingOff={handingOff}
           onSubmit={() => submit()}
           onReopen={onReopen}
-          headline={
+          headline={(onShown) => (
             <Text variant="h1" as="h1" className="text-center max-md:text-[32px]">
-              Welcome back, <GradientText>{userName}!</GradientText>
+              {/* Fades in; the interfaces spin out of it once it's there. */}
+              <FadeText onDone={onShown}>
+                Welcome back, <GradientText>{userName}!</GradientText>
+              </FadeText>
             </Text>
-          }
+          )}
         />
       </div>
 
@@ -167,9 +174,16 @@ function StarterView({
           transition={MORPH_SPRING}
           animate={{ opacity: focused ? 0.55 : 1 }}
         >
-          <ChatInputLayout className="w-full gap-6">
-            <ChatComposerInput onSubmit={submit} isSubmitLoading={isStarting} />
-          </ChatInputLayout>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={released ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+            transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1], delay: released ? 0.25 : 0 }}
+            className={released ? undefined : "pointer-events-none"}
+          >
+            <ChatInputLayout className="w-full gap-6">
+              <ChatComposerInput onSubmit={submit} isSubmitLoading={isStarting} />
+            </ChatInputLayout>
+          </motion.div>
         </motion.div>
       </ChatLayout>
     </motion.div>

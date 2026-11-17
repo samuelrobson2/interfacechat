@@ -44,6 +44,7 @@ export type ParsedPrompt<K extends ChatShellKind = ChatShellKind> = {
 /** What the composer is seeded with when an interface is picked on an empty draft. */
 export const PROMPT_SEED: Record<ChatShellKind, string> = {
   chat: "",
+  notes: "Help me plan ",
   document: "Write a paper on ",
   search: "Search for ",
   table: "Make a table of ",
@@ -168,6 +169,14 @@ function clausesOf(kind: ChatShellKind, prompt: string): Clause[] {
         "columns",
         (m) => m[1]!,
       ),
+      // "…by price and range", "…including make, model and range": a list at the end names the columns too.
+      // Only a list (two or more, joined by a comma or "and"), so "by Friday" stays in the topic.
+      ...findAll(
+        prompt,
+        /\s+(?:by|including|showing|covering|listing|tracking)\s+((?:[\w-]+(?:\s+[\w-]+){0,2})(?:\s*,\s*[\w-]+(?:\s+[\w-]+){0,2})*\s*,?\s+(?:and|&)\s+[\w-]+(?:\s+[\w-]+){0,2})(?=\s*[.;]|\s*$|\s+(?:for|per)\s+(?:each|every)\b)/i,
+        "columns",
+        (m) => m[1]!,
+      ),
       ...findAll(
         prompt,
         /\s+(?:for|per)\s+(?:each|every)\s+([a-z][\w-]*)/i,
@@ -259,6 +268,64 @@ export function guideFacts(prompt: string): { label: string; value: string }[] {
   return facts;
 }
 
+const DAY = "(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)";
+const MONTH = "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+/** When something happens, as written: "next week", "next Thursday", "on 12 March", "tomorrow at 7". */
+const WHEN = new RegExp(
+  String.raw`\b(?:(?:this|next|coming)\s+(?:week(?:end)?|month|year|${DAY})|(?:on\s+)?${DAY}(?:\s+(?:morning|afternoon|evening|night))?|tomorrow|tonight|today|(?:on\s+)?\d{1,2}(?:st|nd|rd|th)?\s+${MONTH}|${MONTH}\s+\d{1,2}(?:st|nd|rd|th)?|in\s+${MONTH})(?:\s+(?:at|from)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)?\b`,
+  "i",
+);
+/** How long: "half-day", "a full day", "3-day", "two hours". */
+const SPAN = /\b(half[- ]day|full[- ]day|all[- ]day|(?:\d+|one|two|three|four|five|six|seven)[- ](?:day|week|hour|night)s?|(?:\d+|one|two|three|four|five|six)\s+(?:days|weeks|hours|nights))\b/i;
+/** Counted things: "3 product shots", "2 lifestyle scenes", "one model", "8 guests". */
+const COUNTED = /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty)\s+((?:[a-z]+[- ]){0,2}?[a-z]+?s?)(?=\s*(?:,|\.|;|\band\b|\bwith\b|\bfor\b|\bin\b|\bat\b|\bon\b|$))/gi;
+const NOT_COUNTED = /^(?:day|days|week|weeks|hour|hours|night|nights|minute|minutes|mins?|pm|am|of|to|or|and)\b/i;
+/** Where: "Location is a rented loft in the Mission", "at the Harbour Pier". */
+const WHERE = /\b(?:[Ll]ocation|[Vv]enue|[Pp]lace)\s+(?:is|will be|:)\s+([^.;]+)|\b(?:at|in)\s+((?:the\s+)?[A-Z][\w'-]*(?:\s+[A-Z][\w'-]*)*)/;
+/** Who it's for: "for our skincare brand", "for my sister". Not "for a dinner party": that's the occasion. */
+const FOR_WHOM = /\bfor\s+((?:our|my|his|her|their|your)\s+[^,.;]+?)(?=\s+(?:next|this|on|in|at|tomorrow|tonight|today)\b|[,.;]|$)/i;
+
+const trimEnd = (text: string) => text.replace(/[\s,;.!?]+$/, "").trim();
+
+/**
+ * Notes for a goal, read from the request with rules, so they're there before
+ * any model: the goal (its first sentence, less how it was asked), then one
+ * plain line per fact it gives (when, how long, for whom, how many, where),
+ * then any sentence after the first, as written. Each line is text the person
+ * can change, in the form "Label: value".
+ */
+export function notesFromPrompt(prompt: string): { title: string; body: string } {
+  const text = prompt.trim();
+  const [first = "", ...rest] = text.split(/(?<=[.!?])\s+(?=[A-Z])/);
+  // How it was asked ("Help me", "Can you help us", "I need to") isn't the goal.
+  let goal = trimEnd(first).replace(/^(?:(?:can|could|would) you\s+|please\s+|hey,?\s+)?(?:help (?:me|us)(?: to)?|i need to|we need to|i(?:'m| am) trying to|we(?:'re| are) trying to|i want to|we want to|i(?:'d| would) like to|let's|lets)\s+/i, "");
+  const lines: string[] = [];
+  const when = text.match(WHEN)?.[0];
+  if (when) goal = goal.replace(when, "");
+  const span = text.match(SPAN)?.[1];
+  const forWhom = first.match(FOR_WHOM)?.[1];
+  goal = trimEnd(goal.replace(/\s{2,}/g, " "));
+  lines.push(`Goal: ${goal}`);
+  if (when) lines.push(`When: ${trimEnd(when.replace(/^on\s+/i, ""))}`);
+  if (span) lines.push(`Length: ${span.replace(/-/g, " ").toLowerCase()}`);
+  if (forWhom) lines.push(`For: ${trimEnd(forWhom)}`);
+  const counted = [...text.matchAll(COUNTED)]
+    .filter((m) => !NOT_COUNTED.test(m[2]!) && !SPAN.test(m[0]))
+    .map((m) => `${m[1]} ${m[2]}`);
+  if (counted.length) lines.push(`Includes: ${counted.join(", ")}`);
+  const where = text.match(WHERE);
+  if (where) lines.push(`Where: ${trimEnd(where[1] ?? where[2]!)}`);
+  // Anything said after the first sentence that the lines above don't already hold.
+  for (const sentence of rest) {
+    const said = trimEnd(sentence);
+    const covered = (counted.length && COUNTED.test(said)) || (where?.[1] && said.includes(where[1].trim()));
+    COUNTED.lastIndex = 0;
+    if (said && !covered) lines.push(said);
+  }
+  const title = goal.replace(/^(?:plan|organi[sz]e|put together|pull together|coordinate|arrange|host|throw)\s+/i, "");
+  return { title: capitalize(title || goal), body: lines.join("\n") };
+}
+
 /** Read every field the card shows from the prompt, with where each one came from. */
 export function parsePrompt<K extends ChatShellKind>(
   kind: K,
@@ -293,7 +360,9 @@ export function parsePrompt<K extends ChatShellKind>(
   }
 
   let data: ShellDataByKind[ChatShellKind];
-  if (kind === "document") {
+  if (kind === "notes") {
+    data = { ...EMPTY_SHELL_DATA.notes, ...notesFromPrompt(prompt) };
+  } else if (kind === "document") {
     const doc: DocumentShellData = {
       ...EMPTY_SHELL_DATA.document,
       title: capitalize(topic),

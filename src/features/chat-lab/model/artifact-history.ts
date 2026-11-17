@@ -1,73 +1,51 @@
 import type { ModelMessage } from "ai";
 
 /**
- * Only the latest version of each interface stays in the model's context.
+ * Interfaces reach the model in one place only: the current contents of the
+ * ones in use, sent at the end of the prompt each turn (the one used last, the
+ * others in a window or a recent reply, and the tracked ones). Closed and
+ * minimized interfaces aren't sent at all, and no interface is ever sent twice.
  *
- * Every time the model fills an interface (fill_document, fill_table,
- * write_interface …) the whole version is in that tool call's input, so a
- * document written and rewritten five times would be in the history five
- * times, mostly out of date. Before the history goes to the model, each of
- * those inputs is replaced by a fixed note, except the newest one of each
- * kind, and that one too when the interface is open, since its current
- * contents are sent separately at the end of the prompt.
- *
- * The note is the same bytes every turn (it names only the tool and the
- * title), so the history before the latest change stays a cacheable prefix.
- * The calls and their short results stay, so the model still knows what it did.
- * Small edits (update_interface's operations) are left as they are.
+ * So the history keeps no versions. Every write the model made (fill_*,
+ * write_interface, update_interface) keeps its call, so the model still knows
+ * what it did, but its contents are replaced by a fixed note naming only the
+ * title and id. The note is the same bytes every turn, and a call's note never
+ * changes once written, so the whole history before the latest turn stays a
+ * cacheable prefix.
  *
  * Read by the chat API (`api/_ai-chat-lab.ts`), so it imports only types.
  */
 
 export type ArtifactTools = {
-  /** Tool name → which interface it writes ("document", "table", … or "write" for write_interface). */
-  writes: Record<string, string>;
-  /** The interface that's open now, whose current contents are sent anyway. */
-  open: string | null;
+  /** Tool names that write an interface: fill_document, write_interface, update_interface … */
+  writes: Iterable<string>;
 };
 
-const SUPERSEDED = "Earlier version, left out of context. The latest version is the one that counts.";
-const OPEN = "Left out of context: the current contents of this interface are given at the end.";
+export const LEFT_OUT = "Contents left out of the history. If this interface is still in use, what it holds now is given at the end of the conversation; if not, it was closed and isn't in context.";
 
 type ToolCallPart = { type: "tool-call"; toolName: string; input: unknown };
 
 const isToolCall = (part: unknown): part is ToolCallPart =>
   typeof part === "object" && part !== null && (part as { type?: unknown }).type === "tool-call";
 
-const titleOf = (input: unknown) => {
-  const title = (input as { title?: unknown } | null)?.title;
-  return typeof title === "string" ? title : undefined;
-};
+/** What names the interface a write went to: its title, and its id when the call gave one. */
+function nameOf(input: unknown) {
+  const fields = (input ?? {}) as { title?: unknown; id?: unknown };
+  return {
+    ...(typeof fields.title === "string" ? { title: fields.title } : {}),
+    ...(typeof fields.id === "string" ? { id: fields.id } : {}),
+  };
+}
 
-export function compactArtifactHistory(messages: ModelMessage[], { writes, open }: ArtifactTools): ModelMessage[] {
-  // The newest call per interface, found walking back from the end.
-  const newest = new Set<ToolCallPart>();
-  const seen = new Set<string>();
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const content = messages[index]!.content;
-    if (!Array.isArray(content)) continue;
-    for (let part = content.length - 1; part >= 0; part--) {
-      const call = content[part];
-      if (!isToolCall(call) || !(call.toolName in writes)) continue;
-      const kind = writes[call.toolName]!;
-      if (!seen.has(kind)) {
-        seen.add(kind);
-        newest.add(call);
-      }
-    }
-  }
-
+export function compactArtifactHistory(messages: ModelMessage[], { writes }: ArtifactTools): ModelMessage[] {
+  const names = new Set(writes);
   return messages.map((message) => {
     if (message.role !== "assistant" || !Array.isArray(message.content)) return message;
     let changed = false;
     const content = message.content.map((part) => {
-      if (!isToolCall(part) || !(part.toolName in writes)) return part;
-      const kind = writes[part.toolName]!;
-      const keep = newest.has(part) && kind !== open;
-      if (keep) return part;
+      if (!isToolCall(part) || !names.has(part.toolName)) return part;
       changed = true;
-      const title = titleOf(part.input);
-      return { ...part, input: { ...(title ? { title } : {}), note: newest.has(part) ? OPEN : SUPERSEDED } };
+      return { ...part, input: { ...nameOf(part.input), note: LEFT_OUT } };
     });
     return changed ? ({ ...message, content } as ModelMessage) : message;
   });

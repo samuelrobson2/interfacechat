@@ -15,8 +15,8 @@ export const SHELL_TITLE_LARGE = "text-[22px] font-normal leading-[1.25] trackin
 /**
  * The title's type, from the design system's tokens for the size it's drawn at
  * (`--shell-title-*`, set on the surface): the `shell-title-type` class in
- * index.css. Every title, whoever draws it, uses it. A class, not a style, so
- * `font-light` on an empty title still wins.
+ * index.css. Every title, whoever draws it, uses it, empty or not. A class, not
+ * a style, so a utility can still override it.
  */
 export const SHELL_TITLE_TYPE = "shell-title-type";
 
@@ -56,7 +56,7 @@ export function PreviewHead({
       <div
         className={cn(
           "shell-title-type min-w-0 flex-1 truncate font-bureau",
-          has ? "text-typography-primary" : "font-light text-typography-secondary",
+          "text-typography-primary",
         )}
       >
         {has ? title : (fallback ?? SHELL_META[kind].label)}
@@ -119,13 +119,13 @@ export function ShellTitle({
             stopFieldEvent(event);
             if (isSubmitShortcut(event)) onSubmit?.();
           }}
-          className="shell-title-type min-w-0 flex-1 bg-transparent font-bureau text-typography-primary outline-none placeholder:font-light placeholder:text-typography-secondary"
+          className="shell-title-type min-w-0 flex-1 bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary"
         />
       ) : (
         <span
           className={cn("shell-title-type", 
             "min-w-0 flex-1 truncate font-bureau",
-            value ? "text-typography-primary" : "font-light text-typography-secondary",
+            value ? "text-typography-primary" : "text-typography-secondary",
           )}
         >
           {value || placeholder}

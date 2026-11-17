@@ -253,7 +253,8 @@ export function WorkbenchSurface({
                     instance={instance}
                     entry={entry}
                     controls={controls}
-                    onClose={() => transact({ type: "present", id: instance.id, presentation: "minimized" })}
+                    onMinimize={() => transact({ type: "present", id: instance.id, presentation: "minimized" })}
+                    onClose={() => transact({ type: "close", id: instance.id })}
                     onHighlightEdit={(quote, instruction) => onHighlightEdit(instance, quote, instruction)}
                     ordinal={ordinals[instance.id]}
                     inset={insetFor(instance, entry, geometry.frames[instance.id])}

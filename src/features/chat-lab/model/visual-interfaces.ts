@@ -172,10 +172,10 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
   {
     id: "image",
     label: "Image",
-    description: "Generate or describe a picture / illustration",
+    description: "Generate pictures, or short copy to choose from: taglines, captions, names",
     seed: "Generate an image of ",
     match:
-      /\b(image|illustration|picture|photo|render|draw|generate (an? )?(image|picture|illustration))\b/i,
+      /\b(image|illustration|picture|photo|render|draw|generate (an? )?(image|picture|illustration)|taglines?|slogans?|captions?|name ideas|names for)\b/i,
   },
   {
     id: "map",
@@ -196,7 +196,7 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Schedule",
     description: "Tasks across hours and days, as a Gantt",
     seed: "Build a schedule for ",
-    match: /\b(gantt|call sheet|hour by hour|shoot schedule|run of show)\b/i,
+    match: /\b(gantt|call sheet|hour by hour|schedule|timetable|itinerary|agenda|run of show|plan (?:out )?the day)\b/i,
   },
   {
     id: "explainer",
@@ -238,7 +238,7 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Guide",
     description: "A recipe or how-to to follow step by step",
     seed: "Give me a recipe for ",
-    match: /\b(recipe|ingredients|step[- ]by[- ]step|how do i|instructions for)\b/i,
+    match: /\b(recipes?|ingredients|menu|cook|bake|step[- ]by[- ]step|how do i|instructions for)\b/i,
   },
   {
     id: "social",
@@ -293,12 +293,13 @@ export function resolveImplementableKind(
 }
 
 /** Library interfaces the model fills through the catalogue, holding their own data. */
-export type ShellCatalogueOpen = "tracker" | "dashboard";
+export type ShellCatalogueOpen = "tracker" | "dashboard" | "guide" | "schedule" | "generator";
 
 /** What the model's pick opens as: a panel kind, or a catalogue interface of its own. */
 export function opensAsOf(kind: VisualInterfaceKind): ImplementableInterfaceKind | ShellCatalogueOpen {
   if (kind === "checklist") return "tracker";
-  if (kind === "dashboard") return kind;
+  if (kind === "dashboard" || kind === "guide" || kind === "schedule") return kind;
+  if (kind === "image") return "generator";
   return resolveImplementableKind(kind);
 }
 

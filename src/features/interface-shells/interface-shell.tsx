@@ -12,6 +12,7 @@ import { CalendarShell } from "./more/calendar-shell";
 import { ChartShell } from "./more/chart-shell";
 import { GeneratorShell } from "./more/generator-shell";
 import { GuideShell } from "./more/guide-shell";
+import { NotesShell } from "./more/notes-shell";
 import { ChatShell } from "./more/chat-shell";
 import { MapShell } from "./more/map-shell";
 import { MoodboardShell } from "./more/moodboard-shell";
@@ -20,7 +21,7 @@ import { ScheduleShell } from "./more/schedule-shell";
 import { TrackerShell } from "./more/tracker-shell";
 import { TableShell } from "./table/table-shell";
 import { useShellHistory } from "./ui/shell-history";
-import { ShellMarkContext } from "./ui/shell-mark";
+import { ShellKindContext, ShellMarkContext } from "./ui/shell-mark";
 import { ShellHistoryContext } from "./ui/shell-toolbar";
 
 export type InterfaceShellProps<K extends ShellKind = ShellKind> = {
@@ -38,11 +39,13 @@ export function InterfaceShell(props: InterfaceShellProps) {
   const { onChange, history } = useShellHistory<unknown>(props.data, large ? (props.onChange as ((data: unknown) => void) | undefined) : undefined);
   const shellProps = (large && onChange ? { ...props, onChange } : props) as InterfaceShellProps;
   return (
-    <ShellMarkContext.Provider value={props.mark}>
-      <ShellHistoryContext.Provider value={history}>
-        <ShellBySize {...shellProps} />
-      </ShellHistoryContext.Provider>
-    </ShellMarkContext.Provider>
+    <ShellKindContext.Provider value={props.kind}>
+      <ShellMarkContext.Provider value={props.mark}>
+        <ShellHistoryContext.Provider value={history}>
+          <ShellBySize {...shellProps} />
+        </ShellHistoryContext.Provider>
+      </ShellMarkContext.Provider>
+    </ShellKindContext.Provider>
   );
 }
 
@@ -50,6 +53,8 @@ function ShellBySize(props: InterfaceShellProps) {
   switch (props.kind) {
     case "chat":
       return <ChatShell {...props} />;
+    case "notes":
+      return <NotesShell {...props} />;
     case "document":
       return <DocumentShell {...props} />;
     case "search":

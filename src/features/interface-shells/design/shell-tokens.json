@@ -160,6 +160,90 @@
       "$description": "Stronger placeholder ink: headings, bullets, tracks."
     }
   },
+  "tint": {
+    "$type": "color",
+    "$description": "Each interface's colour, drawn as a border round its card at medium and medium plus: the colour of its app icon's tile (Notes, Generator and Dashboard borrow another's icon with a hue shift, so theirs is that tile after the shift). The card itself, its title and its icon stay as they are. Edit under Interface colours on the Design System page.",
+    "width": {
+      "$value": "0.5px",
+      "$type": "dimension",
+      "$description": "How thick the border is."
+    },
+    "chat": {
+      "border": {
+        "$value": "#26272b"
+      }
+    },
+    "notes": {
+      "border": {
+        "$value": "#fe8937"
+      }
+    },
+    "document": {
+      "border": {
+        "$value": "#46a5d8"
+      }
+    },
+    "search": {
+      "border": {
+        "$value": "#a3a3a3"
+      }
+    },
+    "table": {
+      "border": {
+        "$value": "#34b270"
+      }
+    },
+    "schedule": {
+      "border": {
+        "$value": "#1fa5a0"
+      }
+    },
+    "tracker": {
+      "border": {
+        "$value": "#f0525c"
+      }
+    },
+    "calendar": {
+      "border": {
+        "$value": "#7c66f0"
+      }
+    },
+    "reader": {
+      "border": {
+        "$value": "#607089"
+      }
+    },
+    "map": {
+      "border": {
+        "$value": "#f2b630"
+      }
+    },
+    "moodboard": {
+      "border": {
+        "$value": "#e956a1"
+      }
+    },
+    "chart": {
+      "border": {
+        "$value": "#17a9cf"
+      }
+    },
+    "guide": {
+      "border": {
+        "$value": "#c2563a"
+      }
+    },
+    "generator": {
+      "border": {
+        "$value": "#8b6be3"
+      }
+    },
+    "dashboard": {
+      "border": {
+        "$value": "#b87dfa"
+      }
+    }
+  },
   "radius": {
     "$type": "dimension",
     "panel": {
@@ -185,12 +269,12 @@
       },
       "frame": {
         "width": {
-          "$value": "144px",
+          "$value": "110px",
           "$type": "dimension",
           "$description": "The card's width."
         },
         "height": {
-          "$value": "144px",
+          "$value": "110px",
           "$type": "dimension",
           "$description": "The card's height."
         },
@@ -266,6 +350,11 @@
         "icon": {
           "$value": "10px",
           "$type": "dimension"
+        },
+        "generated-height": {
+          "$value": "{space.6}",
+          "$type": "dimension",
+          "$description": "Unused at this size: it has no generated tools. Kept so every size has the same tokens."
         },
         "font-size": {
           "$value": "{type.meta}",
@@ -386,12 +475,12 @@
       },
       "frame": {
         "width": {
-          "$value": "346px",
+          "$value": "320px",
           "$type": "dimension",
           "$description": "The card's width."
         },
         "height": {
-          "$value": "264px",
+          "$value": "244px",
           "$type": "dimension",
           "$description": "The card's height."
         },
@@ -467,6 +556,11 @@
         "icon": {
           "$value": "13px",
           "$type": "dimension"
+        },
+        "generated-height": {
+          "$value": "{space.6}",
+          "$type": "dimension",
+          "$description": "A generated tool's chip (24px): a step under the standard tools, so it reads as offered, not part of the bar. No shadow; the AI outline is enough."
         },
         "font-size": {
           "$value": "{type.meta}",
@@ -671,6 +765,11 @@
           "$value": "16px",
           "$type": "dimension"
         },
+        "generated-height": {
+          "$value": "{space.7}",
+          "$type": "dimension",
+          "$description": "A generated tool's chip (28px): a step under the standard tools, so it reads as offered, not part of the bar. No shadow; the AI outline is enough."
+        },
         "font-size": {
           "$value": "{type.label}",
           "$type": "dimension",
@@ -872,6 +971,11 @@
         "icon": {
           "$value": "14px",
           "$type": "dimension"
+        },
+        "generated-height": {
+          "$value": "{space.6}",
+          "$type": "dimension",
+          "$description": "Unused at this size: it has no generated tools. Kept so every size has the same tokens."
         },
         "font-size": {
           "$value": "{type.body-card}",

@@ -3,6 +3,7 @@ import type { AppBlock, DashboardShellData, Dataset, Variable } from "../apps/ap
 /** Every interface in the library. */
 export const SHELL_KINDS = [
   "chat",
+  "notes",
   "document",
   "search",
   "table",
@@ -18,6 +19,23 @@ export const SHELL_KINDS = [
   "dashboard",
 ] as const;
 export type ShellKind = (typeof SHELL_KINDS)[number];
+
+/**
+ * What an interface is doing in a thread:
+ * - make: it's the thing asked for (a recipe, a document, a checklist). The
+ *   model writes it when asked.
+ * - track: it holds the thread's working state while something is worked out
+ *   (Notes; a Tracker of the goal's stages). The model keeps it up to date as
+ *   it works on the things it's making.
+ */
+export const INTERFACE_ROLES = ["make", "track"] as const;
+export type InterfaceRole = (typeof INTERFACE_ROLES)[number];
+/** The roles each interface can take, its default first. */
+export const ROLES_OF: Partial<Record<ShellKind, readonly InterfaceRole[]>> = {
+  notes: ["track"],
+  tracker: ["make", "track"],
+};
+export const rolesOf = (kind: ShellKind): readonly InterfaceRole[] => ROLES_OF[kind] ?? ["make"];
 
 /** Built after P0: the rest of the library is P0. */
 export const P1_KINDS: readonly ShellKind[] = ["calendar", "moodboard", "map", "chart"];
@@ -350,6 +368,17 @@ export type GuideStep = {
 /** A short fact about the guide: Serves 12, Difficulty Medium, People 2. */
 export type GuideFact = { label: string; value: string };
 
+/**
+ * Notes: a scratchpad for working something out. Just text, a line at a
+ * time: the goal, what's known, what's still open. Other interfaces are made
+ * from it, and the model keeps it up to date while it works on them.
+ */
+export type NotesShellData = ProjectSlot & {
+  title: string;
+  /** Plain text, one note per line. */
+  body: string;
+};
+
 export type GuideShellData = ProjectSlot & {
   title: string;
   /** Serves, Time, Difficulty, People: whichever this kind of guide calls for. */
@@ -451,6 +480,7 @@ export type ShellDataByKind = {
   moodboard: MoodboardShellData;
   chart: ChartShellData;
   guide: GuideShellData;
+  notes: NotesShellData;
   generator: GeneratorShellData;
   dashboard: DashboardShellData;
 };

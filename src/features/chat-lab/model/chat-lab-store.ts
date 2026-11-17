@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ChatShellKind, DocumentPieces, ShellDataByKind } from "@/features/interface-shells";
+import { rolesOf, type ChatShellKind, type DocumentPieces, type InterfaceRole, type ShellDataByKind } from "@/features/interface-shells";
 import {
   addEntry,
   applyLayoutChange,
@@ -31,6 +31,10 @@ export const CHAT_WINDOW = "chat";
 /** A library interface opened beside a thread with its own data. */
 export type ArtefactShell = { [K in ChatShellKind]: { kind: K; data: ShellDataByKind[K] } }[ChatShellKind];
 
+/** What an interface is doing in its thread: set when it was opened, else its kind's default (Notes tracks; the rest make). */
+export const roleOf = (artefact: Pick<ChatLabArtefact, "kind" | "shell" | "role">): InterfaceRole =>
+  artefact.role ?? (artefact.kind === "shell" && artefact.shell ? rolesOf(artefact.shell.kind)[0]! : "make");
+
 export type ChatLabArtefact = {
   id: string;
   kind: ChatLabArtefactKind;
@@ -51,6 +55,8 @@ export type ChatLabArtefact = {
   added?: boolean;
   /** kind "shell": which interface it is, and its data. */
   shell?: ArtefactShell;
+  /** What it's doing in the thread (see INTERFACE_ROLES). Absent: its kind's default. */
+  role?: InterfaceRole;
   /** kind "document": the live pieces between its paragraphs (data, controls, charts), placed by `::id` lines in `content`. */
   pieces?: DocumentPieces;
 };
@@ -104,6 +110,8 @@ export type ChatLabSession = {
   persona?: string;
   /** Choices picked on the home card, sent as context with the first turn. */
   brief?: string;
+  /** Interfaces the person closed: kept in the thread, out of the model's context until opened again. */
+  closed?: string[];
   createdAt: number;
   updatedAt: number;
 };
@@ -137,12 +145,15 @@ type ChatLabState = {
       libraryKind?: string;
       shell?: ArtefactShell;
       added?: boolean;
+      role?: InterfaceRole;
     },
   ) => string;
   /** Remove an interface from the thread, with its window. */
   deleteArtefact: (sessionId: string, artefactId: string) => void;
   /** The interface the model works on next; null for none. */
   focusArtefact: (sessionId: string, artefactId: string | null) => void;
+  /** Closed: out of the model's context. Opened again: back in. */
+  setClosed: (sessionId: string, artefactId: string, closed: boolean) => void;
   setLayout: (sessionId: string, layout: WorkspaceLayout) => void;
   setTurnTarget: (sessionId: string, userMessageId: string, artefactId: string) => void;
   deleteSession: (id: string) => void;
@@ -195,6 +206,13 @@ export function interfaceFirstLayout(artefactId: string, now: number): Workspace
   layout = addEntry(layout, artefactId, false, now);
   layout = applyLayoutChange(layout, { type: "move", id: CHAT_WINDOW, region: "main", order: 0 }, now - 1).layout;
   return applyLayoutChange(layout, { type: "move", id: artefactId, region: "main", order: 1 }, now).layout;
+}
+
+/** Chat as the page, a tracked interface (Notes) docked beside it: the conversation is the work, the notes keep up. */
+export function trackedFirstLayout(artefactId: string, now: number): WorkspaceLayout {
+  let layout = chatOnlyLayout(now - 1);
+  layout = addEntry(layout, artefactId, false, now);
+  return applyLayoutChange(layout, { type: "support", id: artefactId }, now).layout;
 }
 
 /**
@@ -333,8 +351,9 @@ export const useChatLabStore = create<ChatLabState>()(
           };
           activeArtefactId = artefactId;
         }
-        // Picked on the home: the interface is the work, and Chat sits beside it.
-        const layout = activeArtefactId ? interfaceFirstLayout(activeArtefactId, now) : chatOnlyLayout(now);
+        // Picked on the home: the interface is the work, and Chat sits beside it. A tracked one (Notes) docks beside Chat instead.
+        const first = activeArtefactId ? artefacts[activeArtefactId] : undefined;
+        const layout = !first ? chatOnlyLayout(now) : roleOf(first) === "track" ? trackedFirstLayout(first.id, now) : interfaceFirstLayout(first.id, now);
         set((state) => ({
           sessions: {
             ...state.sessions,
@@ -496,6 +515,7 @@ export const useChatLabStore = create<ChatLabState>()(
                     pinned: false,
                     ...(input.added ? { added: true } : {}),
                     ...(input.shell ? { shell: input.shell } : {}),
+                    ...(input.role ? { role: input.role } : {}),
                   },
                 },
                 activeArtefactId: artefactId,
@@ -539,6 +559,26 @@ export const useChatLabStore = create<ChatLabState>()(
             sessions: {
               ...state.sessions,
               [sessionId]: { ...session, activeArtefactId: artefactId },
+            },
+          };
+        }),
+
+      setClosed: (sessionId, artefactId, closed) =>
+        set((state) => {
+          const session = state.sessions[sessionId];
+          if (!session) return state;
+          const list = session.closed ?? [];
+          if (list.includes(artefactId) === closed) return state;
+          const next = closed ? [...list, artefactId] : list.filter((id) => id !== artefactId);
+          return {
+            sessions: {
+              ...state.sessions,
+              [sessionId]: {
+                ...session,
+                closed: next,
+                // A closed interface isn't the one the model works on.
+                ...(closed && session.activeArtefactId === artefactId ? { activeArtefactId: null } : {}),
+              },
             },
           };
         }),

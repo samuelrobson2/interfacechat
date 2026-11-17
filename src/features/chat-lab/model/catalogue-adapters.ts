@@ -9,9 +9,21 @@ import {
   type CatalogueKind,
   type CatalogueValue,
   type CatalogueValueByKind,
+  type GeneratorShellData,
+  type GuideShellData,
+  type ScheduleShellData,
   type TableColumn,
   type TrackerShellData,
 } from "@/features/interface-shells";
+
+/** Library interfaces the model fills through the catalogue, each holding its own data. */
+const SHELL_CATALOGUE: CatalogueKind[] = ["tracker", "dashboard", "guide", "schedule", "generator"];
+
+const toHours = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h ?? 0) + (m ?? 0) / 60;
+};
+const toHHMM = (hours: number) => `${String(Math.floor(hours)).padStart(2, "0")}:${String(Math.round((hours % 1) * 60)).padStart(2, "0")}`;
 import type { ArtefactShell, ChatLabArtefact, ChatLabArtefactKind } from "./chat-lab-store";
 import { artefactDocument, artefactTable } from "./shell-adapters";
 
@@ -19,7 +31,7 @@ import { artefactDocument, artefactTable } from "./shell-adapters";
 export function artefactCatalogueKind(artefact: ChatLabArtefact): CatalogueKind | null {
   if (artefact.kind === "document" || artefact.kind === "table") return artefact.kind;
   const shellKind = artefact.kind === "shell" ? artefact.shell?.kind : undefined;
-  if (shellKind === "tracker" || shellKind === "dashboard") return shellKind;
+  if (shellKind && (SHELL_CATALOGUE as string[]).includes(shellKind)) return shellKind as CatalogueKind;
   return null;
 }
 
@@ -55,6 +67,36 @@ export function artefactCatalogueValue(artefact: ChatLabArtefact): CatalogueValu
     };
   }
   if (kind === "dashboard") return appToCatalogue(artefact.shell!.data as AppShellData);
+  if (kind === "guide") {
+    const data = artefact.shell!.data as GuideShellData;
+    return {
+      title: data.title,
+      facts: data.facts,
+      needs: data.needs.map(({ text, group }) => ({ text, ...(group ? { group } : {}) })),
+      steps: data.steps.map(({ text, minutes, note }) => ({ text, ...(minutes ? { minutes } : {}), ...(note ? { note } : {}) })),
+    };
+  }
+  if (kind === "schedule") {
+    const data = artefact.shell!.data as ScheduleShellData;
+    return {
+      title: data.title,
+      ...(data.start ? { start: data.start } : {}),
+      dayCount: data.dayCount,
+      hours: [toHHMM(data.hours[0]), toHHMM(data.hours[1])],
+      constraints: data.constraints,
+      tasks: data.tasks.map((task) => ({ label: task.label, day: task.day + 1, start: toHHMM(task.start), end: toHHMM(task.end), type: task.type })),
+    };
+  }
+  if (kind === "generator") {
+    const data = artefact.shell!.data as GeneratorShellData;
+    const texts = data.variations.flatMap((variation) => (variation.text ? [variation.text] : []));
+    return {
+      title: data.title,
+      mode: data.mode,
+      ...(data.mode === "text" ? { tone: data.controls.tone, length: data.controls.length } : { style: data.controls.style, aspect: data.controls.aspect }),
+      ...(texts.length ? { variations: texts } : {}),
+    };
+  }
   return null;
 }
 
@@ -106,6 +148,58 @@ export function catalogueArtefactPatch(artefact: ChatLabArtefact, value: Catalog
     const data = catalogueToApp(value as CatalogueValueByKind["dashboard"], previous);
     return { title: data.title, shell: { kind, data } as ArtefactShell };
   }
+  if (kind === "guide") {
+    const guide = value as CatalogueValueByKind["guide"];
+    const previous = artefact.shell!.data as GuideShellData;
+    // Ids follow position and what's ticked off is kept, so writing over it doesn't lose their progress.
+    const data: GuideShellData = {
+      ...previous,
+      title: guide.title || previous.title,
+      facts: guide.facts.length ? guide.facts : previous.facts,
+      needs: guide.needs.map((need, i) => ({ id: previous.needs[i]?.id ?? `need-${i}`, text: need.text, have: previous.needs[i]?.text === need.text ? previous.needs[i]!.have : false, ...(need.group ? { group: need.group } : {}) })),
+      steps: guide.steps.map((step, i) => ({ id: previous.steps[i]?.id ?? `step-${i}`, text: step.text, done: previous.steps[i]?.text === step.text ? previous.steps[i]!.done : false, ...(step.minutes ? { minutes: step.minutes } : {}), ...(step.note ? { note: step.note } : {}) })),
+    };
+    return { title: data.title, shell: { kind: "guide", data } as ArtefactShell };
+  }
+  if (kind === "schedule") {
+    const schedule = value as CatalogueValueByKind["schedule"];
+    const previous = artefact.shell!.data as ScheduleShellData;
+    const data: ScheduleShellData = {
+      ...previous,
+      title: schedule.title || previous.title,
+      ...(schedule.start ? { start: schedule.start } : {}),
+      dayCount: schedule.dayCount,
+      hours: [toHours(schedule.hours[0] ?? "09:00"), toHours(schedule.hours[1] ?? "17:00")],
+      constraints: schedule.constraints,
+      tasks: schedule.tasks.map((task, i) => ({
+        id: previous.tasks[i]?.id ?? `task-${i}`,
+        label: task.label,
+        day: Math.max(0, Math.min(schedule.dayCount - 1, task.day - 1)),
+        start: toHours(task.start),
+        end: Math.max(toHours(task.start) + 0.25, toHours(task.end)),
+        type: task.type,
+      })),
+    };
+    return { title: data.title, shell: { kind: "schedule", data } as ArtefactShell };
+  }
+  if (kind === "generator") {
+    const generator = value as CatalogueValueByKind["generator"];
+    const previous = artefact.shell!.data as GeneratorShellData;
+    const data: GeneratorShellData = {
+      ...previous,
+      title: generator.title || previous.title,
+      mode: generator.mode,
+      controls: {
+        ...previous.controls,
+        ...(generator.tone ? { tone: generator.tone } : {}),
+        ...(generator.length ? { length: generator.length } : {}),
+        ...(generator.style ? { style: generator.style } : {}),
+        ...(generator.aspect ? { aspect: generator.aspect } : {}),
+      },
+      ...(generator.variations?.length ? { variations: generator.variations.map((text, i) => ({ id: `v-${i}`, text })) } : {}),
+    };
+    return { title: data.title, shell: { kind: "generator", data } as ArtefactShell };
+  }
   return null;
 }
 
@@ -115,19 +209,13 @@ export function newCatalogueArtefact(kind: CatalogueKind, title: string): {
   libraryKind: string;
   shell?: ArtefactShell;
 } {
-  if (kind === "tracker") {
+  if ((SHELL_CATALOGUE as string[]).includes(kind)) {
+    const shellKind = kind as "tracker" | "dashboard" | "guide" | "schedule" | "generator";
     return {
       kind: "shell",
-      libraryKind: "checklist",
-      shell: { kind: "tracker", data: { ...structuredClone(EMPTY_SHELL_DATA.tracker), title } } as ArtefactShell,
+      libraryKind: kind === "tracker" ? "checklist" : kind,
+      shell: { kind: shellKind, data: { ...structuredClone(EMPTY_SHELL_DATA[shellKind]), title } } as ArtefactShell,
     };
   }
-  if (kind === "dashboard") {
-    return {
-      kind: "shell",
-      libraryKind: kind,
-      shell: { kind, data: { ...structuredClone(EMPTY_SHELL_DATA[kind]), title } } as ArtefactShell,
-    };
-  }
-  return { kind, libraryKind: kind };
+  return { kind: kind as "document" | "table", libraryKind: kind };
 }

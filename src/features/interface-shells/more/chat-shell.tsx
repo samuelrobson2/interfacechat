@@ -1,10 +1,11 @@
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
-import { CONTENT_PANEL } from "../ui/shell-kit";
+import { PreviewBody, PreviewHead, ShellBody, ShellTitle } from "../ui/shell-kit";
+import { ShellToolbar } from "../ui/shell-toolbar";
 import { ASSISTANT_SUGGESTIONS, FORMAT_SUGGESTIONS } from "../model/chat-formats";
 import { shellId, type ChatShellData, type ShellProps } from "../model/shell-types";
-import { ShellAppIcon, ShellGlyph } from "../ui/shell-icons";
+import { ShellAppIcon } from "../ui/shell-icons";
 import { Bar, AutoTextarea, fieldEvents, isSubmitShortcut, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 function SendButton({ disabled, onPress, className }: { disabled?: boolean; onPress: () => void; className?: string }) {
@@ -166,6 +167,8 @@ export function ChatShell({
   onChange,
   onSubmit,
   surface = true,
+  tools,
+  actions,
   className,
 }: ShellProps<ChatShellData>) {
   const [reply, setReply] = useState("");
@@ -173,25 +176,21 @@ export function ChatShell({
   if (size === "small") return <ShellAppIcon kind="chat" className={className} />;
 
   if (size === "medium") {
-    const text = data.messages[0]?.text ?? data.title;
     return (
-      <ShellSurface size={size} surface={surface} className={cn("gap-2 p-2.5", className)}>
-        <div className="flex items-center gap-1.5">
-          <ShellGlyph kind="chat" className="size-3.5" />
-          <span className="font-bureau text-[12px] text-typography-primary">Chat</span>
-        </div>
-        <div className={cn("flex min-h-0 flex-1 flex-col justify-center gap-1.5 p-2", CONTENT_PANEL)}>
-          <div className="flex justify-end">
-            {/* Medium shows shapes, not words: a message bubble of bars. */}
-            <div aria-hidden className="flex w-[70%] flex-col gap-1 rounded-[14px] bg-shell-fill px-2.5 py-2">
-              <Bar width="100%" className="h-1.5 bg-shell-ink-soft" />
-              <Bar width="62%" className="h-1.5 bg-shell-ink-soft" />
-            </div>
+      <ShellSurface size={size} kind="chat" surface={surface} className={className}>
+        <PreviewHead kind="chat" title="" />
+        {/* Medium shows shapes, not words: a message bubble of bars, and a reply under it. */}
+        <PreviewBody className="justify-center gap-1.5">
+          <div aria-hidden className="ml-auto flex w-[72%] flex-col gap-1 rounded-[12px] bg-shell-fill px-2 py-1.5">
+            <Bar width="100%" className="h-1 bg-shell-ink-soft" />
+            <Bar width="62%" className="h-1 bg-shell-ink-soft" />
           </div>
-          <div className="mt-auto flex justify-end">
-            <SendButton disabled={!text.trim() || !onSubmit} onPress={() => onSubmit?.()} />
+          <div aria-hidden className="flex w-[80%] flex-col gap-1 px-0.5 py-1">
+            <Bar width="100%" />
+            <Bar width="86%" />
+            <Bar width="48%" />
           </div>
-        </div>
+        </PreviewBody>
       </ShellSurface>
     );
   }
@@ -200,36 +199,35 @@ export function ChatShell({
 
   if (size === "medium-plus") {
     return (
-      <ShellSurface size={size} surface={surface} className={className}>
-        <div className="flex items-center gap-2 px-4 pt-3.5">
-          <ShellGlyph kind="chat" className="size-4" />
-          <span className="font-bureau text-[14px] text-typography-primary">Chat</span>
-        </div>
-        <div className="px-4 pt-2.5">
+      <ShellSurface size={size} kind="chat" surface={surface} className={className}>
+        <ShellTitle kind="chat" size={size} value="" />
+        {(tools || actions) && <ShellToolbar tools={tools} actions={actions} />}
+        <ShellBody size={size} className="justify-between">
+          {/* How the reply is laid out, and who gives it: what's been set shows here, where it can be changed. */}
           <Modes data={data} large={false} update={update} />
-        </div>
-        <div className={cn("mx-2.5 mt-3 mb-2.5 flex min-h-0 flex-1 flex-col justify-end gap-2 p-3", CONTENT_PANEL)}>
-          <div className="flex justify-end">
-            <div className="max-w-[90%] rounded-[16px] bg-shell-fill px-3 py-2">
-              <AutoTextarea
-                value={data.title}
-                placeholder="Ask anything"
-                aria-label="Message"
-                readOnly={!update}
-                {...fieldEvents}
-                onKeyDown={(event) => {
-                  stopFieldEvent(event);
-                  if (isSubmitShortcut(event)) onSubmit?.();
-                }}
-                onChange={(event) => update?.({ title: event.target.value })}
-                className="font-bureau text-[13px] leading-[1.4] text-typography-primary placeholder:font-light placeholder:text-typography-secondary"
-              />
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-end">
+              <div className="max-w-[90%] rounded-[16px] bg-shell-fill px-3 py-2">
+                <AutoTextarea
+                  value={data.title}
+                  placeholder="Ask anything"
+                  aria-label="Message"
+                  readOnly={!update}
+                  {...fieldEvents}
+                  onKeyDown={(event) => {
+                    stopFieldEvent(event);
+                    if (isSubmitShortcut(event)) onSubmit?.();
+                  }}
+                  onChange={(event) => update?.({ title: event.target.value })}
+                  className="font-bureau text-[13px] leading-[1.4] text-typography-primary placeholder:font-light placeholder:text-typography-secondary"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <SendButton disabled={!data.title.trim() || !onSubmit} onPress={() => onSubmit?.()} />
             </div>
           </div>
-          <div className="flex justify-end">
-            <SendButton disabled={!data.title.trim() || !onSubmit} onPress={() => onSubmit?.()} />
-          </div>
-        </div>
+        </ShellBody>
       </ShellSurface>
     );
   }

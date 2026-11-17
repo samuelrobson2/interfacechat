@@ -28,6 +28,21 @@ export type ShellRetrieval = {
  * The library page edits the live copy; retrieval reads it.
  */
 export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
+  notes: {
+    description:
+      "A scratchpad for a goal being worked out: what they're trying to do, the facts they've given (when, where, how many, for whom) and what's still open, a line at a time. Choose this when someone asks for help reaching an outcome (planning a party, a shoot, a move) without naming the thing to make; the guide, schedule or checklist come from it.",
+    notFor:
+      "Writing something to share (use Document), a recipe to follow (use Guide), a list of tasks to tick off (use Tracker), or a quick question (use Chat).",
+    queries: [
+      "Help me organise food for a dinner party next week",
+      "Help me plan a half-day shoot for our brand next Thursday",
+      "We need to plan the office move in March",
+      "Let's plan Mum's 60th birthday",
+    ],
+    avoidQueries: ["Write a memo about the office move", "Make a checklist for the party", "Give me a recipe for lasagne"],
+    triggers: ["notes", "scratchpad", "jot down", "note down", "take notes", "keep notes"],
+    hints: ["plan", "organise", "organize", "arrange", "coordinate"],
+  },
   chat: {
     description:
       "A plain conversation: a question, an opinion, a quick fact or thinking something through out loud. Choose this when the answer is a few sentences in the thread and nothing needs to be built, tracked or laid out.",
@@ -1338,12 +1353,37 @@ export function shellTriggerScore(kind: ShellKind, draft: string): number {
   return Math.min(phraseHits(live[kind].triggers, draft).length, 2) * TRIGGER_POINTS;
 }
 
+/**
+ * A goal, not a thing: "help me plan a shoot", "help me organize food for a
+ * dinner party". The person wants an outcome and hasn't said what to make, so
+ * it opens Notes: a scratchpad of what they're trying to do and what's known,
+ * which the working interfaces (a guide, a schedule, a checklist) are made from.
+ * A request that names the thing ("help me plan a shoot schedule", "…a
+ * checklist for the party"), or its parts ("organise my tasks"), is a direct
+ * request and routes as usual. Only planning verbs count: "prepare for an
+ * interview" or "figure out" is a conversation, and stays in the chat.
+ */
+const GOAL_REQUEST =
+  /^\s*(?:(?:can|could|would) you\s+|please\s+|hey,?\s+)?(?:help (?:me|us)(?: to)?|i need to|we need to|i(?:'m| am) trying to|we(?:'re| are) trying to|i want to|we want to|i(?:'d| would) like to|let's|lets)\s+(?:\w+\s+){0,2}?(?:plan|organi[sz]e|put together|pull together|coordinate|arrange|host|throw)\b/i;
+/** Words that name what to make: with one, a goal request is a direct one. */
+const NAMES_A_THING =
+  /\b(?:table|spreadsheet|sheet|checklist|check-list|to-?do|todo|tracker|schedule|timeline|itinerary|agenda|run of show|shot ?list|call ?sheet|recipe|guide|steps|tasks|to-?dos|items|dashboard|chart|graph|search|doc|document|brief|memo|outline|list|image|poster|moodboard|mood board|map|calendar|deck|slides)\b/i;
+export const isGoalRequest = (draft: string) => GOAL_REQUEST.test(draft) && !NAMES_A_THING.test(draft);
+/** What a goal request gives the brief: well past any one interface's evidence. */
+const GOAL_POINTS = 60;
+
+/** A goal request opens Notes: it leads, and nothing else can outscore it. */
+function withGoal(kind: ShellKind, score: number, draft: string) {
+  if (!isGoalRequest(draft)) return score;
+  return kind === "notes" ? Math.max(score, GOAL_POINTS) : Math.min(score, GOAL_POINTS - 30);
+}
+
 /** Everything that says a draft is asking for this kind of interface, less what says it isn't. */
 export function shellKindScore(kind: ShellKind, draft: string): number {
   const own = scoreProfile(live[kind], draft).total;
   // A query that asks for one of Chat's formats or personas is a query for Chat.
-  if (kind === "chat") return Math.max(own, chatModeScore(draft));
-  return own;
+  if (kind === "chat") return withGoal(kind, Math.max(own, chatModeScore(draft)), draft);
+  return withGoal(kind, own, draft);
 }
 
 /**
@@ -1384,6 +1424,7 @@ function routeWith(profiles: Record<ShellKind, ShellRetrieval>, draft: string): 
   for (const k of Object.keys(profiles) as ShellKind[]) {
     scores[k] = scoreProfile(profiles[k], draft).total;
     if (k === "chat") scores[k] = Math.max(scores[k], chatModeScore(draft));
+    scores[k] = withGoal(k, scores[k], draft);
     if (scores[k] >= SHELL_ROUTE_FLOOR && (kind === null || scores[k] > scores[kind])) kind = k;
   }
   return { kind, scores };

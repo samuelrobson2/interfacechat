@@ -7,9 +7,9 @@ import { InlineShell } from "./inline/inline-shell";
 import { InlineSmall } from "./inline/inline-small";
 import { hasInline } from "./inline/inline-summary";
 import { SHELL_FIXTURES } from "./model/shell-fixtures";
-import { SHELL_META, STATE_META } from "./model/shell-meta";
-import { isP0Kind, SHELL_KINDS, type ShellKind, type ShellSuggestions, type SuggestedGroup, type SuggestedValues } from "./model/shell-types";
-import { generateTools, GenerativeToolbar, PER_PLACE, placeOf, suggestValues, TOOLBAR_KINDS, type GeneratedTool, type ToolbarDataByKind, type ToolbarKind } from "@/features/generative-toolbar";
+import { hasSize, SHELL_META, STATE_META } from "./model/shell-meta";
+import { isP0Kind, SHELL_KINDS, type ShellKind, type SuggestedGroup, type SuggestedValues } from "./model/shell-types";
+import { GenerativeSourceSwitch, useInterfaceGenerative } from "@/features/generative-toolbar";
 import {
   PART_META,
   PARTS,
@@ -22,6 +22,7 @@ import {
   resolveToken,
   SHELL_TOKENS,
   ShellTokensContext,
+  tintOf,
   SIZE_ANATOMY,
   sizeTokens,
   frameSize,
@@ -50,7 +51,8 @@ const NO_GUIDES = new Set<GuideKind>();
  * build to: the anatomy, what each size shows, and every token's value.
  */
 
-const KINDS = SHELL_KINDS.filter((kind) => kind !== "chat" && isP0Kind(kind));
+// Every P0 interface, Chat last: it's the conversation, not a surface.
+const KINDS = [...SHELL_KINDS.filter((kind) => kind !== "chat" && isP0Kind(kind)), "chat" as const];
 /**
  * The page's states. Generative is the filled interface with what the model
  * would offer on it: generated tools in the toolbar and beside the parts they
@@ -65,55 +67,30 @@ const STATE_LABEL: Record<PageState, string> = { empty: STATE_META.empty.label, 
 const LOCAL_SUGGESTED: Partial<Record<ShellKind, SuggestedValues>> = {
   guide: { steps: [{ value: "Taste the broth and season before the fish goes in.", after: "Add the tomatoes" }] },
 };
-const isToolbarKind = (kind: ShellKind): kind is ToolbarKind => (TOOLBAR_KINDS as readonly string[]).includes(kind);
 
-/** What the model would offer on an interface: the same generators the home page and the toolbar lab use. */
-function useGenerative(kind: ShellKind, size: TokenSize, data: unknown, setData: (data: never) => void, on: boolean) {
-  const [dismissedTools, setDismissedTools] = useState<string[]>([]);
+/**
+ * What the model offers on an interface: the same hook the chat's windows and
+ * the chat home's card use, so what's tried here is what ships. The Tools
+ * switch picks the model, the rules, or none, app-wide.
+ */
+function useGenerative(root: React.RefObject<HTMLElement | null>, kind: ShellKind, size: TokenSize, data: unknown, setData: (data: never) => void, on: boolean) {
+  const generative = useInterfaceGenerative({ root, kind, size, data, onChange: setData as (data: unknown) => void, enabled: on });
   const [dismissed, setDismissed] = useState<Partial<Record<SuggestedGroup, string[]>>>({});
-  const tools = useMemo(
-    () => (on && isToolbarKind(kind) ? generateTools(kind, data as ToolbarDataByKind[typeof kind], { selection: null }) : []),
-    [on, kind, data],
-  ).filter((tool) => !dismissedTools.includes(tool.id));
-  if (!on || size === "medium" || size === "inline") return {};
-  const run = (tool: GeneratedTool<never>, value: unknown) => {
-    if (tool.apply) setData((tool.apply as (d: unknown, v: unknown) => never)(data, value));
-  };
-  const dismissTool = (tool: GeneratedTool<never>) => setDismissedTools((ids) => [...ids, tool.id]);
-  const chips = (set: GeneratedTool<never>[], label: string, className?: string) => (
-    <GenerativeToolbar
-      ariaLabel={label}
-      tools={set}
-      status="ready"
-      style="chip"
-      direction="row"
-      size="sm"
-      count={set.length}
-      popoverSide="bottom"
-      onRun={run as never}
-      onDismiss={dismissTool}
-      wrap={!className}
-      className={className}
-    />
-  );
-  const inToolbar = tools.filter((tool) => placeOf(kind as ToolbarKind, tool) === "toolbar").slice(0, 5) as GeneratedTool<never>[];
-  const places = new Map<string, GeneratedTool<never>[]>();
-  for (const tool of tools) {
-    const place = placeOf(kind as ToolbarKind, tool);
-    if (place === "toolbar") continue;
-    places.set(place, [...(places.get(place) ?? []), tool as GeneratedTool<never>].slice(0, PER_PLACE));
-  }
-  const local = LOCAL_SUGGESTED[kind] ?? {};
-  const suggested: SuggestedValues = {
-    ...(isToolbarKind(kind) ? suggestValues(kind, data as ToolbarDataByKind[typeof kind], dismissed) : {}),
-    ...Object.fromEntries(Object.entries(local).map(([group, list]) => [group, list.filter((value) => !dismissed[group as SuggestedGroup]?.includes(typeof value === "string" ? value : value.value))])),
-  };
+  if (!on || size === "medium" || size === "inline") return { props: {}, note: null };
+  const local = Object.fromEntries(
+    Object.entries(LOCAL_SUGGESTED[kind] ?? {}).map(([group, list]) => [group, list.filter((value) => !dismissed[group as SuggestedGroup]?.includes(typeof value === "string" ? value : value.value))]),
+  ) as SuggestedValues;
+  const own = generative.props;
   return {
-    // Chips after the standard tools, in the same row; the toolbar scrolls when the pointer reaches its end.
-    tools: inToolbar.length ? chips(inToolbar, "Suggested tools", "flex-nowrap") : undefined,
-    suggestions: Object.fromEntries([...places].map(([place, set]) => [place, chips(set, `Suggested for ${place}`)])) as ShellSuggestions,
-    suggested,
-    onDismissSuggestion: (group: SuggestedGroup, value: string) => setDismissed((d) => ({ ...d, [group]: [...(d[group] ?? []), value] })),
+    note: generative.note,
+    props: {
+      ...own,
+      suggested: { ...(own.suggested ?? {}), ...local },
+      onDismissSuggestion: (group: SuggestedGroup, value: string) => {
+        own.onDismissSuggestion?.(group, value);
+        setDismissed((d) => ({ ...d, [group]: [...(d[group] ?? []), value] }));
+      },
+    },
   };
 }
 const SIZE_LABEL: Record<TokenSize, string> = { medium: "Medium", "medium-plus": "Medium plus", large: "Large", inline: "Inline" };
@@ -300,12 +277,11 @@ function TokenControl({ tokens, path, property, onChange }: { tokens: TokenGroup
 }
 
 /**
- * Card sizes are decided (medium 144 × 144, medium plus 346 × 264, large
- * 760 × 540), so they're locked: shown in the menu, not edited, and the
- * corner handles are off. Empty this list (or set CARD_SIZES_LOCKED to false)
- * to resize again.
+ * Card sizes can be changed: drag a card's corner handle, or type the width and
+ * height under Frame. Set this to true to lock them again once they're decided:
+ * they're then shown in the menu, not edited, and the handles are off.
  */
-const CARD_SIZES_LOCKED = true;
+const CARD_SIZES_LOCKED = false;
 const LOCKED: string[] = CARD_SIZES_LOCKED ? ["frame.width", "frame.height"] : [];
 
 /** The smallest a card can be dragged to at each size: below this the parts no longer fit. */
@@ -381,8 +357,10 @@ function LiveShell({
   onResize?: (width: number, height: number) => void;
 }) {
   const [data, setData] = useState(() => SHELL_FIXTURES[kind].states[state === "generative" ? "history" : state]);
-  const generative = useGenerative(kind, size, data, setData as (data: never) => void, state === "generative");
+  const root = useRef<HTMLDivElement>(null);
+  const generative = useGenerative(root, kind, size, data, setData as (data: never) => void, state === "generative");
   const { width, height } = frameSize(useShellTokens(), size);
+  if (size !== "inline" && !hasSize(kind, size)) return null;
   if (size === "inline") {
     if (!hasInline(kind)) return null;
     return (
@@ -399,11 +377,89 @@ function LiveShell({
   return (
     <figure className="flex flex-col gap-2">
       <figcaption className="font-bureau text-[12px] text-typography-secondary">{SHELL_META[kind].label}</figcaption>
-      <div style={{ width, height }} className="relative shrink-0">
-        <InterfaceShell {...({ kind, size, data, status: "idle", onChange: setData, ...generative } as InterfaceShellProps)} />
+      <div ref={root} style={{ width, height }} className="relative shrink-0">
+        <InterfaceShell {...({ kind, size, data, status: "idle", onChange: setData, ...generative.props } as InterfaceShellProps)} />
+        {generative.note}
         {onResize && <ResizeHandle size={size} width={width} height={height} onResize={onResize} />}
       </div>
     </figure>
+  );
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** One colour: the picker, and its hex to type or paste. */
+function ColourField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  // What's being typed, until it's left; otherwise the token's value.
+  const [typing, setTyping] = useState<string | null>(null);
+  const text = typing ?? value;
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        type="color"
+        aria-label={label}
+        value={HEX.test(value) ? value : "#000000"}
+        onChange={(event) => onChange(event.target.value)}
+        className="size-6 shrink-0 cursor-pointer rounded-[6px] border border-shell-line-strong bg-transparent p-0 [&::-webkit-color-swatch]:rounded-[5px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+      />
+      <input
+        aria-label={`${label}, hex`}
+        value={text}
+        onChange={(event) => {
+          setTyping(event.target.value);
+          if (HEX.test(event.target.value)) onChange(event.target.value.toLowerCase());
+        }}
+        onBlur={() => setTyping(null)}
+        className={cn(FIELD, "w-[74px] px-1.5 font-mono text-[11px]")}
+      />
+    </span>
+  );
+}
+
+/**
+ * Each interface's colour, drawn as a border round its card at medium and
+ * medium plus (the `tint` tokens), and how thick that border is. Changes show
+ * on every card at once, undo with ⌘Z, and save with the rest under Review
+ * changes.
+ */
+function InterfaceColours({ tokens, onSet }: { tokens: TokenGroup; onSet: (path: string, value: TokenValue) => void }) {
+  const width = px(resolveToken(tokens, tokenAt(tokens, "tint.width")?.$value ?? "2px"));
+  return (
+    <section aria-label="Interface colours" className="flex flex-col gap-2 rounded-[12px] p-2">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[13px] text-typography-primary">Interface colours</span>
+        <span className="text-[11px] text-typography-secondary">A border round each card in its interface's colour, at medium and medium plus.</span>
+      </div>
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-[12px] text-typography-secondary">Border width</span>
+        <input
+          aria-label="Border width"
+          type="number"
+          min={0}
+          max={8}
+          step={0.5}
+          value={width}
+          onChange={(event) => onSet("tint.width", `${event.target.value}px`)}
+          className={cn(FIELD, "w-16")}
+        />
+      </label>
+      <ul className="flex flex-col">
+        {SHELL_KINDS.map((kind) => {
+          const tint = tintOf(tokens, kind);
+          if (!tint) return null;
+          return (
+            <li key={kind} className="flex items-center justify-between gap-2 border-t border-gray-3/15 py-1.5">
+              <span className="flex min-w-0 items-center gap-2">
+                {/* The card's corner as it reads: grey with the border round it. */}
+                <span aria-hidden className="size-5 shrink-0 rounded-[6px] bg-shell-frame" style={{ boxShadow: `inset 0 0 0 ${tint.width} ${tint.border}` }} />
+                <span className="truncate text-[12px] text-typography-primary">{SHELL_META[kind].label}</span>
+              </span>
+              <ColourField label={`${SHELL_META[kind].label} border`} value={tint.border} onChange={(value) => onSet(`tint.${kind}.border`, value)} />
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -636,6 +692,7 @@ function DesignSystemPage() {
               onChange={setView}
             />
             {view === "interfaces" && <Segmented label="State" value={state} options={STATES.map((id) => ({ id, label: STATE_LABEL[id] }))} onChange={setState} />}
+            {view === "interfaces" && state === "generative" && <GenerativeSourceSwitch className="self-end" />}
             {view === "compare" && (
               <select aria-label="Interface" value={compareKind} onChange={(event) => setCompareKind(event.target.value as ShellKind)} className={FIELD}>
                 {KINDS.map((kind) => (
@@ -808,6 +865,7 @@ function DesignSystemPage() {
               </section>
             );
           })}
+          {(size === "medium" || size === "medium-plus") && <InterfaceColours tokens={draft} onSet={set} />}
           <label className="flex cursor-pointer items-center gap-2 px-2 text-[12px] text-typography-secondary">
             <input type="checkbox" checked={everything} onChange={(event) => setEverything(event.target.checked)} />
             Show every token

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   EMPTY_SHELL_DATA,
   InlineShell,
@@ -11,8 +11,9 @@ import {
   type ShellKind,
   type TableShellData,
 } from "@/features/interface-shells";
+import { useInterfaceGenerative } from "@/features/generative-toolbar";
 import { useChatLabSession } from "../model/chat-lab-session";
-import { useChatLabStore, type ChatLabArtefact } from "../model/chat-lab-store";
+import { roleOf, useChatLabStore, type ChatLabArtefact } from "../model/chat-lab-store";
 import {
   artefactLabel,
   artefactOrdinal,
@@ -178,21 +179,35 @@ export function ChatLabArtefactWindow({
   size: InterfaceShellProps["size"];
 }) {
   const view = useArtefactView(sessionId, artefact);
+  // Generated tools in the toolbar and beside the parts they act on; not while the model is writing to it,
+  // and not on a tracked interface (Notes, the goal's progress): the model keeps those itself.
+  const root = useRef<HTMLDivElement>(null);
+  const generative = useInterfaceGenerative({
+    root,
+    kind: view.kind,
+    size: size as "medium" | "medium-plus" | "large" | "inline",
+    data: view.data,
+    onChange: view.onChange,
+    enabled: view.status !== "loading" && roleOf(artefact) !== "track",
+  });
   return (
-    <InterfaceShell
-      {...({
-        kind: view.kind,
-        size,
-        data: view.data,
-        surface: false,
-        // The window bar carries the glyph, so the shell leaves its own out.
-        mark: false,
-        ...(view.status ? { status: view.status } : {}),
-        onChange: view.onChange,
-        ...(view.onSearch ? { onSearch: view.onSearch } : {}),
-        onAsk: view.onAsk,
-      } as InterfaceShellProps)}
-    />
+    <div ref={root} className="relative size-full">
+      <InterfaceShell
+        {...({
+          kind: view.kind,
+          size,
+          data: view.data,
+          surface: false,
+          // The window bar carries the glyph, so the shell leaves its own out.
+          mark: false,
+          ...(view.status ? { status: view.status } : {}),
+          ...(view.onSearch ? { onSearch: view.onSearch } : {}),
+          onAsk: view.onAsk,
+          ...generative.props,
+        } as InterfaceShellProps)}
+      />
+      {generative.note}
+    </div>
   );
 }
 
@@ -229,7 +244,8 @@ export function ChatLabArtefactInline({
 
   const select = () => {
     markInlineEdited(artefact.id);
-    // Clicking into it is choosing to work on it.
+    // Clicking into it is choosing to work on it: back in the model's context if it was closed.
+    useChatLabStore.getState().setClosed(sessionId, artefact.id, false);
     useChatLabStore.getState().focusArtefact(sessionId, artefact.id);
   };
 
