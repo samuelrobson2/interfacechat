@@ -34,7 +34,7 @@ import {
 // pharos backend. Requires OPENAI_API_KEY; OPENAI_CHAT_MODEL picks the model.
 export const maxDuration = 60;
 
-type InterfaceKind = "document" | "search" | "table" | "moodboard" | "tracker" | "dashboard" | "article";
+type InterfaceKind = "document" | "search" | "table" | "moodboard" | "tracker" | "dashboard";
 
 type ArtefactContext = {
   kind: InterfaceKind | "shell";
@@ -59,11 +59,10 @@ type InterfaceCandidate = {
 
 /** What a small change to each catalogue interface touches, in the model's words. */
 const PART_WORDS: Record<CatalogueKind, string> = {
-  document: "a passage",
+  document: "a passage, or one of its live pieces (a chart, a control, a dataset)",
   table: "a cell, row or column",
   tracker: "an item, an owner, what's done",
   dashboard: "a block, a chart's type, a filter, a dataset's label",
-  article: "a paragraph, a chart, a control, a code cell",
 };
 
 /** A catalogue interface that's open: how to fill it and how to change part of it. */
@@ -76,7 +75,7 @@ const catalogueSystemAddon = (kind: CatalogueKind, artefact: ArtefactContext) =>
     : "Its contents are too long to show here.";
   const change = artefact.value
     ? kind === "document"
-      ? "- To rename it, call update_interface with a replace on /title. To change the writing, call fill_document with the new body."
+      ? "- To rename it, call update_interface with a replace on /title. To change a live piece (a chart's type, a block's filter), patch /blocks with update_interface. To change the writing, call fill_document with the new body (keep its ::id lines where the pieces should stay)."
       : `- To change part of it (${PART_WORDS[kind]}, the title), call update_interface with the
   fewest operations that do it. Don't resend the whole ${name} for a small change.
   If update_interface returns an error, fix the path or value and call it again.`

@@ -135,7 +135,6 @@ export function inlineDetail(kind: ShellKind, data: ShellData): string {
     case "chat":
       return plural((data as ShellDataByKind["chat"]).messages.length, "message");
     case "dashboard":
-    case "article":
       return appDetail(data as ShellDataByKind["dashboard"]);
     case "generator": {
       const { mode, variations, chosen } = data as ShellDataByKind["generator"];

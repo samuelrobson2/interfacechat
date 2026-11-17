@@ -32,7 +32,7 @@ function SourceBadge({ source }: { source: DataSource }) {
     <span
       className={cn(
         "rounded-full px-1.5 py-px font-bureau text-[10px] uppercase tracking-[0.4px]",
-        source.type === "generated" ? "bg-[#fff1d6] text-[#8a5a00]" : "bg-gray-6 text-typography-secondary",
+        source.type === "generated" ? "bg-[#fff1d6] text-[#8a5a00]" : "bg-shell-fill text-typography-secondary",
       )}
     >
       {SOURCE_LABEL[source.type]}
@@ -127,9 +127,9 @@ export function AppDataMenu({
         <button
           type="button"
           {...fieldEvents}
-          className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-[8px] px-2 font-bureau text-[13px] text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary data-[state=open]:bg-gray-6 data-[state=open]:text-typography-primary"
+          className="flex h-[calc(var(--shell-tools-icon,16px)+16px)] shrink-0 cursor-pointer items-center gap-1.5 rounded-[8px] px-2 font-bureau text-[length:var(--shell-tools-font-size,13px)] text-typography-secondary transition-colors hover:bg-shell-fill hover:text-typography-primary data-[state=open]:bg-shell-fill data-[state=open]:text-typography-primary"
         >
-          <Database className="size-4" />
+          <Database className="size-[var(--shell-tools-icon,16px)]" />
           Data
           <span className="tabular-nums text-typography-secondary">{data.datasets.length}</span>
           {generated > 0 && <span aria-label="Has sample data" className="size-1.5 rounded-full bg-[#e0a21a]" />}
@@ -139,7 +139,7 @@ export function AppDataMenu({
         align="start"
         sideOffset={6}
         onPointerDown={stopFieldEvent}
-        className="w-[380px] rounded-[16px] border-gray-3/20 bg-background-primary p-0 shadow-elevated"
+        className="w-[380px] rounded-[16px] border-shell-line bg-background-primary p-0 shadow-elevated"
       >
         <div className="flex flex-col">
           <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
@@ -147,7 +147,7 @@ export function AppDataMenu({
             <button
               type="button"
               onClick={() => runtime.refresh()}
-              className="flex cursor-pointer items-center gap-1 rounded-[6px] px-1.5 py-1 font-bureau text-[12px] text-typography-secondary hover:bg-gray-6"
+              className="flex cursor-pointer items-center gap-1 rounded-[6px] px-1.5 py-1 font-bureau text-[12px] text-typography-secondary hover:bg-shell-fill"
             >
               <RefreshCw className="size-3" />
               Refresh
@@ -164,7 +164,7 @@ export function AppDataMenu({
               const rows = runtime.rowsOf(dataset.id);
               const status = runtime.status[dataset.id];
               return (
-                <li key={dataset.id} className="group flex items-start gap-2 rounded-[10px] px-2 py-2 hover:bg-gray-6/60">
+                <li key={dataset.id} className="group flex items-start gap-2 rounded-[10px] px-2 py-2 hover:bg-shell-fill/60">
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex items-center gap-1.5">
                       <span className="truncate font-bureau text-[13px] text-typography-primary">{dataset.label}</span>
@@ -190,7 +190,7 @@ export function AppDataMenu({
                         replacing.current = dataset.id;
                         file.current?.click();
                       }}
-                      className="cursor-pointer rounded-[6px] px-1.5 py-0.5 font-bureau text-[12px] text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-gray-6 hover:text-typography-primary"
+                      className="cursor-pointer rounded-[6px] px-1.5 py-0.5 font-bureau text-[12px] text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-shell-fill hover:text-typography-primary"
                     >
                       Replace
                     </button>
@@ -200,7 +200,7 @@ export function AppDataMenu({
                       type="button"
                       aria-label={`Remove ${dataset.label}`}
                       onClick={() => onChange({ ...data, datasets: data.datasets.filter((d) => d.id !== dataset.id) })}
-                      className="grid size-6 cursor-pointer place-items-center rounded-[6px] text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-gray-6"
+                      className="grid size-6 cursor-pointer place-items-center rounded-[6px] text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-shell-fill"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -216,11 +216,11 @@ export function AppDataMenu({
           )}
 
           {onChange && (
-            <div className="mt-2 flex flex-col gap-1 border-t border-gray-3/15 p-2">
+            <div className="mt-2 flex flex-col gap-1 border-t border-shell-line p-2">
               <button
                 type="button"
                 onClick={() => file.current?.click()}
-                className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 font-bureau text-[13px] text-typography-primary hover:bg-gray-6"
+                className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 font-bureau text-[13px] text-typography-primary hover:bg-shell-fill"
               >
                 <FileUp className="size-4 text-typography-secondary" />
                 Upload a file
@@ -243,7 +243,7 @@ export function AppDataMenu({
                 <button
                   type="submit"
                   disabled={!url.trim() || busy}
-                  className="cursor-pointer rounded-[6px] bg-gray-6 px-2 py-0.5 font-bureau text-[12px] text-typography-primary disabled:opacity-40"
+                  className="cursor-pointer rounded-[6px] bg-shell-fill px-2 py-0.5 font-bureau text-[12px] text-typography-primary disabled:opacity-40"
                 >
                   {busy ? "Adding…" : "Add"}
                 </button>
@@ -260,7 +260,7 @@ export function AppDataMenu({
                       rows: source.rows,
                     })
                   }
-                  className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 font-bureau text-[13px] text-typography-primary hover:bg-gray-6"
+                  className="flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-1.5 font-bureau text-[13px] text-typography-primary hover:bg-shell-fill"
                 >
                   <Database className="size-4 text-typography-secondary" />
                   Use {source.label}
@@ -270,7 +270,7 @@ export function AppDataMenu({
               <div className="flex items-center gap-2 rounded-[8px] px-2 py-1.5 font-bureau text-[13px] text-typography-secondary">
                 <Plug className="size-4" />
                 Connect Google Sheets, a database…
-                <span className="ml-auto rounded-full bg-gray-6 px-1.5 py-px text-[10px] uppercase tracking-[0.4px]">Next</span>
+                <span className="ml-auto rounded-full bg-shell-fill px-1.5 py-px text-[10px] uppercase tracking-[0.4px]">Next</span>
               </div>
               {error && (
                 <p role="alert" className="mx-2 mb-1 font-bureau text-[12px] text-red-5">
@@ -282,6 +282,7 @@ export function AppDataMenu({
           <input
             ref={file}
             type="file"
+            aria-label="Add a data file"
             accept=".csv,.tsv,.json,text/csv,application/json"
             className="hidden"
             onChange={(event) => {

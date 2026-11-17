@@ -1,4 +1,5 @@
 import { cn } from "@/shared/lib/css";
+import { useHiddenParts, useShellVars } from "../design/shell-tokens";
 import { SHELL_META } from "../model/shell-meta";
 import { chartAsFlowchart, chartAsMindmap, chartAsTimeline } from "../model/chart";
 import type { ChartShellData, ShellData, ShellDataByKind, ShellKind } from "../model/shell-types";
@@ -82,7 +83,6 @@ function Body({ kind, data, onChange, selected }: BodyProps) {
     case "generator":
       return <GeneratorInline data={data as ShellDataByKind["generator"]} onChange={edit} />;
     case "dashboard":
-    case "article":
       return <AppInline kind={kind} data={data as ShellDataByKind[typeof kind]} />;
     case "chat":
       return null;
@@ -113,12 +113,16 @@ export function InlineMedium({
   selected?: boolean;
   className?: string;
 }) {
+  const vars = useShellVars("inline");
+  const hide = useHiddenParts("inline");
   if (!hasInline(kind)) return null;
   // Search and Map are named by their query; everything else by its title.
   const titleKey = "title" in data ? "title" : "query";
   const rawTitle = (data as Record<string, unknown>)[titleKey];
   return (
-    <div className={cn("flex w-full min-w-0 flex-col gap-3", className)}>
+    // The design system's inline tokens, for the title and type inside.
+    <div style={vars} data-shell-size="inline"
+      data-hide-parts={hide} className={cn("flex w-full min-w-0 flex-col gap-3", className)}>
       <InlineHead
         kind={kind}
         title={typeof rawTitle === "string" && onChange ? rawTitle : inlineTitle(kind, data)}

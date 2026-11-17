@@ -6,7 +6,9 @@ export type BlockType =
   | "heading2"
   | "bullet"
   | "numbered"
-  | "quote";
+  | "quote"
+  /** A live piece from the document's `blocks` (a stat, chart, table, control or code), placed by a `::id` line; `text` is its id. */
+  | "embed";
 
 export type DocBlock = { id: string; type: BlockType; text: string };
 
@@ -35,6 +37,9 @@ export function applyShortcut(block: DocBlock): DocBlock {
   return block;
 }
 
+/** A line that places one of the document's live blocks: `::by-month`. */
+export const EMBED_LINE = /^::([a-z0-9][a-z0-9_-]*)\s*$/i;
+
 export function parseBlocks(markdown: string): DocBlock[] {
   const blocks: DocBlock[] = [];
   let paragraph: string[] = [];
@@ -49,6 +54,12 @@ export function parseBlocks(markdown: string): DocBlock[] {
     const line = rawLine.trimEnd();
     if (!line.trim()) {
       flush();
+      continue;
+    }
+    const embed = line.trim().match(EMBED_LINE);
+    if (embed) {
+      flush();
+      blocks.push(newBlock("embed", embed[1]));
       continue;
     }
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
@@ -96,6 +107,8 @@ function blockToMarkdown(block: DocBlock, index: number) {
       return `${index}. ${block.text}`;
     case "quote":
       return `> ${block.text}`;
+    case "embed":
+      return `::${block.text}`;
     default:
       return block.text;
   }
@@ -208,6 +221,7 @@ export function plainText(raw: string) {
 
 export function countWords(blocks: DocBlock[]) {
   return blocks.reduce((total, block) => {
+    if (block.type === "embed") return total;
     const words = plainText(block.text).trim().split(/\s+/).filter(Boolean);
     return total + words.length;
   }, 0);

@@ -19,7 +19,7 @@
 
 export type PartKind = "question" | "collection" | "slot" | "default";
 /** Where a collection, slot or default's values go on the card (a SuggestedGroup). */
-export type PartGroup = "filters" | "items" | "columns" | "constraints" | "lengths";
+export type PartGroup = "filters" | "items" | "columns" | "constraints" | "lengths" | "serves" | "time";
 
 export type SuggestionPart =
   | { kind: "question"; key: string; ask: string }
@@ -92,11 +92,14 @@ export const SUGGESTION_PARTS: Record<string, SuggestionProfile> = {
     ],
   },
   guide: {
-    phrases: '"for four people", "for a beginner", "without dairy"',
+    phrases: '"for a beginner", "without dairy"',
     parts: [
-      q("people", "how many it's for, when it's a recipe or a group activity"),
+      // How many and how long are the guide's own controls (Serves, Time), not questions:
+      // the guess sits in them, in the suggestion colour, until the request says.
+      { kind: "default", key: "serves", group: "serves", ask: 'how many people it serves, as a number ("4"), when it\'s a recipe or a group activity; nothing otherwise' },
+      { kind: "default", key: "time", group: "time", ask: 'how long it takes in all, short ("45 min", "2 hours")' },
       q("level", "their experience (a beginner, confident)"),
-      q("limits", "what they have to work around (dietary needs, the tools they have, the time they have)"),
+      q("limits", "what they have to work around (dietary needs, the tools they have)"),
     ],
   },
   generator: {
@@ -114,14 +117,6 @@ export const SUGGESTION_PARTS: Record<string, SuggestionProfile> = {
       q("audience", "who reads it (the team, leadership, clients)"),
       q("period", "the time it covers and how it's broken down (by week, by month)"),
       q("data", "where the numbers come from (sample numbers, their spreadsheet, a database)"),
-    ],
-  },
-  article: {
-    phrases: '"for a general reader", "with an interactive chart of", "using sample data"',
-    parts: [
-      q("audience", "who reads it (a general reader, students, experts)"),
-      q("angle", "the one question the article answers"),
-      q("data", "where the numbers come from (sample numbers, a dataset they have)"),
     ],
   },
 };

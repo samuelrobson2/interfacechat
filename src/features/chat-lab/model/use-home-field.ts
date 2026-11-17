@@ -10,7 +10,8 @@ import {
 } from "./home-ranking";
 import { collectHomeTiles, libraryTiles, type HomeTile, type KindData } from "./home-tiles";
 import { usePromptChoices } from "./prompt-choices";
-import { applyCardEdit, parsePrompt, reframePrompt } from "./prompt-fields";
+import { useInterfaceName } from "./interface-name";
+import { parsePrompt, reframePrompt } from "./prompt-fields";
 
 /** A chosen tile holds the middle until most of what was typed when it was chosen is gone. */
 const RELEASE_RATIO = 0.3;
@@ -45,12 +46,18 @@ function partsOf(value: KindData | undefined): Partial<Record<SuggestedGroup, st
     items?: { label: string }[];
     constraints?: string[];
     length?: string;
+    facts?: { label: string; value: string }[];
   };
   if (value.kind === "table") return { columns: (data.columns ?? []).map((column) => column.label).filter(Boolean) };
   if (value.kind === "search") return { filters: data.filters ?? [] };
   if (value.kind === "tracker") return { items: (data.items ?? []).map((item) => item.label) };
   if (value.kind === "schedule") return { constraints: data.constraints ?? [] };
   if (value.kind === "document") return data.length ? { lengths: [data.length] } : {};
+  if (value.kind === "guide") {
+    // What the request already says needs no guess.
+    const fact = (label: string) => data.facts?.find((f) => f.label.toLowerCase() === label)?.value;
+    return { ...(fact("serves") ? { serves: [fact("serves")!] } : {}), ...(fact("time") ? { time: [fact("time")!] } : {}) };
+  }
   return {};
 }
 
@@ -80,7 +87,7 @@ export type HomeCard = {
 
 export type HomeSubmit =
   | { type: "chat"; text: string }
-  | { type: "interface"; text: string; interface: KindData }
+  | { type: "interface"; text: string; interface: KindData; brief?: string }
   | { type: "continue"; text: string; sessionId: string };
 
 /**
@@ -135,6 +142,10 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
   const tile = leader
     ? tiles.find((item) => item.id === leader.tileId)
     : undefined;
+  // A short name for the new interface, and its first steps, from one small call once they pause typing.
+  const nameKind = leader && tile && tile.type !== "history" && tile.type !== "project" ? leader.interface.kind : null;
+  const name = useInterfaceName(nameKind, nameKind ? SHELL_META[nameKind].label : "", draft);
+
   const card: HomeCard | null = useMemo(() => {
     if (!leader || !tile) return null;
     if (tile.type === "history" || tile.type === "project") {
@@ -145,12 +156,15 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     const base =
       tile.type === "suggested" ? overlay(tile.data, parsed) : parsed;
     const kept = extras?.tileId === tile.id ? extras.data : {};
+    // The model's short name, unless they've named it themselves on the card.
+    const named = name.title && !("title" in kept) && "title" in base ? { title: name.title } : {};
     return {
       leader,
-      interface: { kind, data: { ...base, ...kept } } as KindData,
-      editable: leader.phase !== "hinted",
+      interface: { kind, data: { ...base, ...named, ...kept } } as KindData,
+      // Every recognised card is open to edit: it goes to medium plus as soon as it's detected.
+      editable: true,
     };
-  }, [leader, tile, draft, extras]);
+  }, [leader, tile, draft, extras, name.title]);
 
   // The few choices the request leaves open, for the card that's open (Document, for now).
   const choiceKind = card?.editable ? card.interface.kind : null;
@@ -184,14 +198,15 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     /** What the open card's request leaves open: at most three, each with options and a guess. */
     choices: choices.shown,
     choicesThinking: choices.thinking,
-    /** Values for the card's own parts, shown in place: columns, filters, items. */
-    suggested: choices.suggested,
+    /** Values for the card's own parts, shown in place: columns, filters, items; and the first steps as they arrive. */
+    suggested: name.steps.length
+      ? { ...choices.suggested, ...(card?.interface.kind === "guide" ? { steps: name.steps } : card?.interface.kind === "schedule" ? { tasks: name.steps } : {}) }
+      : choices.suggested,
     dismissSuggestion: choices.dismiss,
-    /** Settle a choice: its phrase goes into the prompt, in the one sentence the choices write. */
+    /** Pick or unpick a choice. The prompt stays as they wrote it; the picks go with the interface. */
     pickChoice(key: string, labels: string[], own?: string) {
-      const next = choices.pick(key, labels, draft, own);
-      if (next !== draft) setDraft(next);
-      if (card) choose(card.leader.tileId, next);
+      choices.pick(key, labels, own);
+      if (card) choose(card.leader.tileId, draft);
     },
     /** Grow a hinted card and lock it, as Tab does. */
     promote() {
@@ -201,34 +216,31 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
       setChosen(null);
       setDismissed(true);
     },
-    /** An edit on the middle card: rewrite the prompt, keep what it can't hold. */
+    /**
+     * An edit on the middle card. Their prompt is left exactly as they typed it:
+     * what they changed on the card stays on the card, and wins over what the
+     * prompt says, and goes with the interface when it's sent.
+     */
     edit(next: KindData) {
       if (!card || !card.editable || next.kind !== card.interface.kind) return;
-      const result = applyCardEdit(
-        next.kind,
-        draft,
-        card.interface.data,
-        next.data,
-      );
+      const before = card.interface.data as Record<string, unknown>;
+      const after = next.data as Record<string, unknown>;
+      const changed = Object.fromEntries(Object.entries(after).filter(([key, value]) => value !== before[key]));
       const tileId = card.leader.tileId;
       setExtras((current) => ({
         tileId,
-        data: {
-          ...(current?.tileId === tileId ? current.data : {}),
-          ...result.extras,
-        },
+        data: { ...(current?.tileId === tileId ? current.data : {}), ...changed },
       }));
-      if (result.prompt !== draft) setDraft(result.prompt);
-      choose(tileId, result.prompt);
+      choose(tileId, draft);
     },
     /** What sending the draft should do right now. */
     submission(text = draft): HomeSubmit {
-      if (!card || card.leader.phase === "hinted")
-        return { type: "chat", text };
+      if (!card) return { type: "chat", text };
       if (card.leader.sessionId) {
         return { type: "continue", text, sessionId: card.leader.sessionId };
       }
-      return { type: "interface", text, interface: card.interface };
+      // The interface goes with their words as typed, and the choices they picked as context.
+      return { type: "interface", text, interface: card.interface, ...(choices.brief ? { brief: choices.brief } : {}) };
     },
   };
 }

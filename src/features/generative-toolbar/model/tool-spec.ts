@@ -4,7 +4,7 @@ import type { SuggestionPlace } from "@/features/interface-shells";
 import { TOOL_JOBS } from "./standard-tools.js";
 
 /** Interface-shells' SUGGESTION_PLACES, repeated so this file runs on the server; the type keeps them in step. */
-const PLACES = ["toolbar", "footer", "days", "prompt", "board"] as const satisfies readonly SuggestionPlace[];
+const PLACES = ["toolbar", "days", "prompt", "board"] as const satisfies readonly SuggestionPlace[];
 
 /**
  * What the model may generate for the toolbar. Every tool is plain data, so

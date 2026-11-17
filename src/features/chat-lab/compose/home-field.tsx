@@ -22,8 +22,8 @@ const PAN = { type: "spring" as const, stiffness: 110, damping: 22, mass: 1 };
 const GROW = { type: "spring" as const, stiffness: 300, damping: 26, mass: 0.9 };
 const EASE = [0.23, 1, 0.32, 1] as const;
 
-const MEDIUM = SHELL_DIMENSIONS.medium.width;
-const MEDIUM_PLUS = SHELL_DIMENSIONS["medium-plus"].width;
+const MEDIUM = SHELL_DIMENSIONS.medium;
+const MEDIUM_PLUS = SHELL_DIMENSIONS["medium-plus"];
 
 /** The field is laid out for this width and scaled down below it. */
 const DESIGN_WIDTH = 1180;
@@ -109,10 +109,10 @@ function FieldTile({
       className={cn("absolute top-0 left-0", open ? "z-20" : "z-0")}
       initial={false}
       animate={{
-        x: x - side / 2,
-        y: y - side / 2,
-        width: side,
-        height: side,
+        x: x - side.width / 2,
+        y: y - side.height / 2,
+        width: side.width,
+        height: side.height,
         opacity: hidden ? 0 : state === "dim" ? 0.45 : 1,
       }}
       transition={reduce ? { duration: 0 } : { ...GROW, opacity: { duration: 0.3, ease: EASE } }}
@@ -192,7 +192,8 @@ export function HomeField({
   const leaderTile = leader ? field.tiles.find((tile) => tile.id === leader.tileId) : undefined;
   // A dismissed card gives the middle back to the headline.
   const focusKind = leaderTile?.type === "blank" && !field.dismissed ? leaderTile.kind : null;
-  const opened = Boolean(focusKind && leader && leader.phase !== "hinted");
+  // Recognised is enough: the card opens at medium plus at once, ready to work in, rather than waiting as a hint.
+  const opened = Boolean(focusKind && leader);
   // Recognised at all, the card comes to the middle in the headline's place, so
   // it's clear the prompt is being captured into it.
   const focused = Boolean(focusKind);

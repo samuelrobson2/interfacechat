@@ -69,7 +69,7 @@ describe("usePromptChoices", () => {
   const stream = (lines: unknown[]) =>
     new Response(lines.map((line) => JSON.stringify(line)).join("\n") + "\n", { status: 200 });
 
-  it("asks once the request has a few words, shows at most three, and writes picks into the prompt", async () => {
+  it("asks once the request has a few words, shows at most three, and keeps picks beside the prompt, never in it", async () => {
     const fetch = vi.fn(async () =>
       stream([
         { choice: audience },
@@ -89,21 +89,20 @@ describe("usePromptChoices", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(result.current.shown.map((choice) => choice.key)).not.toContain("voice");
 
-    let prompt = "";
-    act(() => {
-      prompt = result.current.pick("audience", ["The team"], "Write a document about our Q3 launch plan");
-    });
-    expect(prompt).toBe("Write a document about our Q3 launch plan. For the launch team.");
+    // A pick goes into the brief sent with the interface; the prompt is never touched.
+    act(() => result.current.pick("audience", ["The team"]));
+    expect(result.current.brief).toBe("For the launch team.");
     expect(result.current.shown.find((choice) => choice.key === "audience")?.picked).toEqual(["The team"]);
 
-    // Their own words: picked, and in the prompt through the template.
-    act(() => {
-      prompt = result.current.pick("audience", [], prompt, "my lab group");
-    });
-    expect(prompt).toBe("Write a document about our Q3 launch plan. For my lab group.");
-    act(() => {
-      prompt = result.current.pick("covers", ["Timeline"], prompt, "the budget");
-    });
-    expect(prompt).toBe("Write a document about our Q3 launch plan. For my lab group, covering the timeline and the budget.");
+    // Picking nothing unpicks it.
+    act(() => result.current.pick("audience", []));
+    expect(result.current.shown.find((choice) => choice.key === "audience")?.picked).toBeUndefined();
+    expect(result.current.brief).toBe("");
+
+    // Their own words: picked, and in the brief through the template.
+    act(() => result.current.pick("audience", [], "my lab group"));
+    expect(result.current.brief).toBe("For my lab group.");
+    act(() => result.current.pick("covers", ["Timeline"], "the budget"));
+    expect(result.current.brief).toBe("For my lab group, covering the timeline and the budget.");
   });
 });

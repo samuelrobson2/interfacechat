@@ -45,7 +45,6 @@ const ICON_SRC: Record<ShellKind, string> = {
   guide: guideIcon,
   generator: moodboardIcon,
   dashboard: tableIcon,
-  article: documentIcon,
   chat: chatIcon,
 };
 
@@ -57,7 +56,6 @@ const ICON_SRC: Record<ShellKind, string> = {
 const ICON_FILTER: Partial<Record<ShellKind, string>> = {
   generator: "hue-rotate(-62deg) saturate(0.9)",
   dashboard: "hue-rotate(130deg) saturate(1.1)",
-  article: "hue-rotate(-45deg) saturate(1.1)",
 };
 const filterOf = (kind: ShellKind) => (ICON_FILTER[kind] ? { filter: ICON_FILTER[kind] } : undefined);
 
@@ -91,7 +89,6 @@ const GLYPH_SRC: Record<ShellKind, string> = {
   guide: guideGlyph,
   generator: moodboardGlyph,
   dashboard: tableGlyph,
-  article: documentGlyph,
   chat: chatGlyph,
 };
 

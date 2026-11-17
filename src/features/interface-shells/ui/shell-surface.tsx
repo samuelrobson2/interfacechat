@@ -1,17 +1,18 @@
 import { useLayoutEffect, useRef } from "react";
 import { cn } from "@/shared/lib/css";
 import type { ShellSize } from "../model/shell-types";
+import { hiddenParts, shellVars, useShellTokens } from "../design/shell-tokens";
 
 /** The warm grey behind a card's white content panel. */
-export const CARD_BACKGROUND = "bg-[#f7f6f5]";
+export const CARD_BACKGROUND = "bg-shell-frame";
 
 const SURFACE: Record<ShellSize, string> = {
   small: "rounded-[15px] shadow-[0_1px_3px_rgba(26,23,24,0.18)]",
   medium: "rounded-[18px] shadow-[0_2px_10px_rgba(26,23,24,0.08)]",
-  "medium-plus": "rounded-[20px] shadow-[0_8px_28px_rgba(26,23,24,0.14)]",
+  "medium-plus": "rounded-[var(--shell-frame-radius)] shadow-[0_8px_28px_rgba(26,23,24,0.14)]",
   large: cn(
-    "rounded-[20px] shadow-elevated",
-    "hairline [--hairline-radius:20px] [--hairline-color:var(--color-gray-3)] [--hairline-opacity:0.35]",
+    "rounded-[var(--shell-frame-radius)] shadow-elevated",
+    "hairline [--hairline-radius:var(--shell-frame-radius)] [--hairline-color:var(--color-gray-3)] [--hairline-opacity:0.35]",
   ),
 };
 
@@ -27,8 +28,13 @@ export function ShellSurface({
   className?: string;
   children: React.ReactNode;
 }) {
+  // The design system's tokens for this size, as CSS variables every part inside reads.
+  const tokens = useShellTokens();
   return (
     <div
+      data-shell-size={size}
+      data-hide-parts={hiddenParts(tokens, size)}
+      style={shellVars(tokens, size) as React.CSSProperties}
       className={cn(
         "relative flex size-full min-h-0 flex-col overflow-hidden font-bureau",
         // Cards are grey so their content panel reads clearly; large is the working surface.
@@ -119,7 +125,7 @@ export function Bar({
   return (
     <span
       aria-hidden
-      className={cn("block h-1 shrink-0 rounded-full bg-gray-3/20", className)}
+      className={cn("block h-1 shrink-0 rounded-full bg-shell-ink-faint", className)}
       style={{ width: typeof width === "number" ? `${width}%` : width, ...style }}
     />
   );

@@ -1,5 +1,5 @@
+import { suggestionText } from "../ui/suggested-chip";
 import { useMemo } from "react";
-import { cn } from "@/shared/lib/css";
 import { parseBlocks, plainText } from "../model/markdown-blocks";
 import type { DocumentShellData, ShellProps } from "../model/shell-types";
 import { DocumentAppIcon, ShellGlyph } from "../ui/shell-icons";
@@ -7,11 +7,13 @@ import { useShellMark } from "../ui/shell-mark";
 import { ShellFooter } from "../ui/shell-meta";
 import { Bar, barWidths, ShellSurface } from "../ui/shell-surface";
 import { DocumentEditor } from "./document-editor";
+import { PreviewBody, PreviewHead, SHELL_TITLE_GLYPH } from "../ui/shell-kit";
 
 type OutlineLine =
   | { kind: "heading"; width: number }
   | { kind: "text"; width: number }
   | { kind: "bullet"; width: number }
+  | { kind: "figure" }
   | { kind: "gap" };
 
 const MAX_LINES = 7;
@@ -22,6 +24,11 @@ function outlineFor(body: string): OutlineLine[] | null {
   const lines: OutlineLine[] = [];
   for (const block of parseBlocks(body)) {
     const text = plainText(block.text);
+    if (block.type === "embed") {
+      lines.push({ kind: "figure" });
+      if (lines.length >= MAX_LINES) break;
+      continue;
+    }
     if (block.type === "heading1" || block.type === "heading2") {
       if (lines.length > 0) lines.push({ kind: "gap" });
       lines.push({ kind: "heading", width: Math.min(78, Math.max(34, text.length * 2.6)) });
@@ -40,70 +47,43 @@ const EMPTY_LINES = [100, 92, 80, 88, 55, 70];
 
 function DocumentPreview({ data }: { data: DocumentShellData }) {
   const outline = useMemo(() => outlineFor(data.body), [data.body]);
-  const hasTitle = Boolean(data.title.trim());
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-1.5 px-2.5 pt-2">
-        <ShellGlyph kind="document" className="size-3.5" />
-        <div
-          className={cn(
-            "min-w-0 flex-1 truncate font-bureau text-[12px] leading-[1.3]",
-            hasTitle ? "font-normal text-typography-primary" : "font-light text-typography-secondary",
-          )}
-        >
-          {hasTitle ? data.title : "Document"}
-        </div>
-      </div>
-      <div aria-hidden className="mt-1 flex h-5 shrink-0 items-center gap-1 border-b border-gray-3/15 px-2.5">
-        {["B", "I", "H"].map((label) => (
-          <span
-            key={label}
-            className={cn(
-              "flex size-4 items-center justify-center font-bureau text-[9px] text-typography-secondary",
-              label === "B" && "font-bold",
-              label === "I" && "italic",
-              label === "H" && "font-semibold",
-            )}
-          >
-            {label}
-          </span>
-        ))}
-        <span className="mx-0.5 h-3 w-px bg-gray-3/25" />
-        <span className="flex flex-col gap-[2px]">
-          <span className="h-px w-3 bg-gray-3" />
-          <span className="h-px w-3 bg-gray-3" />
-          <span className="h-px w-2 bg-gray-3" />
-        </span>
-      </div>
-      <div
-        className={cn(
-          "mx-2 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(26,23,24,0.06)]",
-          "mb-2",
-        )}
-      >
+      <PreviewHead kind="document" title={data.title} />
+      <PreviewBody>
         <div className="flex flex-col gap-1">
           {!data.body.trim() ? (
             EMPTY_LINES.map((width, i) => <Bar key={i} width={width} />)
           ) : outline
             ? outline.map((line, i) => {
                 if (line.kind === "gap") return <span key={i} className="h-0.5" />;
+                // A live piece: a small chart shape.
+                if (line.kind === "figure") {
+                  return (
+                    <span key={i} className="my-0.5 flex h-5 shrink-0 items-end gap-[3px] rounded-[4px] bg-shell-fill px-1.5 pb-1">
+                      {[45, 70, 55, 90, 65].map((h, j) => (
+                        <span key={j} className="w-1.5 rounded-[1px] bg-blue-4/45" style={{ height: `${h}%` }} />
+                      ))}
+                    </span>
+                  );
+                }
                 if (line.kind === "heading") {
                   return <Bar key={i} width={line.width} className="h-1.5 bg-blue-5/35" />;
                 }
                 if (line.kind === "bullet") {
                   return (
                     <span key={i} className="flex items-center gap-1">
-                      <span className="size-1 shrink-0 rounded-full bg-gray-3/45" />
-                      <Bar width={line.width} className="bg-gray-3/25" />
+                      <span className="size-1 shrink-0 rounded-full bg-shell-ink-soft" />
+                      <Bar width={line.width} className="bg-shell-ink-faint" />
                     </span>
                   );
                 }
-                return <Bar key={i} width={line.width} className="bg-gray-3/25" />;
+                return <Bar key={i} width={line.width} className="bg-shell-ink-faint" />;
               })
             : EMPTY_LINES.map((width, i) => <Bar key={i} width={width} />)}
         </div>
-      </div>
+      </PreviewBody>
       <ShellFooter compact className="mx-2.5 mb-2" />
     </>
   );
@@ -138,13 +118,16 @@ export function DocumentShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <DocumentEditor
           density="compact"
-          titleMark={mark && <ShellGlyph kind="document" className="size-4" />}
+          titleMark={mark && <ShellGlyph kind="document" className={SHELL_TITLE_GLYPH} />}
           data={data}
           onChange={onChange}
           onSubmit={onSubmit}
           status={status}
+          actions={actions}
+          tools={tools}
           suggestions={suggestions}
-          lengthGuess={suggested?.lengths?.[0]}
+          suggestedText={suggested?.text}
+          lengthGuess={suggested?.lengths?.[0] && suggestionText(suggested.lengths[0])}
         />
       </ShellSurface>
     );
@@ -154,7 +137,7 @@ export function DocumentShell({
     <ShellSurface size={size} surface={surface} className={className}>
       <DocumentEditor
         density="comfortable"
-        titleMark={mark && <ShellGlyph kind="document" className="size-7" />}
+        titleMark={mark && <ShellGlyph kind="document" className={SHELL_TITLE_GLYPH} />}
         data={data}
         onChange={onChange}
         onSubmit={onSubmit}
@@ -162,6 +145,7 @@ export function DocumentShell({
         actions={actions}
         tools={tools}
         suggestions={suggestions}
+        suggestedText={suggested?.text}
       />
     </ShellSurface>
   );

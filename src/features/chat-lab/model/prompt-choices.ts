@@ -5,10 +5,10 @@ import { joinList } from "./prompt-fields";
 /**
  * Choices for a request still being typed on the chat home: the few things
  * the result would otherwise guess (who a document is for, what it should
- * do, its form), each with options and the model's guess. Picking one writes
- * a short phrase into the prompt, as one sentence after the request
- * ("For the leadership team, as a one-pager."), so the prompt itself gets
- * better and stays the record of what was asked.
+ * do, its form), each with options and the model's guess. Picking one never
+ * touches what they typed: the picks make one sentence ("For the leadership
+ * team, as a one-pager.") that goes with the interface when it's sent, as
+ * context for the first reply.
  *
  * Kept calm while typing: the model sees the choices already shown, by key,
  * and answers with changes (`/api/prompt-choices`). At most `MAX_SHOWN` show.
@@ -170,11 +170,13 @@ export type PromptChoicesState = {
   shown: (PromptChoice & { picked?: string[] })[];
   thinking: boolean;
   /**
-   * Pick (or, for multi, set) the options a choice holds; returns the prompt
-   * with its brief. `own` is an answer they typed: it joins the options and is
+   * Pick (or, for multi, set) the options a choice holds; an empty list
+   * unpicks it. `own` is an answer they typed: it joins the options and is
    * picked (added to the rest, for multi).
    */
-  pick: (key: string, labels: string[], prompt: string, own?: string) => string;
+  pick: (key: string, labels: string[], own?: string) => void;
+  /** The picks as one sentence, sent with the interface; the prompt is left as they wrote it. */
+  brief: string;
   /** Values for the card's own parts (a table's columns, a search's filters), shown in place for one-click adding. */
   suggested: Partial<Record<SuggestedGroup, string[]>>;
   /** Not this one: it won't be suggested again for this request. */
@@ -290,10 +292,10 @@ export function usePromptChoices(
     return [...picked, ...open].sort((a, b) => a.order - b.order);
   }, [rows]);
 
-  const pick = useCallback((key: string, labels: string[], prompt: string, own?: string) => {
+  const pick = useCallback((key: string, labels: string[], own?: string) => {
     const current = rowsRef.current;
     const row = current[key];
-    if (!row) return prompt;
+    if (!row) return;
     let options = row.options;
     let chosen = labels;
     if (own?.trim()) {
@@ -305,10 +307,8 @@ export function usePromptChoices(
     const updated = { ...current, [key]: { ...row, options, picked: chosen.length ? chosen : undefined } };
     rowsRef.current = updated;
     setRows(updated);
-    const nextBrief = briefOf(Object.values(updated));
-    setBrief(nextBrief);
-    return withBrief(prompt, brief, nextBrief);
-  }, [brief]);
+    setBrief(briefOf(Object.values(updated)));
+  }, []);
 
   // Before the first choices land, "thinking" covers the pause before the call too, so something shows at once.
   const waiting = active && !shown.length && request !== judged;
@@ -321,5 +321,5 @@ export function usePromptChoices(
   );
   const dismiss = useCallback((_group: SuggestedGroup, value: string) => setDismissed((current) => [...current, value]), []);
 
-  return { shown: active || shown.some((row) => row.picked) ? shown : [], thinking: active && (thinking || waiting), pick, suggested, dismiss };
+  return { shown: active || shown.some((row) => row.picked) ? shown : [], thinking: active && (thinking || waiting), pick, brief, suggested, dismiss };
 }

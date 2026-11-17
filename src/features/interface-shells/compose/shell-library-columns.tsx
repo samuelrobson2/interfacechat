@@ -6,7 +6,7 @@ import type { ShellRetrieval } from "../model/shell-retrieval";
 import type { ShellDataByKind, ShellKind } from "../model/shell-types";
 
 const fieldClass =
-  "field-sizing-content w-full resize-none rounded-[14px] bg-gray-6 px-3 py-2 font-bureau text-[13px] leading-[1.45] text-typography-primary outline-none placeholder:text-typography-secondary focus:ring-2 focus:ring-blue-4/30";
+  "field-sizing-content w-full resize-none rounded-[14px] bg-shell-fill px-3 py-2 font-bureau text-[13px] leading-[1.45] text-typography-primary outline-none placeholder:text-typography-secondary focus:ring-2 focus:ring-blue-4/30";
 
 const Label = ({ children }: { children: React.ReactNode }) => (
   <span className="font-bureau text-[12px] text-typography-secondary">{children}</span>
@@ -32,7 +32,7 @@ function TriggerChips({
       {triggers.map((trigger) => (
         <span
           key={trigger}
-          className="flex items-center gap-0.5 rounded-full bg-gray-6 py-0.5 pr-1 pl-2 font-bureau text-[12px] text-typography-primary"
+          className="flex items-center gap-0.5 rounded-full bg-shell-fill py-0.5 pr-1 pl-2 font-bureau text-[12px] text-typography-primary"
         >
           {trigger}
           <button
@@ -117,7 +117,7 @@ function PartValue({ value }: { value: string | string[] }) {
         {value.slice(0, 6).map((item, i) => (
           <span
             key={`${item}-${i}`}
-            className="max-w-full truncate rounded-full bg-gray-6 px-2 py-0.5 text-[12px]"
+            className="max-w-full truncate rounded-full bg-shell-fill px-2 py-0.5 text-[12px]"
           >
             {item}
           </span>
@@ -149,7 +149,7 @@ export function PartsCell({
   readValue?: (key: string) => string | string[];
 }) {
   return (
-    <ul className="flex min-w-0 flex-col divide-y divide-gray-3/15">
+    <ul className="flex min-w-0 flex-col divide-y divide-shell-line">
       {parts.map((part) => (
         <li key={part.key} className="flex flex-col gap-1 py-2.5 first:pt-0">
           <div className="flex items-center gap-1.5" title={part.description}>
@@ -158,7 +158,7 @@ export function PartsCell({
               {part.required && <span className="text-typography-secondary">*</span>}
             </span>
             <span
-              className="rounded-full bg-gray-6 px-1.5 py-px font-mono text-[11px] text-typography-secondary"
+              className="rounded-full bg-shell-fill px-1.5 py-px font-mono text-[11px] text-typography-secondary"
               title={SHELL_PART_TYPE_HINT[part.type]}
             >
               {part.type}
@@ -201,7 +201,7 @@ function ExampleList({
             type="button"
             aria-label={`Remove ${query || "example"}`}
             onClick={() => onChange(items.filter((_, i) => i !== index))}
-            className="mt-1 grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-6 hover:text-typography-primary focus-visible:opacity-100"
+            className="mt-1 grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-shell-fill hover:text-typography-primary focus-visible:opacity-100"
           >
             <X className="size-3.5" />
           </button>
@@ -212,7 +212,7 @@ function ExampleList({
           type="button"
           onClick={() => onChange([...items, ""])}
           aria-label={`Add: ${placeholder}`}
-          className="grid size-6 place-items-center rounded-full text-typography-secondary hover:bg-gray-6 hover:text-typography-primary"
+          className="grid size-6 place-items-center rounded-full text-typography-secondary hover:bg-shell-fill hover:text-typography-primary"
         >
           <Plus className="size-3.5" />
         </button>

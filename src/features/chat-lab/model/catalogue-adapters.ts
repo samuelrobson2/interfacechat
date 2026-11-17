@@ -1,6 +1,8 @@
 import {
   appToCatalogue,
   catalogueToApp,
+  catalogueToPieces,
+  piecesToCatalogue,
   EMPTY_SHELL_DATA,
   type AppShellData,
   serializeMarkdownTable,
@@ -17,7 +19,7 @@ import { artefactDocument, artefactTable } from "./shell-adapters";
 export function artefactCatalogueKind(artefact: ChatLabArtefact): CatalogueKind | null {
   if (artefact.kind === "document" || artefact.kind === "table") return artefact.kind;
   const shellKind = artefact.kind === "shell" ? artefact.shell?.kind : undefined;
-  if (shellKind === "tracker" || shellKind === "dashboard" || shellKind === "article") return shellKind;
+  if (shellKind === "tracker" || shellKind === "dashboard") return shellKind;
   return null;
 }
 
@@ -26,7 +28,9 @@ export function artefactCatalogueValue(artefact: ChatLabArtefact): CatalogueValu
   const kind = artefactCatalogueKind(artefact);
   if (kind === "document") {
     const doc = artefactDocument(artefact);
-    return { title: doc.title, body: doc.body };
+    // Live pieces go with it, as the model reads a dashboard's.
+    const pieces = artefact.pieces?.blocks.length || artefact.pieces?.datasets.length ? piecesToCatalogue(artefact.pieces) : null;
+    return { title: doc.title, body: doc.body, ...(pieces ?? {}) };
   }
   if (kind === "table") {
     const table = artefactTable(artefact);
@@ -50,18 +54,23 @@ export function artefactCatalogueValue(artefact: ChatLabArtefact): CatalogueValu
       })),
     };
   }
-  if (kind === "dashboard" || kind === "article") return appToCatalogue(kind, artefact.shell!.data as AppShellData);
+  if (kind === "dashboard") return appToCatalogue(artefact.shell!.data as AppShellData);
   return null;
 }
 
-type ArtefactPatch = { title?: string; content?: string; shell?: ArtefactShell };
+type ArtefactPatch = { title?: string; content?: string; shell?: ArtefactShell; pieces?: ChatLabArtefact["pieces"] };
 
 /** A catalogue value as a change to the interface that holds it. */
 export function catalogueArtefactPatch(artefact: ChatLabArtefact, value: CatalogueValue): ArtefactPatch | null {
   const kind = artefactCatalogueKind(artefact);
   if (kind === "document") {
     const doc = value as CatalogueValueByKind["document"];
-    return { title: doc.title, content: doc.body };
+    if (!doc.datasets && !doc.variables && !doc.blocks) return { title: doc.title, content: doc.body };
+    const pieces = catalogueToPieces(
+      { datasets: doc.datasets ?? [], variables: doc.variables ?? [], blocks: doc.blocks ?? [] },
+      artefact.pieces,
+    );
+    return { title: doc.title, content: doc.body, pieces };
   }
   if (kind === "table") {
     const table = value as CatalogueValueByKind["table"];
@@ -92,9 +101,9 @@ export function catalogueArtefactPatch(artefact: ChatLabArtefact, value: Catalog
     const data: TrackerShellData = { ...previous, title: tracker.title || previous.title, groups, items };
     return { title: tracker.title, shell: { kind: "tracker", data } as ArtefactShell };
   }
-  if (kind === "dashboard" || kind === "article") {
+  if (kind === "dashboard") {
     const previous = artefact.shell?.data as AppShellData | undefined;
-    const data = catalogueToApp(kind, value as CatalogueValueByKind[typeof kind], previous);
+    const data = catalogueToApp(value as CatalogueValueByKind["dashboard"], previous);
     return { title: data.title, shell: { kind, data } as ArtefactShell };
   }
   return null;
@@ -113,7 +122,7 @@ export function newCatalogueArtefact(kind: CatalogueKind, title: string): {
       shell: { kind: "tracker", data: { ...structuredClone(EMPTY_SHELL_DATA.tracker), title } } as ArtefactShell,
     };
   }
-  if (kind === "dashboard" || kind === "article") {
+  if (kind === "dashboard") {
     return {
       kind: "shell",
       libraryKind: kind,

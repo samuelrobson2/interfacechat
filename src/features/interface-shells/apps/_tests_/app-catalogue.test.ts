@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyCatalogueOperations, CATALOGUE, readCatalogueValue } from "../../model/shell-catalogue";
-import { appToCatalogue, catalogueToApp } from "../app-catalogue";
-import { articleFixture, dashboardFixture } from "../app-fixtures";
+import { appToCatalogue, catalogueToApp, catalogueToPieces, piecesToCatalogue } from "../app-catalogue";
+import { dashboardFixture, HEAT_PIECES } from "../app-fixtures";
 import type { DashboardShellData } from "../app-types";
 
 const uploaded: DashboardShellData = {
@@ -13,34 +13,36 @@ const uploaded: DashboardShellData = {
   ),
 };
 
-describe("Dashboard and Article in the catalogue", () => {
+describe("Dashboard, and a document's live pieces, in the catalogue", () => {
   it("round-trips through what the model reads and writes", () => {
-    for (const [kind, data] of [["dashboard", dashboardFixture], ["article", articleFixture]] as const) {
-      const value = appToCatalogue(kind, data);
-      expect(CATALOGUE[kind].schema.safeParse(value).success).toBe(true);
-      expect(catalogueToApp(kind, value, data)).toEqual(data);
-    }
+    const value = appToCatalogue(dashboardFixture);
+    expect(CATALOGUE.dashboard.schema.safeParse(value).success).toBe(true);
+    expect(catalogueToApp(value, dashboardFixture)).toEqual(dashboardFixture);
+
+    const doc = { title: "Urban heat islands", body: "Intro.\n\n::scatter", ...piecesToCatalogue(HEAT_PIECES) };
+    expect(CATALOGUE.document.schema.safeParse(doc).success).toBe(true);
+    expect(catalogueToPieces(doc, HEAT_PIECES)).toEqual(HEAT_PIECES);
   });
 
   it("shows the person's data by its first rows, and never takes the model's rows for it", () => {
-    const value = appToCatalogue("dashboard", uploaded);
+    const value = appToCatalogue(uploaded);
     const sales = value.datasets.find((d) => d.id === "sales")!;
     expect(sales).toMatchObject({ from: "yours", rowCount: 12 });
     expect(sales.rows).toHaveLength(5);
 
     const forged = { ...value, datasets: value.datasets.map((d) => (d.id === "sales" ? { ...d, from: "sample" as const, rows: [["x"]] } : d)) };
-    expect(catalogueToApp("dashboard", forged, uploaded).datasets.find((d) => d.id === "sales")).toEqual(uploaded.datasets[0]);
+    expect(catalogueToApp(forged, uploaded).datasets.find((d) => d.id === "sales")).toEqual(uploaded.datasets[0]);
   });
 
   it("keeps the person's data when a rewrite leaves it out", () => {
-    const rewrite = { ...appToCatalogue("dashboard", uploaded), datasets: [] };
-    expect(catalogueToApp("dashboard", rewrite, uploaded).datasets.map((d) => d.id)).toEqual(["sales"]);
+    const rewrite = { ...appToCatalogue(uploaded), datasets: [] };
+    expect(catalogueToApp(rewrite, uploaded).datasets.map((d) => d.id)).toEqual(["sales"]);
   });
 
   it("drops data the model claims is the person's when there's none", () => {
-    const value = { ...appToCatalogue("dashboard", dashboardFixture) };
+    const value = { ...appToCatalogue(dashboardFixture) };
     value.datasets = [{ id: "invented", label: "Invented", from: "yours", columns: ["a"], rows: [[1]] }];
-    expect(catalogueToApp("dashboard", value, undefined).datasets).toEqual([]);
+    expect(catalogueToApp(value, undefined).datasets).toEqual([]);
   });
 
   it("keeps sample data shown in part", () => {
@@ -48,9 +50,9 @@ describe("Dashboard and Article in the catalogue", () => {
       ...dashboardFixture,
       datasets: [{ id: "big", label: "Big", source: { type: "generated" }, rows: Array.from({ length: 100 }, (_, i) => ({ i })) }],
     };
-    const value = appToCatalogue("dashboard", long);
+    const value = appToCatalogue(long);
     expect(value.datasets[0]).toMatchObject({ rowCount: 100 });
-    expect(catalogueToApp("dashboard", value, long).datasets[0]!.rows).toHaveLength(100);
+    expect(catalogueToApp(value, long).datasets[0]!.rows).toHaveLength(100);
   });
 
   it("reads a fill while it streams, leaving out the block still being written", () => {
@@ -69,7 +71,7 @@ describe("Dashboard and Article in the catalogue", () => {
   });
 
   it("patches one block, and refuses a patch that breaks it", () => {
-    const value = appToCatalogue("dashboard", dashboardFixture);
+    const value = appToCatalogue(dashboardFixture);
     const index = value.blocks.findIndex((block) => block.id === "by-month");
     const ok = applyCatalogueOperations("dashboard", value, [{ op: "replace", path: `/blocks/${index}/mark`, value: "bar" }]);
     expect(ok.ok && ok.value.blocks[index]).toMatchObject({ mark: "bar" });

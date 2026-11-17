@@ -116,13 +116,15 @@ export function seedArtefactContent(kind: ExpandableInterfaceKind, data: Starter
 /** The editor has its own title field, so a leading `# Heading` becomes the title. */
 export function artefactDocument(artefact: ChatLabArtefact): DocumentShellData {
   const heading = artefact.content.match(/^\s*#\s+(.+)\n*/);
+  const pieces = artefact.pieces ?? {};
   if (heading?.[1]) {
     return {
       title: heading[1].trim(),
       body: artefact.content.slice(heading[0].length),
+      ...pieces,
     };
   }
-  return { title: artefact.title, body: artefact.content };
+  return { title: artefact.title, body: artefact.content, ...pieces };
 }
 
 export function artefactSearch(artefact: ChatLabArtefact, query: string): SearchShellData {

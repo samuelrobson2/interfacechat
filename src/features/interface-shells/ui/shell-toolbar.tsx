@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Redo2, Undo2 } from "lucide-react";
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/kit/popover";
 import { fieldEvents, stopFieldEvent } from "./shell-surface";
@@ -18,11 +18,92 @@ export type ShellHistory = {
 
 export const ShellHistoryContext = createContext<ShellHistory | null>(null);
 
+/** How close to an end of the toolbar the pointer has to be to scroll it, and how fast it goes there. */
+const EDGE = 48;
+const MAX_SPEED = 9;
+
 /**
- * The toolbar every large interface has, under its title: undo and redo, the
- * interface's own standard tools, then the tools generated for what's in it
- * now (drawn by the host, so they can change with the content), then host
- * actions. When the window is narrow the standard tools scroll sideways.
+ * One row of tools that scrolls when it's longer than the toolbar: moving the
+ * pointer towards either end scrolls that way (faster the closer it gets), a
+ * fade shows there's more, and a trackpad, wheel or Tab works as usual.
+ */
+function ToolRow({ children }: { children: React.ReactNode }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState({ left: false, right: false });
+  const speed = useRef(0);
+  const frame = useRef(0);
+
+  const measure = () => {
+    const el = row.current;
+    if (!el) return;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setMore((m) => (m.left === left && m.right === right ? m : { left, right }));
+  };
+  // Measure on mount, when the row resizes and when its tools change; stop any glide when it goes.
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    measure();
+    const resized = new ResizeObserver(measure);
+    resized.observe(el);
+    const changed = new MutationObserver(measure);
+    changed.observe(el, { childList: true, subtree: true });
+    return () => {
+      resized.disconnect();
+      changed.disconnect();
+      cancelAnimationFrame(frame.current);
+    };
+    // measure only reads the row and sets state; it needn't re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const glide = () => {
+    const el = row.current;
+    if (!el || !speed.current) return;
+    el.scrollLeft += speed.current;
+    frame.current = requestAnimationFrame(glide);
+  };
+  const onPointerMove = (event: React.PointerEvent) => {
+    const el = row.current;
+    if (!el || event.pointerType === "touch") return;
+    const box = el.getBoundingClientRect();
+    const fromRight = box.right - event.clientX;
+    const fromLeft = event.clientX - box.left;
+    const next =
+      fromRight < EDGE && more.right ? Math.ceil(((EDGE - fromRight) / EDGE) * MAX_SPEED) : fromLeft < EDGE && more.left ? -Math.ceil(((EDGE - fromLeft) / EDGE) * MAX_SPEED) : 0;
+    const was = speed.current;
+    speed.current = next;
+    if (next && !was) frame.current = requestAnimationFrame(glide);
+  };
+  const stop = () => {
+    speed.current = 0;
+    cancelAnimationFrame(frame.current);
+  };
+
+  const fade = `linear-gradient(to right, ${more.left ? "transparent, black 32px" : "black"}, ${more.right ? "black calc(100% - 32px), transparent" : "black"})`;
+  return (
+    <div
+      ref={row}
+      data-tool-row
+      onScroll={measure}
+      onPointerMove={onPointerMove}
+      onPointerLeave={stop}
+      className="no-scrollbar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+      style={{ maskImage: fade, WebkitMaskImage: fade }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The toolbar every interface has at medium plus and large, under its title:
+ * undo and redo (large), the interface's own standard tools, then the tools
+ * generated for what's in it now (drawn by the host, so they can change with
+ * the content), all in one row; then host actions. When the row is longer
+ * than the toolbar it scrolls (ToolRow), so suggested tools are always there
+ * to reach, never folded away in a group.
  */
 export function ShellToolbar({
   tools,
@@ -41,12 +122,13 @@ export function ShellToolbar({
   return (
     <div
       role="toolbar"
+      data-shell-part="tools"
       className={cn(
-        "flex h-12 shrink-0 items-center gap-0.5 border-b border-gray-3/15 px-4",
+        "flex h-[var(--shell-tools-height,48px)] shrink-0 items-center gap-[var(--shell-tools-gap,2px)] border-b border-shell-line px-[var(--shell-tools-padding-x,16px)]",
         className,
       )}
     >
-      <div className="no-scrollbar flex min-w-0 shrink items-center gap-0.5 overflow-x-auto">
+      <ToolRow>
         {history && (
           <>
             <ShellToolButton label="Undo" disabled={!history.canUndo} onPress={history.undo}>
@@ -59,13 +141,13 @@ export function ShellToolbar({
           </>
         )}
         {children}
-      </div>
-      {tools && (
-        <>
-          {(children || history) && <ShellToolDivider />}
-          <div className="flex min-w-0 flex-1 items-center">{tools}</div>
-        </>
-      )}
+        {tools && (
+          <>
+            {(children || history) && <ShellToolDivider />}
+            <div className="flex shrink-0 items-center">{tools}</div>
+          </>
+        )}
+      </ToolRow>
       {actions && <div className="ml-auto flex shrink-0 items-center gap-1 pl-2">{actions}</div>}
     </div>
   );
@@ -81,9 +163,13 @@ const keepFocus = {
 };
 
 const TOOL = cn(
-  "flex h-8 shrink-0 items-center justify-center rounded-[8px] font-bureau text-[13px] text-typography-secondary transition-colors [&_svg]:size-4 [&_svg]:shrink-0",
-  "hover:bg-gray-6 hover:text-typography-primary active:scale-[0.97]",
-  "disabled:pointer-events-none disabled:opacity-40",
+  // Sized from the tokens: the icon plus room around it (32px at large, 30px on a medium plus card).
+  "flex h-[calc(var(--shell-tools-icon,16px)+16px)] shrink-0 items-center justify-center rounded-[8px] font-bureau text-[length:var(--shell-tools-font-size,13px)] text-typography-secondary transition-colors [&_svg]:size-[var(--shell-tools-icon,16px)] [&_svg]:shrink-0",
+  "enabled:hover:bg-shell-fill enabled:hover:text-typography-primary enabled:active:scale-[0.97]",
+  // Disabled tools still take the pointer, so their tooltips show.
+  "disabled:cursor-default disabled:opacity-40",
+  // Keyboard focus is always visible (WCAG 2.4.7).
+  "outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50",
 );
 
 /** One standard tool: an icon with its name as the tooltip, as Document's formatting buttons. */
@@ -113,7 +199,7 @@ export function ShellToolButton({
         stopFieldEvent(event);
         onPress();
       }}
-      className={cn(TOOL, "w-8", active && "bg-gray-6 text-typography-primary")}
+      className={cn(TOOL, "w-[calc(var(--shell-tools-icon,16px)+16px)]", active && "bg-shell-fill text-typography-primary")}
     >
       {children}
     </button>
@@ -148,7 +234,7 @@ export function ShellToolText({
         stopFieldEvent(event);
         onPress();
       }}
-      className={cn(TOOL, "gap-1.5 px-2.5", active && "bg-gray-6 text-typography-primary")}
+      className={cn(TOOL, "gap-1.5 px-2.5", active && "bg-shell-fill text-typography-primary")}
     >
       {icon}
       {label}
@@ -172,7 +258,7 @@ export type ShellMenuItem =
   | { heading: string; id: string };
 
 const MENU_PANEL =
-  "flex min-w-[200px] flex-col rounded-[14px] border-[0.5px] border-gray-2 bg-gray-1 p-1.5 shadow-[0_4px_14px_rgba(26,23,24,0.14)]";
+  "flex min-w-[200px] flex-col rounded-[14px] border-[0.5px] border-shell-line-strong bg-gray-1 p-1.5 shadow-[0_4px_14px_rgba(26,23,24,0.14)]";
 
 /** The trigger for a menu or popover tool: an icon, words or both, then a chevron. */
 function TriggerFace({ icon, text, open }: { icon?: React.ReactNode; text?: string; open: boolean }) {
@@ -221,7 +307,7 @@ export function ShellToolMenu({
             stopFieldEvent(event);
             setOpen((value) => !value);
           }}
-          className={cn(TOOL, "gap-1 px-2", (open || active) && "bg-gray-6 text-typography-primary")}
+          className={cn(TOOL, "gap-1 px-2", (open || active) && "bg-shell-fill text-typography-primary")}
         >
           <TriggerFace icon={icon} text={text} open={open} />
         </button>
@@ -235,7 +321,7 @@ export function ShellToolMenu({
       >
         <div role="menu" aria-label={label} className={MENU_PANEL}>
           {items.map((item) => {
-            if ("divider" in item) return <span key={item.id} aria-hidden className="mx-2 my-1 h-px bg-gray-3/20" />;
+            if ("divider" in item) return <span key={item.id} aria-hidden className="mx-2 my-1 h-px bg-shell-ink-faint" />;
             if ("heading" in item)
               return (
                 <span key={item.id} className="px-2 pt-1.5 pb-1 font-bureau text-[11px] text-typography-secondary">
@@ -256,7 +342,7 @@ export function ShellToolMenu({
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full cursor-pointer items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left font-bureau text-[13px] text-typography-primary transition-colors hover:bg-gray-6",
+                  "flex w-full cursor-pointer items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left font-bureau text-[13px] text-typography-primary transition-colors hover:bg-shell-fill",
                   "disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-typography-secondary",
                 )}
               >
@@ -302,7 +388,7 @@ export function ShellToolPopover({
             stopFieldEvent(event);
             setOpen((value) => !value);
           }}
-          className={cn(TOOL, text ? "gap-1 px-2" : "w-8", open && "bg-gray-6 text-typography-primary")}
+          className={cn(TOOL, text ? "gap-1 px-2" : "w-[calc(var(--shell-tools-icon,16px)+16px)]", open && "bg-shell-fill text-typography-primary")}
         >
           {text ? <TriggerFace icon={icon} text={text} open={open} /> : icon}
         </button>
@@ -345,6 +431,7 @@ export function ShellToolFile({
       <input
         ref={input}
         type="file"
+        aria-label={label}
         accept={accept}
         multiple={multiple}
         tabIndex={-1}
@@ -366,15 +453,21 @@ export function ShellToolField({
   initial = "",
   onApply,
   apply = "Apply",
+  suggestions,
 }: {
   label: string;
   placeholder?: string;
   initial?: string;
   onApply: (value: string) => void;
   apply?: string;
+  /** Ready-made values under the field, narrowed as they type: one click applies one. */
+  suggestions?: string[];
 }) {
   const [value, setValue] = useState(initial);
+  const query = value.trim().toLowerCase();
+  const offered = (suggestions ?? []).filter((item) => !query || item.toLowerCase().includes(query)).slice(0, 8);
   return (
+    <div className="flex flex-col gap-2">
     <form
       className="flex items-center gap-2"
       onSubmit={(event) => {
@@ -388,7 +481,7 @@ export function ShellToolField({
         value={value}
         placeholder={placeholder}
         onChange={(event) => setValue(event.target.value)}
-        className="h-8 w-56 min-w-0 rounded-[8px] bg-gray-6 px-2.5 font-bureau text-[13px] text-typography-primary outline-none placeholder:text-typography-secondary"
+        className="h-8 w-56 min-w-0 rounded-[8px] bg-shell-fill px-2.5 font-bureau text-[13px] text-typography-primary outline-none placeholder:text-typography-secondary"
       />
       <button
         type="submit"
@@ -398,11 +491,26 @@ export function ShellToolField({
         {apply}
       </button>
     </form>
+    {offered.length > 0 && (
+      <div className="flex max-w-72 flex-wrap gap-1">
+        {offered.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onApply(item)}
+            className="h-6 cursor-pointer rounded-full bg-shell-fill px-2.5 font-bureau text-[12px] text-typography-primary hover:bg-shell-ink-faint"
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+    )}
+    </div>
   );
 }
 
 export function ShellToolDivider() {
-  return <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-gray-3/25" />;
+  return <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-shell-ink-faint" />;
 }
 
 /** Save text as a file, the way Download works in Docs or Sheets. */

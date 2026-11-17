@@ -12,6 +12,32 @@ import { fieldEvents, isSubmitShortcut, stopFieldEvent } from "./shell-surface";
 /** Every large title, so Document, Table, Checklist and the rest read as one family. */
 export const SHELL_TITLE_LARGE = "text-[22px] font-normal leading-[1.25] tracking-[-0.2px]";
 
+/**
+ * The title's type, from the design system's tokens for the size it's drawn at
+ * (`--shell-title-*`, set on the surface): the `shell-title-type` class in
+ * index.css. Every title, whoever draws it, uses it. A class, not a style, so
+ * `font-light` on an empty title still wins.
+ */
+export const SHELL_TITLE_TYPE = "shell-title-type";
+
+/** The title row's layout from the tokens: the shared edge, the gap to the glyph, the space above and below. */
+export const SHELL_TITLE_ROW =
+  "gap-[var(--shell-title-gap)] px-[var(--shell-title-padding-x)] pt-[var(--shell-title-padding-top)] pb-[var(--shell-title-padding-bottom)]";
+
+/** The glyph beside a title, at the token's size. */
+export const SHELL_TITLE_GLYPH = "size-[var(--shell-title-glyph)] shrink-0";
+
+/** A large interaction area: the same box as every body (at large, no inset and no radius, so no panel). */
+export const SHELL_BODY_PAD =
+  "mx-[var(--shell-body-inset-x)] mt-[var(--shell-body-inset-top)] mb-[var(--shell-body-inset-bottom)] rounded-[var(--shell-body-radius)] gap-[var(--shell-body-gap)] px-[var(--shell-body-padding-x)] pt-[var(--shell-body-padding-top)] pb-[var(--shell-body-padding-bottom)]";
+
+/** A row that sits on the shared edge (filters, facts) above the interaction area. */
+export const SHELL_EDGE_X = "px-[var(--shell-layout-edge)]";
+
+/** The interaction area's box from the tokens: inset from the card on medium plus, flush on large. */
+export const SHELL_BODY_BOX =
+  "mx-[var(--shell-body-inset-x)] mt-[var(--shell-body-inset-top)] mb-[var(--shell-body-inset-bottom)] gap-[var(--shell-body-gap)] px-[var(--shell-body-padding-x)] pt-[var(--shell-body-padding-top)] pb-[var(--shell-body-padding-bottom)] rounded-[var(--shell-body-radius)]";
+
 /** Medium: glyph and title on one line, the way every idle card opens. */
 export function PreviewHead({
   kind,
@@ -24,17 +50,19 @@ export function PreviewHead({
 }) {
   const has = Boolean(title.trim());
   return (
-    <div className="flex shrink-0 items-center gap-1.5 px-2.5 pt-2">
-      <ShellGlyph kind={kind} className="size-3.5" />
+    <>
+    <div data-shell-part="title" className={cn("flex shrink-0 items-center", SHELL_TITLE_ROW)}>
+      <ShellGlyph kind={kind} className={SHELL_TITLE_GLYPH} />
       <div
         className={cn(
-          "min-w-0 flex-1 truncate font-bureau text-[12px] leading-[1.3]",
-          has ? "font-normal text-typography-primary" : "font-light text-typography-secondary",
+          "shell-title-type min-w-0 flex-1 truncate font-bureau",
+          has ? "text-typography-primary" : "font-light text-typography-secondary",
         )}
       >
         {has ? title : (fallback ?? SHELL_META[kind].label)}
       </div>
     </div>
+    </>
   );
 }
 
@@ -43,11 +71,13 @@ export function PreviewHead({
  * The clear area for an interface's content on medium and medium plus: a white
  * panel on the card's grey, as Document draws it.
  */
-export const CONTENT_PANEL = "rounded-[10px] bg-white shadow-[0_1px_2px_rgba(26,23,24,0.06)]";
+// Its corners are the interaction area's radius token, so the panel follows the design system.
+export const CONTENT_PANEL =
+  "rounded-[var(--shell-body-radius,10px)] bg-shell-panel border-solid border-[length:var(--shell-body-border-width,0px)] border-[color:var(--shell-body-border-color,transparent)]";
 
 export function PreviewBody({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <div className={cn("mx-2 mt-1.5 mb-2 flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-1.5", CONTENT_PANEL, className)}>
+    <div data-shell-part="body" className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", SHELL_BODY_BOX, CONTENT_PANEL, className)}>
       {children}
     </div>
   );
@@ -72,13 +102,12 @@ export function ShellTitle({
   onSubmit?: () => void;
   aside?: React.ReactNode;
 }) {
-  const large = size === "large";
   const mark = useShellMark(size);
   const hostAside = useShellTitleAside();
   placeholder ??= SHELL_META[kind].label;
   return (
-    <div className={cn("flex shrink-0 items-center", large ? "gap-3 px-6 pt-3" : "gap-2 px-4 pt-3.5")}>
-      {mark && <ShellGlyph kind={kind} className={large ? "size-7" : "size-4"} />}
+    <div data-shell-part="title" className={cn("flex shrink-0 items-center", SHELL_TITLE_ROW)}>
+      {mark && <ShellGlyph kind={kind} className={SHELL_TITLE_GLYPH} />}
       {onChange ? (
         <input
           value={value}
@@ -90,17 +119,13 @@ export function ShellTitle({
             stopFieldEvent(event);
             if (isSubmitShortcut(event)) onSubmit?.();
           }}
-          className={cn(
-            "min-w-0 flex-1 bg-transparent font-bureau text-typography-primary outline-none placeholder:font-light placeholder:text-typography-secondary",
-            large ? SHELL_TITLE_LARGE : "text-[14px]",
-          )}
+          className="shell-title-type min-w-0 flex-1 bg-transparent font-bureau text-typography-primary outline-none placeholder:font-light placeholder:text-typography-secondary"
         />
       ) : (
         <span
-          className={cn(
+          className={cn("shell-title-type", 
             "min-w-0 flex-1 truncate font-bureau",
             value ? "text-typography-primary" : "font-light text-typography-secondary",
-            large ? SHELL_TITLE_LARGE : "text-[14px]",
           )}
         >
           {value || placeholder}
@@ -170,9 +195,13 @@ export function ShellBody({
 }) {
   return (
     <div
+      data-shell-part="body"
+      // It scrolls, so it takes focus: the keyboard can scroll it too (WCAG 2.1.1).
+      tabIndex={0}
       className={cn(
-        "no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto",
-        size === "large" ? "gap-4 px-6 pt-4 pb-6" : ["mx-2.5 mt-1.5 mb-2.5 gap-3 px-3 py-2.5", CONTENT_PANEL],
+        "no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50",
+        SHELL_BODY_BOX,
+        size !== "large" && CONTENT_PANEL,
         className,
       )}
     >
@@ -183,7 +212,7 @@ export function ShellBody({
 
 /** The quiet count or detail in the bottom right of medium plus. */
 export function ShellDetail({ children }: { children?: React.ReactNode }) {
-  return <ShellFooter detail={children} className="mx-4 mb-3" />;
+  return <ShellFooter detail={children} className="mx-[var(--shell-meta-padding-x)] mb-[var(--shell-meta-padding-bottom)]" />;
 }
 
 
@@ -216,7 +245,7 @@ export function InlineInput({
       onKeyDown={stopFieldEvent}
       onChange={(event) => onChange?.(event.target.value)}
       className={cn(
-        "min-w-0 rounded-[6px] bg-transparent font-bureau text-typography-primary outline-none placeholder:font-light placeholder:text-typography-secondary focus:bg-gray-6",
+        "min-w-0 rounded-[6px] bg-transparent font-bureau text-typography-primary outline-none placeholder:font-light placeholder:text-typography-secondary focus:bg-shell-fill",
         className,
       )}
     />
@@ -252,7 +281,7 @@ export function Stepper({
         stopFieldEvent(event);
         onChange?.(value + delta);
       }}
-      className="grid size-5 place-items-center rounded-full text-typography-secondary hover:bg-gray-3/20 hover:text-typography-primary disabled:opacity-30"
+      className="grid size-5 place-items-center rounded-full text-typography-secondary hover:bg-shell-ink-faint hover:text-typography-primary disabled:opacity-30"
     >
       {text}
     </button>
@@ -262,7 +291,7 @@ export function Stepper({
       role="group"
       aria-label={label}
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 rounded-full bg-gray-6 px-1 font-bureau text-typography-primary tabular-nums",
+        "inline-flex shrink-0 items-center gap-0.5 rounded-full bg-shell-fill px-1 font-bureau text-typography-primary tabular-nums",
         large ? "h-8 text-[13px]" : "h-6 text-[11px]",
       )}
     >
@@ -289,7 +318,7 @@ export function FieldPill({
   return (
     <label
       className={cn(
-        "inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-full bg-gray-6 font-bureau",
+        "inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-full bg-shell-fill font-bureau",
         large ? "h-8 px-3 text-[13px]" : "h-6 px-2 text-[11px]",
       )}
     >

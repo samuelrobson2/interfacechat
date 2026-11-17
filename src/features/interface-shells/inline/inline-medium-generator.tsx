@@ -19,7 +19,7 @@ export function GeneratorInline({ data, onChange }: { data: GeneratorShellData; 
             <span
               key={index}
               aria-hidden
-              className={cn("rounded-[10px] bg-gray-6", data.mode === "image" ? ASPECT_CLASS[data.controls.aspect] : "h-20")}
+              className={cn("rounded-[10px] bg-shell-fill", data.mode === "image" ? ASPECT_CLASS[data.controls.aspect] : "h-20")}
             />
           );
         const chosen = data.chosen === variation.id;
@@ -36,13 +36,13 @@ export function GeneratorInline({ data, onChange }: { data: GeneratorShellData; 
             }}
             className={cn(
               "relative min-w-0 rounded-[10px] text-left transition-shadow",
-              chosen ? "ring-2 ring-blue-4 ring-offset-2" : "enabled:hover:ring-1 enabled:hover:ring-gray-3/40 enabled:hover:ring-offset-2",
+              chosen ? "ring-2 ring-blue-4 ring-offset-2" : "enabled:hover:ring-1 enabled:hover:ring-shell-line-strong enabled:hover:ring-offset-2",
             )}
           >
             {variation.src ? (
-              <img src={variation.src} alt="" className={cn("w-full rounded-[10px] bg-gray-6 object-cover", ASPECT_CLASS[data.controls.aspect])} />
+              <img src={variation.src} alt="" className={cn("w-full rounded-[10px] bg-shell-fill object-cover", ASPECT_CLASS[data.controls.aspect])} />
             ) : (
-              <span className={cn(INLINE_TEXT, "line-clamp-5 block rounded-[10px] bg-gray-6 px-2.5 py-2 text-[13px]")}>{variation.text}</span>
+              <span className={cn(INLINE_TEXT, "line-clamp-5 block rounded-[10px] bg-shell-fill px-2.5 py-2 text-[13px]")}>{variation.text}</span>
             )}
             {chosen && (
               <span className="absolute top-1.5 right-1.5 grid size-5 place-items-center rounded-full bg-blue-4 text-white">

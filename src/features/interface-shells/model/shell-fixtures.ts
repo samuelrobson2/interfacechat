@@ -1,4 +1,4 @@
-import { APP_EMPTY, APP_FIXTURES } from "../apps/app-fixtures";
+import { APP_EMPTY, APP_FIXTURES, HEAT_PIECES } from "../apps/app-fixtures";
 import { EXTRA_EMPTY, EXTRA_FIXTURES } from "./shell-fixtures-extra";
 import { MORE_EMPTY, MORE_FIXTURES } from "./shell-fixtures-more";
 import { GENERATOR_EMPTY, GENERATOR_FIXTURES } from "./shell-fixtures-generator";
@@ -43,12 +43,20 @@ const documentFixture: ShellFixture<"document"> = {
         "Cities run several degrees warmer than the land around them. Asphalt and roofs soak up sunlight all day and release it at night, so the hottest neighbourhoods barely cool down before morning.",
         "## Who it affects",
         "The burden is uneven. Districts with little tree cover and dense housing are often **4–7°C hotter** on summer afternoons than leafy suburbs a few miles away.",
+        "::scatter",
         "- Older residents and young children\n- Outdoor workers\n- Households without air conditioning",
         "## What cools a street",
         "Shade does most of the work. A mature street tree can lower the surface temperature beneath it by more than 10°C, and reflective roofs cut the heat a building takes in.",
         "1. Plant and protect street trees\n2. Swap dark roofs for reflective coatings\n3. Open up water and green space",
         "> The coolest block in a heatwave is rarely the newest one. It is the one with the oldest trees.",
+        "## What planting would change",
+        "The line is steep: every ten points of canopy is worth about a degree. Move the slider to add cover everywhere, and the code below works out each street's afternoon.",
+        "::trees-control",
+        "::cooling-code",
+        "::cooling-chart",
+        "With {{trees}} more canopy, the hottest streets gain the most, because they start with the least.",
       ].join("\n\n"),
+      ...HEAT_PIECES,
     },
   },
 };
@@ -149,7 +157,7 @@ const tableFixture: ShellFixture<"table"> = {
     empty: emptyTable,
     suggestion: fillToShellData("table", {
       title: "Shot list",
-      text: "One row per shot, in shooting order.",
+      text: "",
       details: {
         columns: shotColumns.map(({ label, type }) => ({ label, type })),
         rowCount: 12,
@@ -157,7 +165,6 @@ const tableFixture: ShellFixture<"table"> = {
     }),
     history: {
       title: "Scenes 1–2 shot list",
-      description: "Every shot in the opening two scenes, in shooting order.",
       columns: historyColumns,
       rows: [
         shot("row-1", {

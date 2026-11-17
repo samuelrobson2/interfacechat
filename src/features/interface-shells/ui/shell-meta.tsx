@@ -13,8 +13,8 @@ export function ShellFooter({
 }) {
   if (compact || !detail) return null;
   return (
-    <div className={cn("flex h-5 shrink-0 items-center justify-end gap-2", className)}>
-      <span className="flex shrink-0 items-center gap-1 font-bureau text-[11px] text-typography-secondary tabular-nums">
+    <div data-shell-part="meta" className={cn("flex h-5 shrink-0 items-center justify-end gap-2", className)}>
+      <span className="flex shrink-0 items-center gap-1 font-bureau text-[length:var(--shell-meta-font-size,11px)] text-typography-secondary tabular-nums">
         {detail}
       </span>
     </div>

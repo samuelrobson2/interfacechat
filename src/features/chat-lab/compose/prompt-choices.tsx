@@ -28,20 +28,21 @@ function ChoiceRow({
   // Their own answer: picked, and for multi added to what's already chosen.
   const submitOwn = () => {
     if (!own.trim()) return;
-    onPick(choice.multi ? value : [], own);
+    onPick(choice.multi ? (choice.picked ?? []) : [], own);
     setOwn("");
     if (!choice.multi) setOpen(false);
   };
   const picked = Boolean(choice.picked?.length);
   const value = valueOf(choice);
+  // Select and deselect: nothing is picked until they pick it, and picking it again unpicks it.
+  const chosen = choice.picked ?? [];
   const toggle = (label: string) => {
     if (!choice.multi) {
-      onPick([label]);
+      onPick(chosen.includes(label) ? [] : [label]);
       setOpen(false);
       return;
     }
-    const next = value.includes(label) ? value.filter((item) => item !== label) : [...value, label];
-    onPick(next.length ? next : [label]);
+    onPick(chosen.includes(label) ? chosen.filter((item) => item !== label) : [...chosen, label]);
   };
 
   return (
@@ -84,17 +85,19 @@ function ChoiceRow({
         >
           <div className="flex flex-wrap gap-1.5">
             {choice.options.map((option) => {
-              const on = value.includes(option.label);
+              // Only what they picked shows as on; the guess is the suggestion on the row, not a pick.
+              const on = chosen.includes(option.label);
               return (
                 <button
                   key={option.label}
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => toggle(option.label)}
-                  title={`Adds “${option.phrase}” to your request`}
+                  aria-pressed={on}
+                  title={on ? "Click to unpick" : `Sends “${option.phrase}” with your request`}
                   className={cn(
                     "flex h-7 cursor-pointer items-center gap-1 rounded-full px-2.5 font-bureau text-[12px] transition-colors",
-                    on && picked ? "bg-gray-5 text-white" : on ? "bg-gray-6 text-typography-primary ring-1 ring-[#a9bad1]" : "bg-gray-6 text-typography-primary hover:bg-gray-2/60",
+                    on ? "bg-gray-5 text-white" : "bg-gray-6 text-typography-primary hover:bg-gray-2/60",
                   )}
                 >
                   {on && <Check className="size-3" strokeWidth={2.25} />}

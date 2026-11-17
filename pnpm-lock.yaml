@@ -333,6 +333,9 @@ importers:
       '@vitest/ui':
         specifier: ^4.0.16
         version: 4.0.16(vitest@4.0.16)
+      axe-core:
+        specifier: 4.10.2
+        version: 4.10.2
       babel-plugin-react-compiler:
         specifier: 19.1.0-rc.3
         version: 19.1.0-rc.3
@@ -3339,6 +3342,10 @@ packages:
 
   attr-accept@2.2.5:
     resolution: {integrity: sha512-0bDNnY/u6pPwHDMoF0FieU354oBi0a8rD9FcsLwzcGWbc8KS8KPIi7y+s13OlVY+gMWc/9xEMUgNE6Qm8ZllYQ==}
+    engines: {node: '>=4'}
+
+  axe-core@4.10.2:
+    resolution: {integrity: sha512-RE3mdQ7P3FRSe7eqCWoeQ/Z9QXrtniSjp1wUjt5nRC3WIpz5rSCve6o3fsZ2aCpJtrZjSZgjwXAoTO5k4tEI0w==}
     engines: {node: '>=4'}
 
   babel-plugin-react-compiler@19.1.0-rc.3:
@@ -9222,6 +9229,8 @@ snapshots:
       js-tokens: 9.0.1
 
   attr-accept@2.2.5: {}
+
+  axe-core@4.10.2: {}
 
   babel-plugin-react-compiler@19.1.0-rc.3:
     dependencies:

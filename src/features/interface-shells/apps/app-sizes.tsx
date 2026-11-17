@@ -4,12 +4,12 @@ import type { ShellProps } from "../model/shell-types";
 import { PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { Bar, ShellSurface } from "../ui/shell-surface";
-import { ChartBlock, StatBlock, MarkdownView } from "./app-blocks";
+import { ShellToolbar } from "../ui/shell-toolbar";
+import { ChartBlock, StatBlock } from "./app-blocks";
 import type { LinkableData } from "./app-data-menu";
 import { appDetail, blockLabel } from "./app-detail";
-import { interpolate } from "./app-query";
-import { ArticleShell, DashboardShell } from "./app-shells";
-import type { AppBlock, AppKind, AppShellData, ArticleShellData, DashboardShellData } from "./app-types";
+import { AppStandardTools, DashboardShell } from "./app-shells";
+import type { AppBlock, AppKind, AppShellData, DashboardShellData } from "./app-types";
 import { useAppRuntime } from "./use-app-runtime";
 
 const BLOCK_ICON: Record<AppBlock["type"], typeof Type> = {
@@ -28,27 +28,27 @@ function AppPreview({ kind, data }: { kind: AppKind; data: AppShellData }) {
   return (
     <>
       <PreviewHead kind={kind} title={data.title} />
-      <PreviewBody className="gap-1.5 pt-2">
+      <PreviewBody>
         {kind === "dashboard" ? (
           <div className="grid grid-cols-3 gap-1">
             {[0, 1, 2].map((index) => (
-              <span key={index} className="flex flex-col gap-1 rounded-[4px] bg-gray-6 p-1">
-                <Bar width="60%" className="h-0.5 bg-gray-3/25" />
-                <Bar width="80%" className={cn("h-1.5", empty ? "bg-gray-3/15" : "bg-gray-3/40")} />
+              <span key={index} className="flex flex-col gap-1 rounded-[4px] bg-shell-fill p-1">
+                <Bar width="60%" className="h-0.5 bg-shell-ink-faint" />
+                <Bar width="80%" className={cn("h-1.5", empty ? "bg-shell-ink-faint" : "bg-shell-ink-soft")} />
               </span>
             ))}
           </div>
         ) : (
           <>
-            <Bar width="92%" className="bg-gray-3/25" />
-            <Bar width="78%" className="bg-gray-3/25" />
+            <Bar width="92%" className="bg-shell-ink-faint" />
+            <Bar width="78%" className="bg-shell-ink-faint" />
           </>
         )}
         <div className="mt-auto flex h-8 items-end gap-1">
           {bars.map((height, index) => (
             <span
               key={index}
-              className={cn("flex-1 rounded-t-[2px]", empty ? "bg-gray-3/15" : index === 3 ? "bg-[#7a6ff0]/70" : "bg-gray-3/35")}
+              className={cn("flex-1 rounded-t-[2px]", empty ? "bg-shell-ink-faint" : index === 3 ? "bg-[#7a6ff0]/70" : "bg-shell-ink-soft")}
               style={{ height: `${height}%` }}
             />
           ))}
@@ -65,6 +65,9 @@ function AppOutline({
   onChange,
   onSubmit,
   brief,
+  tools,
+  actions,
+  linkable,
 }: {
   kind: AppKind;
   data: AppShellData;
@@ -72,7 +75,12 @@ function AppOutline({
   onSubmit?: () => void;
   /** On the chat home: what the request leaves open. */
   brief?: React.ReactNode;
+  tools?: React.ReactNode;
+  actions?: React.ReactNode;
+  linkable?: LinkableData[];
 }) {
+  // The Data menu reads rows through a runtime of its own here.
+  const runtime = useAppRuntime(data);
   return (
     <>
       <ShellTitle
@@ -82,7 +90,10 @@ function AppOutline({
         onChange={onChange && ((title) => onChange({ ...data, title }))}
         onSubmit={onSubmit}
       />
-      <ShellBody size="medium-plus" className="gap-1.5">
+      <ShellToolbar tools={tools} actions={actions}>
+        <AppStandardTools kind={kind} data={data} onChange={onChange} runtime={runtime} linkable={linkable} large={false} />
+      </ShellToolbar>
+      <ShellBody size="medium-plus">
         {data.datasets.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {data.datasets.map((dataset) => (
@@ -90,7 +101,7 @@ function AppOutline({
                 key={dataset.id}
                 className={cn(
                   "flex items-center gap-1 rounded-full px-1.5 py-px font-bureau text-[10px]",
-                  dataset.source.type === "generated" ? "bg-[#fff1d6] text-[#8a5a00]" : "bg-gray-6 text-typography-secondary",
+                  dataset.source.type === "generated" ? "bg-[#fff1d6] text-[#8a5a00]" : "bg-shell-fill text-typography-secondary",
                 )}
               >
                 <Database className="size-2.5" />
@@ -123,24 +134,20 @@ function AppOutline({
 
 /**
  * Inline medium: the part worth glancing at in a reply. A dashboard's first
- * figures and main chart; an article's opening and first chart. Live, so a
+ * figures and main chart. Live, so a
  * chart in the reply is the real one.
  */
-export function AppInline({ kind, data }: { kind: AppKind; data: AppShellData }) {
+export function AppInline({ data }: { kind?: AppKind; data: AppShellData }) {
   const runtime = useAppRuntime(data);
   const stats = data.blocks.filter((block) => block.type === "stat").slice(0, 3);
   const chart = data.blocks.find((block) => block.type === "chart" && block.dataset && !data.datasets.find((d) => d.id === block.dataset && d.source.type === "code"));
-  const opening = kind === "article" ? data.blocks.find((block) => block.type === "text") : undefined;
   return (
     <div className="flex flex-col gap-3">
-      {opening?.type === "text" && (
-        <MarkdownView markdown={interpolate(opening.markdown, data.variables, runtime.values)} className="line-clamp-4 [&>div]:text-[14px]" />
-      )}
       {stats.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {stats.map((block) =>
             block.type === "stat" ? (
-              <div key={block.id} className="rounded-[12px] bg-gray-6 p-3">
+              <div key={block.id} className="rounded-[12px] bg-shell-fill p-3">
                 <StatBlock block={{ ...block, label: block.label }} data={data} runtime={runtime} />
               </div>
             ) : null,
@@ -152,7 +159,7 @@ export function AppInline({ kind, data }: { kind: AppKind; data: AppShellData })
   );
 }
 
-/** Dashboard and Article at any size, the way InterfaceShell draws every interface. */
+/** Dashboard at any size, the way InterfaceShell draws every interface. */
 export function AppShellBySize({
   kind,
   linkable,
@@ -166,25 +173,24 @@ export function AppShellBySize({
         {size === "medium" ? (
           <AppPreview kind={kind} data={data} />
         ) : (
-          <AppOutline kind={kind} data={data} onChange={onChange} onSubmit={onSubmit} brief={props.suggestions?.brief} />
+          <AppOutline
+            kind={kind}
+            data={data}
+            onChange={onChange}
+            onSubmit={onSubmit}
+            brief={props.suggestions?.brief}
+            tools={props.tools}
+            actions={props.actions}
+            linkable={linkable}
+          />
         )}
       </ShellSurface>
     );
   }
-  return kind === "dashboard" ? (
+  return (
     <DashboardShell
       data={data as DashboardShellData}
       onChange={onChange as ((data: DashboardShellData) => void) | undefined}
-      tools={props.tools}
-      actions={props.actions}
-      linkable={linkable}
-      surface={surface}
-      className={className}
-    />
-  ) : (
-    <ArticleShell
-      data={data as ArticleShellData}
-      onChange={onChange as ((data: ArticleShellData) => void) | undefined}
       tools={props.tools}
       actions={props.actions}
       linkable={linkable}

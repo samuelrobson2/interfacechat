@@ -7,6 +7,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin, type ViteDevServer } from "vite";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 import { devEdit } from "./vite-plugins/dev-edit";
+import { devTokens } from "./vite-plugins/dev-tokens";
 
 // Dev-only: serve the Vercel functions in `api/*.ts` from the Vite dev server so
 // `npm run dev` gives working /api routes without needing `vercel dev` (which
@@ -130,6 +131,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       devApi(env),
       devEdit(),
+      devTokens(),
     ],
     server: {
       host: true,

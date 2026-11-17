@@ -128,7 +128,8 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
   {
     id: "article",
     label: "Article",
-    description: "An interactive article: prose with live charts, controls and code",
+    // Opens as a Document: writing with live charts, controls and code between the paragraphs.
+    description: "A document with live charts, controls and code between the prose",
     seed: "Write an interactive article on ",
     match: /\b(interactive (article|essay|post|piece)|data stor(y|ies)|explorables?|live charts?)\b/i,
   },
@@ -292,12 +293,12 @@ export function resolveImplementableKind(
 }
 
 /** Library interfaces the model fills through the catalogue, holding their own data. */
-export type ShellCatalogueOpen = "tracker" | "dashboard" | "article";
+export type ShellCatalogueOpen = "tracker" | "dashboard";
 
 /** What the model's pick opens as: a panel kind, or a catalogue interface of its own. */
 export function opensAsOf(kind: VisualInterfaceKind): ImplementableInterfaceKind | ShellCatalogueOpen {
   if (kind === "checklist") return "tracker";
-  if (kind === "dashboard" || kind === "article") return kind;
+  if (kind === "dashboard") return kind;
   return resolveImplementableKind(kind);
 }
 
@@ -537,7 +538,7 @@ const LIBRARY_KIND: Partial<Record<VisualInterfaceKind, ShellKind>> = {
   guide: "guide",
   checklist: "tracker",
   dashboard: "dashboard",
-  article: "article",
+  article: "document",
   calendar: "calendar",
   reader: "reader",
   map: "map",

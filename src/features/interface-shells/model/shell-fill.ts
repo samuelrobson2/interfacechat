@@ -78,7 +78,6 @@ export function fillToShellData<K extends FillableKind>(
       const { details } = fill as ShellFill<"table">;
       const table: ShellDataByKind["table"] = {
         title: fill.title,
-        description: fill.text,
         columns: details.columns.map((column, index) => ({ id: `col-${index}`, ...column })),
         rows: [],
         rowCount: details.rowCount,
@@ -132,7 +131,7 @@ export function shellFillOf<K extends FillableKind>(
       const table = data as ShellDataByKind["table"];
       return {
         title: table.title,
-        text: table.description ?? "",
+        text: "",
         project: table.project,
         details: {
           columns: table.columns

@@ -1,0 +1,986 @@
+{
+  "$description": "Interface design tokens, in the W3C Design Tokens format (2025.10). Primitives are the raw scales; shell tokens are per size and part, and may point at a primitive with {group.name}. Edit them on the Design System page (/design-system), which writes this file back.",
+  "space": {
+    "0": {
+      "$value": "0px"
+    },
+    "1": {
+      "$value": "4px"
+    },
+    "2": {
+      "$value": "8px"
+    },
+    "3": {
+      "$value": "12px"
+    },
+    "4": {
+      "$value": "16px"
+    },
+    "5": {
+      "$value": "20px"
+    },
+    "6": {
+      "$value": "24px"
+    },
+    "7": {
+      "$value": "28px"
+    },
+    "8": {
+      "$value": "32px"
+    },
+    "12": {
+      "$value": "48px"
+    },
+    "$type": "dimension",
+    "0.5": {
+      "$value": "2px"
+    },
+    "1.5": {
+      "$value": "6px"
+    },
+    "2.5": {
+      "$value": "10px"
+    },
+    "3.5": {
+      "$value": "14px"
+    }
+  },
+  "type": {
+    "$type": "dimension",
+    "meta": {
+      "$value": "11px",
+      "$description": "The smallest text in a card: small text on medium plus. Nothing smaller is used where it's read."
+    },
+    "body-card": {
+      "$value": "12px",
+      "$description": "Content and reading text on medium plus; small text at large."
+    },
+    "label": {
+      "$value": "13px",
+      "$description": "Content text at large: tables, lists, controls, tool labels."
+    },
+    "title-card": {
+      "$value": "14px",
+      "$description": "Titles on medium plus."
+    },
+    "body": {
+      "$value": "15px",
+      "$description": "Reading text at large: a document's paragraphs."
+    },
+    "title": {
+      "$value": "22px",
+      "$description": "Titles at large."
+    },
+    "tile": {
+      "$value": "12px",
+      "$description": "Titles on medium tiles."
+    },
+    "inline-body": {
+      "$value": "13.5px",
+      "$description": "Body text inline in a reply."
+    },
+    "inline-title": {
+      "$value": "15px",
+      "$description": "Titles inline in a reply."
+    }
+  },
+  "font": {
+    "$type": "fontFamily",
+    "sans": {
+      "$value": "STK Bureau Sans",
+      "$description": "The one family, from Light to Bold, each with an italic."
+    }
+  },
+  "weight": {
+    "$type": "fontWeight",
+    "light": {
+      "$value": 300
+    },
+    "regular": {
+      "$value": 400
+    },
+    "book": {
+      "$value": 450
+    },
+    "medium": {
+      "$value": 500
+    },
+    "semibold": {
+      "$value": 600
+    },
+    "bold": {
+      "$value": 700
+    }
+  },
+  "color": {
+    "$type": "color",
+    "$description": "The colours every interface draws with, by role. Classes: bg-shell-panel, bg-shell-fill, border-shell-line, and so on.",
+    "text-secondary": {
+      "$value": "#6b6b6b",
+      "$description": "Secondary text, labels and tool icons: 4.5:1 or better on panel, fill and frame (WCAG AA). Grey 3 (#7a7a7a) is 3.8:1 on fill, so it isn't used for text in interfaces."
+    },
+    "suggest": {
+      "$value": "#6a4cc9",
+      "$description": "A suggestion: text the model offers, in place, in the AI violet (6:1 on panel, 5.4:1 on fill). Chips and rows that are suggestions take the AI outline instead."
+    },
+    "panel": {
+      "$value": "var(--color-gray-0)",
+      "$description": "The interaction area's panel, menus, cards on the frame."
+    },
+    "frame": {
+      "$value": "#f7f6f5",
+      "$description": "The card the interface sits on at medium and medium plus (large sits on the page's background)."
+    },
+    "fill": {
+      "$value": "var(--color-gray-6)",
+      "$description": "Controls, chips and fields on a panel."
+    },
+    "line": {
+      "$value": "color-mix(in srgb, var(--color-gray-3) 15%, transparent)",
+      "$description": "Dividers: under the tools, between rows."
+    },
+    "line-strong": {
+      "$value": "color-mix(in srgb, var(--color-gray-3) 35%, transparent)",
+      "$description": "Outlines that help but don't identify a control on their own: dashed add chips, placeholders, quote rules."
+    },
+    "control": {
+      "$value": "#8a8a8a",
+      "$description": "The outline that identifies a control (a checkbox, a tick, a radio): 3:1 or better on panel and fill (WCAG 1.4.11)."
+    },
+    "outline": {
+      "$value": "color-mix(in srgb, var(--stroke-tertiary) 10%, transparent)",
+      "$description": "The panel's outline: tertiary stroke at 10%."
+    },
+    "ink-faint": {
+      "$value": "color-mix(in srgb, var(--color-gray-3) 20%, transparent)",
+      "$description": "Placeholder ink: the bars a preview draws for text."
+    },
+    "ink-soft": {
+      "$value": "color-mix(in srgb, var(--color-gray-3) 40%, transparent)",
+      "$description": "Stronger placeholder ink: headings, bullets, tracks."
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "panel": {
+      "$value": "10px",
+      "$description": "The white content panel on a card."
+    },
+    "control": {
+      "$value": "8px"
+    },
+    "card": {
+      "$value": "20px",
+      "$description": "Cards and windows."
+    }
+  },
+  "shell": {
+    "medium": {
+      "layout": {
+        "edge": {
+          "$value": "{space.3}",
+          "$type": "dimension",
+          "$description": "The one line everything starts on: the title's glyph, the first tool's icon, the content. Equals the panel's inset plus its padding (and the tools' padding plus a tool's own 8px)."
+        }
+      },
+      "frame": {
+        "width": {
+          "$value": "144px",
+          "$type": "dimension",
+          "$description": "The card's width."
+        },
+        "height": {
+          "$value": "144px",
+          "$type": "dimension",
+          "$description": "The card's height."
+        },
+        "radius": {
+          "$value": "18px",
+          "$type": "dimension"
+        }
+      },
+      "title": {
+        "padding-x": {
+          "$value": "{shell.medium.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "glyph": {
+          "$value": "14px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.tile}",
+          "$type": "dimension"
+        },
+        "line-height": {
+          "$value": 1.3,
+          "$type": "number"
+        },
+        "family": {
+          "$value": "{font.sans}",
+          "$type": "fontFamily"
+        },
+        "weight": {
+          "$value": "{weight.book}",
+          "$type": "fontWeight"
+        },
+        "style": {
+          "$value": "normal",
+          "$type": "fontStyle",
+          "$description": "normal or italic"
+        },
+        "tracking": {
+          "$value": "0px",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "tools": {
+        "height": {
+          "$value": "{space.5}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{shell.medium.body.padding-x}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "icon": {
+          "$value": "10px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": false,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "body": {
+        "inset-x": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "inset-top": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "inset-bottom": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.1}",
+          "$type": "dimension"
+        },
+        "radius": {
+          "$value": "{radius.panel}",
+          "$type": "dimension"
+        },
+        "border-width": {
+          "$value": "0.5px",
+          "$type": "dimension",
+          "$description": "The panel's outline."
+        },
+        "border-color": {
+          "$value": "{color.outline}",
+          "$type": "color",
+          "$description": "The panel's outline."
+        },
+        "font-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension",
+          "$description": "Content text: table cells, list items, fields, labels that are read."
+        },
+        "reading-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension",
+          "$description": "Prose: a document's paragraphs."
+        },
+        "line-height": {
+          "$value": 1.4,
+          "$type": "number"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "meta": {
+        "font-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension",
+          "$description": "Small text: counts, column headings, captions, secondary labels."
+        },
+        "padding-x": {
+          "$value": "{shell.medium.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": false,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "suggest": {
+        "chip-height": {
+          "$value": "{space.5}",
+          "$type": "dimension"
+        },
+        "chip-font-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.1}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": false,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      }
+    },
+    "medium-plus": {
+      "layout": {
+        "edge": {
+          "$value": "{space.5}",
+          "$type": "dimension",
+          "$description": "The one line everything starts on: the title's glyph, the first tool's icon, the content. Equals the panel's inset plus its padding (and the tools' padding plus a tool's own 8px)."
+        }
+      },
+      "frame": {
+        "width": {
+          "$value": "346px",
+          "$type": "dimension",
+          "$description": "The card's width."
+        },
+        "height": {
+          "$value": "264px",
+          "$type": "dimension",
+          "$description": "The card's height."
+        },
+        "radius": {
+          "$value": "{radius.card}",
+          "$type": "dimension"
+        }
+      },
+      "title": {
+        "padding-x": {
+          "$value": "{shell.medium-plus.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.3.5}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "glyph": {
+          "$value": "16px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.title-card}",
+          "$type": "dimension"
+        },
+        "line-height": {
+          "$value": 1.35,
+          "$type": "number"
+        },
+        "family": {
+          "$value": "{font.sans}",
+          "$type": "fontFamily"
+        },
+        "weight": {
+          "$value": "{weight.book}",
+          "$type": "fontWeight"
+        },
+        "style": {
+          "$value": "normal",
+          "$type": "fontStyle",
+          "$description": "normal or italic"
+        },
+        "tracking": {
+          "$value": "0px",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "tools": {
+        "height": {
+          "$value": "{space.8}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{space.1}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.0.5}",
+          "$type": "dimension"
+        },
+        "icon": {
+          "$value": "13px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension",
+          "$description": "The words in the toolbar (All results, Serves 12): small beside the 13px icons."
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "body": {
+        "inset-x": {
+          "$value": "{space.2}",
+          "$type": "dimension",
+          "$description": "Space between the card's edge and the white panel."
+        },
+        "inset-top": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "inset-bottom": {
+          "$value": "{space.2.5}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{space.3}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.2.5}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.2.5}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.3}",
+          "$type": "dimension"
+        },
+        "radius": {
+          "$value": "{radius.panel}",
+          "$type": "dimension"
+        },
+        "border-width": {
+          "$value": "0.5px",
+          "$type": "dimension",
+          "$description": "The panel's outline."
+        },
+        "border-color": {
+          "$value": "{color.outline}",
+          "$type": "color",
+          "$description": "The panel's outline."
+        },
+        "font-size": {
+          "$value": "{type.body-card}",
+          "$type": "dimension",
+          "$description": "Content text: table cells, list items, fields, labels that are read."
+        },
+        "reading-size": {
+          "$value": "{type.body-card}",
+          "$type": "dimension",
+          "$description": "Prose: a document's paragraphs."
+        },
+        "line-height": {
+          "$value": 1.5,
+          "$type": "number"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "meta": {
+        "font-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension",
+          "$description": "Small text: counts, column headings, captions, secondary labels."
+        },
+        "padding-x": {
+          "$value": "{shell.medium-plus.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.3}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": false,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "suggest": {
+        "chip-height": {
+          "$value": "{space.6}",
+          "$type": "dimension"
+        },
+        "chip-font-size": {
+          "$value": "{type.meta}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      }
+    },
+    "large": {
+      "layout": {
+        "edge": {
+          "$value": "{space.6}",
+          "$type": "dimension",
+          "$description": "The shared edge: the glyph, the title, the detail line and the tools all start here."
+        }
+      },
+      "frame": {
+        "width": {
+          "$value": "760px",
+          "$type": "dimension",
+          "$description": "The card's width."
+        },
+        "height": {
+          "$value": "540px",
+          "$type": "dimension",
+          "$description": "The card's height."
+        },
+        "radius": {
+          "$value": "{radius.card}",
+          "$type": "dimension"
+        }
+      },
+      "title": {
+        "padding-x": {
+          "$value": "{shell.large.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.4}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.3}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.3}",
+          "$type": "dimension"
+        },
+        "glyph": {
+          "$value": "28px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.title}",
+          "$type": "dimension"
+        },
+        "line-height": {
+          "$value": 1.25,
+          "$type": "number"
+        },
+        "family": {
+          "$value": "{font.sans}",
+          "$type": "fontFamily"
+        },
+        "weight": {
+          "$value": "{weight.book}",
+          "$type": "fontWeight"
+        },
+        "style": {
+          "$value": "normal",
+          "$type": "fontStyle",
+          "$description": "normal or italic"
+        },
+        "tracking": {
+          "$value": "-0.2px",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "tools": {
+        "height": {
+          "$value": "{space.12}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{space.4}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.0.5}",
+          "$type": "dimension"
+        },
+        "icon": {
+          "$value": "16px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.label}",
+          "$type": "dimension",
+          "$description": "The words in the toolbar."
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "body": {
+        "inset-x": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "inset-top": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "inset-bottom": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{space.6}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.4}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.6}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.4}",
+          "$type": "dimension"
+        },
+        "radius": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "border-width": {
+          "$value": "0px",
+          "$type": "dimension",
+          "$description": "The panel's outline."
+        },
+        "border-color": {
+          "$value": "{color.outline}",
+          "$type": "color",
+          "$description": "The panel's outline."
+        },
+        "font-size": {
+          "$value": "{type.label}",
+          "$type": "dimension",
+          "$description": "Content text: table cells, list items, fields, labels that are read."
+        },
+        "reading-size": {
+          "$value": "{type.body}",
+          "$type": "dimension",
+          "$description": "Prose: a document's paragraphs."
+        },
+        "line-height": {
+          "$value": 1.65,
+          "$type": "number"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "meta": {
+        "font-size": {
+          "$value": "{type.body-card}",
+          "$type": "dimension",
+          "$description": "Small text: counts, column headings, captions, secondary labels."
+        },
+        "padding-x": {
+          "$value": "{shell.large.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "suggest": {
+        "chip-height": {
+          "$value": "{space.7}",
+          "$type": "dimension"
+        },
+        "chip-font-size": {
+          "$value": "{type.label}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      }
+    },
+    "inline": {
+      "layout": {
+        "edge": {
+          "$value": "{space.6}",
+          "$type": "dimension",
+          "$description": "The shared edge: the glyph, the title, the detail line and the tools all start here."
+        }
+      },
+      "frame": {
+        "width": {
+          "$value": "520px",
+          "$type": "dimension",
+          "$description": "The card's width. Inline: the width of a reply."
+        },
+        "height": {
+          "$value": "0px",
+          "$type": "dimension",
+          "$description": "Inline grows with its content (0 means auto)."
+        },
+        "radius": {
+          "$value": "18px",
+          "$type": "dimension"
+        }
+      },
+      "title": {
+        "padding-x": {
+          "$value": "{shell.inline.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.3}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "glyph": {
+          "$value": "16px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.inline-title}",
+          "$type": "dimension"
+        },
+        "line-height": {
+          "$value": 1.3,
+          "$type": "number"
+        },
+        "family": {
+          "$value": "{font.sans}",
+          "$type": "fontFamily"
+        },
+        "weight": {
+          "$value": "{weight.regular}",
+          "$type": "fontWeight"
+        },
+        "style": {
+          "$value": "normal",
+          "$type": "fontStyle",
+          "$description": "normal or italic"
+        },
+        "tracking": {
+          "$value": "0px",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "tools": {
+        "height": {
+          "$value": "{space.8}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.0.5}",
+          "$type": "dimension"
+        },
+        "icon": {
+          "$value": "14px",
+          "$type": "dimension"
+        },
+        "font-size": {
+          "$value": "{type.body-card}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": false,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "body": {
+        "inset-x": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "inset-top": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "inset-bottom": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "padding-x": {
+          "$value": "{shell.inline.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-top": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.3}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.2}",
+          "$type": "dimension"
+        },
+        "radius": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "border-width": {
+          "$value": "0px",
+          "$type": "dimension",
+          "$description": "The panel's outline."
+        },
+        "border-color": {
+          "$value": "{color.outline}",
+          "$type": "color",
+          "$description": "The panel's outline."
+        },
+        "font-size": {
+          "$value": "{type.inline-body}",
+          "$type": "dimension",
+          "$description": "Content text: table cells, list items, fields, labels that are read."
+        },
+        "reading-size": {
+          "$value": "{type.inline-body}",
+          "$type": "dimension",
+          "$description": "Prose: a document's paragraphs."
+        },
+        "line-height": {
+          "$value": 1.5,
+          "$type": "number"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "meta": {
+        "font-size": {
+          "$value": "{type.body-card}",
+          "$type": "dimension",
+          "$description": "Small text: counts, column headings, captions, secondary labels."
+        },
+        "padding-x": {
+          "$value": "{shell.inline.layout.edge}",
+          "$type": "dimension"
+        },
+        "padding-bottom": {
+          "$value": "{space.0}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": false,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      },
+      "suggest": {
+        "chip-height": {
+          "$value": "{space.6}",
+          "$type": "dimension"
+        },
+        "chip-font-size": {
+          "$value": "{type.body-card}",
+          "$type": "dimension"
+        },
+        "gap": {
+          "$value": "{space.1.5}",
+          "$type": "dimension"
+        },
+        "visible": {
+          "$value": true,
+          "$description": "Shown at this size. Remove it on the Design System page."
+        }
+      }
+    }
+  }
+}

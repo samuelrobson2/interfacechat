@@ -29,6 +29,19 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Interface colour roles (shell-tokens.json `color`): bg-shell-panel, border-shell-line, … */
+  --color-shell-text-secondary: var(--shell-color-text-secondary);
+  --color-shell-suggest: var(--shell-color-suggest);
+  --color-shell-panel: var(--shell-color-panel);
+  --color-shell-frame: var(--shell-color-frame);
+  --color-shell-fill: var(--shell-color-fill);
+  --color-shell-line: var(--shell-color-line);
+  --color-shell-line-strong: var(--shell-color-line-strong);
+  --color-shell-control: var(--shell-color-control);
+  --color-shell-outline: var(--shell-color-outline);
+  --color-shell-ink-faint: var(--shell-color-ink-faint);
+  --color-shell-ink-soft: var(--shell-color-ink-soft);
+
   --font-bureau: "STK Bureau Sans", sans-serif;
 
   /* Shadow Variables */
@@ -502,4 +515,126 @@ body.chat-native-selection-hidden
 .dark {
   --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
   --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
+}
+
+/* The interface design system's title type: every title reads it, at the size it's drawn at
+ * (the --shell-title-* variables come from the tokens, set on the interface's surface).
+ * In the components layer, so a utility like font-light still wins. */
+@layer components {
+  .shell-title-type {
+    font-size: var(--shell-title-font-size);
+    line-height: var(--shell-title-line-height);
+    font-weight: var(--shell-title-weight);
+    letter-spacing: var(--shell-title-tracking);
+    font-family: var(--shell-title-family), sans-serif;
+    font-style: var(--shell-title-style);
+  }
+}
+
+
+/* Interface colour roles: the defaults from shell-tokens.json `color` (a test keeps them equal).
+ * Each interface's surface sets them again from the tokens, so the Design System page can edit them live. */
+:root {
+  --shell-color-text-secondary: #6b6b6b;
+  --shell-color-suggest: #6a4cc9;
+  --shell-color-panel: var(--color-gray-0);
+  --shell-color-frame: #f7f6f5;
+  --shell-color-fill: var(--color-gray-6);
+  --shell-color-line: color-mix(in srgb, var(--color-gray-3) 15%, transparent);
+  --shell-color-line-strong: color-mix(in srgb, var(--color-gray-3) 35%, transparent);
+  --shell-color-control: #8a8a8a;
+  --shell-color-outline: color-mix(in srgb, var(--stroke-tertiary) 10%, transparent);
+  --shell-color-ink-faint: color-mix(in srgb, var(--color-gray-3) 20%, transparent);
+  --shell-color-ink-soft: color-mix(in srgb, var(--color-gray-3) 40%, transparent);
+}
+
+/* Medium plus: the tools sit inside the interaction area's panel, at its top,
+ * with a line under them, as Document's card draws them. The tools row takes the panel's
+ * top (inset, white, outline, top corners); the body under it carries on without a top. */
+[data-shell-size="medium-plus"]:not([data-hide-parts~="tools"]):not([data-hide-parts~="body"]) {
+  & [data-shell-part="tools"]:has(+ [data-shell-part="body"]) {
+    margin-inline: var(--shell-body-inset-x);
+    margin-top: var(--shell-body-inset-top);
+    background: var(--shell-color-panel);
+    border-style: solid;
+    border-width: var(--shell-body-border-width) var(--shell-body-border-width) 0;
+    border-color: var(--shell-body-border-color);
+    border-radius: var(--shell-body-radius) var(--shell-body-radius) 0 0;
+    box-shadow: inset 0 -1px 0 var(--shell-color-line);
+  }
+  & [data-shell-part="tools"] + [data-shell-part="body"] {
+    margin-top: 0 !important;
+    border-top-width: 0;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+}
+
+/* Inside an interface, secondary text uses the colour role that passes AA contrast (light theme;
+ * the dark theme keeps its own). Everything written text-typography-secondary picks it up. */
+:root:not(.dark) [data-shell-size] {
+  --typography-secondary: var(--shell-color-text-secondary);
+}
+
+/* The type ramp. Inside an interface, every size of text written into the
+ * code snaps to one of its size's roles (shell-tokens.json): content
+ * (--shell-body-font-size), small (--shell-meta-font-size) and, at large,
+ * reading (--shell-body-reading-size). Toolbars take --shell-tools-font-size.
+ * So an interface can't drift from the scale, and nothing read is under 11px.
+ * A document's prose (data-prose) keeps its own heading scale; medium is a
+ * glance and keeps the sizes its preview draws. Bigger display type (stat
+ * figures, headings over 15px) is left as it is. */
+[data-shell-size="medium-plus"] :is([data-shell-part="body"], [data-shell-part="meta"]) :is(.text-\[9px\], .text-\[10px\], .text-\[10\.5px\]):not([data-prose] *) {
+  font-size: var(--shell-meta-font-size);
+}
+[data-shell-size="medium-plus"] :is([data-shell-part="body"], [data-shell-part="meta"]) :is(.text-\[11px\], .text-\[12px\], .text-\[12\.5px\], .text-\[13px\], .text-\[13\.5px\], .text-\[14px\], .text-\[15px\]):not([data-prose] *) {
+  font-size: var(--shell-body-font-size);
+}
+[data-shell-size="large"] :is([data-shell-part="body"], [data-shell-part="meta"]) :is(.text-\[9px\], .text-\[10px\], .text-\[10\.5px\], .text-\[11px\], .text-\[12px\], .text-\[12\.5px\]):not([data-prose] *) {
+  font-size: var(--shell-meta-font-size);
+}
+[data-shell-size="large"] :is([data-shell-part="body"], [data-shell-part="meta"]) :is(.text-\[13px\], .text-\[13\.5px\], .text-\[14px\]):not([data-prose] *) {
+  font-size: var(--shell-body-font-size);
+}
+[data-shell-size="large"] :is([data-shell-part="body"], [data-shell-part="meta"]) :is(.text-\[15px\]):not([data-prose] *) {
+  font-size: var(--shell-body-reading-size);
+}
+:is([data-shell-size="medium-plus"], [data-shell-size="large"]) [data-shell-part="tools"] :is(.text-\[9px\], .text-\[10px\], .text-\[10\.5px\], .text-\[11px\], .text-\[12px\], .text-\[12\.5px\], .text-\[13px\], .text-\[13\.5px\], .text-\[14px\], .text-\[15px\]) {
+  font-size: var(--shell-tools-font-size);
+}
+/* Toolbars are one family and weight at every size. */
+:is([data-shell-size="medium-plus"], [data-shell-size="large"]) [data-shell-part="tools"] {
+  font-family: var(--font-bureau);
+  font-weight: 400;
+}
+
+/* A suggestion's drawn content (a bar, a cell, a swatch): it shimmers in the suggestion
+ * colour until accepted, so it reads as proposed, not real. Still when motion is reduced. */
+.shell-suggest-shimmer {
+  background-color: color-mix(in srgb, var(--shell-color-suggest) 14%, transparent);
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--shell-color-suggest) 22%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 220% 100%;
+  animation: shell-suggest-shimmer 1.8s ease-in-out infinite;
+}
+@keyframes shell-suggest-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell-suggest-shimmer { animation: none; }
+}
+
+/* Parts removed at a size on the Design System page (the `visible` tokens): the surface lists
+ * them in data-hide-parts, and any part inside with that name isn't drawn. */
+[data-hide-parts~="title"] [data-shell-part="title"],
+[data-hide-parts~="tools"] [data-shell-part="tools"],
+[data-hide-parts~="body"] [data-shell-part="body"],
+[data-hide-parts~="meta"] [data-shell-part="meta"],
+[data-hide-parts~="suggest"] [data-shell-part="suggest"] {
+  display: none !important;
 }

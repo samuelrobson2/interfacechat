@@ -7,7 +7,7 @@ export const SHELL_META: Record<ShellKind, { label: string; description: string 
   },
   document: {
     label: "Document",
-    description: "Create and edit writing: papers, reports, memos, emails.",
+    description: "Create and edit writing: papers, reports, memos, emails, with live stats, charts and tables between the paragraphs when it needs them.",
   },
   search: {
     label: "Search",
@@ -53,10 +53,6 @@ export const SHELL_META: Record<ShellKind, { label: string; description: string 
   dashboard: {
     label: "Dashboard",
     description: "Figures, charts and tables over data, with filters and code that runs.",
-  },
-  article: {
-    label: "Article",
-    description: "A piece to read with live charts, controls and code between the prose.",
   },
   moodboard: {
     label: "Canvas",

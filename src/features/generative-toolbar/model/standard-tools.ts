@@ -81,7 +81,6 @@ export const STANDARD_TOOLS: Record<ToolbarKind, StandardTool[]> = {
     { label: "Download all or Copy all", jobs: ["copy", "download"] },
   ],
   dashboard: [],
-  article: [],
 };
 
 const jobsOf = (kind: ToolbarKind) => new Set(STANDARD_TOOLS[kind].flatMap((tool) => tool.jobs));
@@ -103,8 +102,7 @@ export function standardToolsPrompt(kind: ToolbarKind): string {
 }
 
 /** Rows an interface already has where a suggestion can sit, beside what it acts on. */
-export const SUGGESTION_ROWS: Partial<Record<ToolbarKind, { place: "footer" | "days" | "prompt" | "board"; where: string }[]>> = {
-  document: [{ place: "footer", where: "the footer, by the word count: for length and reading level" }],
+export const SUGGESTION_ROWS: Partial<Record<ToolbarKind, { place: "days" | "prompt" | "board"; where: string }[]>> = {
   schedule: [{ place: "days", where: "the day settings: for start times, pace, buffers and number of days" }],
   generator: [{ place: "prompt", where: "the prompt box: for improving or describing the prompt" }],
   chart: [{ place: "board", where: "the board: for growing or reshaping the diagram" }],

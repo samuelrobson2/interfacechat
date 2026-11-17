@@ -173,13 +173,6 @@ export const SHELL_PARTS: Record<ShellKind, ShellPart[]> = {
     { key: "variables", label: "Filters", type: "list", description: "Choices, sliders and switches the blocks read, such as a site or a date range." },
     { key: "blocks", label: "Blocks", type: "list", required: true, description: "Stats, charts, tables, notes and code, on a 12-column grid." },
   ],
-  article: [
-    { key: "title", label: "Headline", type: "text", required: true, description: "The claim the piece makes." },
-    { key: "subtitle", label: "Standfirst", type: "text", description: "A line under the headline." },
-    { key: "datasets", label: "Data", type: "list", required: true, description: "The data behind the charts: the person's own or sample numbers." },
-    { key: "variables", label: "Controls", type: "list", description: "What readers can change: a slider, a choice, a switch." },
-    { key: "blocks", label: "Body", type: "list", required: true, description: "Prose, charts, controls and code cells, top to bottom." },
-  ],
   moodboard: [
     { key: "title", label: "Title", type: "text", required: true, description: "What the look is for." },
     { key: "keywords", label: "Keywords", type: "tags", description: "The look in words, such as natural window light." },

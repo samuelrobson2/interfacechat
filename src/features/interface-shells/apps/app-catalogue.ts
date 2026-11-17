@@ -1,13 +1,17 @@
 import type { AppCatalogueDataset, CatalogueValueByKind } from "../model/shell-catalogue";
 import { columnsOf } from "./app-query";
-import type { AppKind, AppShellData, Dataset, Row } from "./app-types";
+import type { AppShellData, Dataset, Row } from "./app-types";
 
 /** The person's data is shown to the model by its first rows only: enough to read the columns. */
 const SHOWN_ROWS = 5;
 /** Sample data longer than this is shown in part too. */
 const SAMPLE_ROWS = 80;
 
-type AppValue = CatalogueValueByKind["dashboard"] | CatalogueValueByKind["article"];
+type AppValue = CatalogueValueByKind["dashboard"];
+/** The data, variables and blocks a dashboard or a document carries. */
+export type Pieces = Pick<AppShellData, "datasets" | "variables" | "blocks">;
+export type DocumentPieces = Pieces;
+type CataloguePieces = Pick<AppValue, "datasets" | "variables" | "blocks">;
 
 /** Data the person brought: the model reads it but never writes it. */
 const isTheirs = (dataset: Dataset) =>
@@ -20,8 +24,8 @@ function asCells(rows: Row[], columns: string[]) {
   return rows.map((row) => columns.map((column) => row[column] ?? null));
 }
 
-/** A Dashboard or Article as the model reads it: its own data in full, the person's by its first rows. */
-export function appToCatalogue(kind: AppKind, data: AppShellData): AppValue {
+/** Data, variables and blocks as the model reads them: its own data in full, the person's by its first rows. */
+export function piecesToCatalogue(data: Pieces): CataloguePieces {
   const datasets: AppCatalogueDataset[] = data.datasets.map((dataset) => {
     const columns = columnsOf(dataset.rows).map((column) => column.name);
     const base = { id: dataset.id, label: dataset.label, columns };
@@ -34,17 +38,12 @@ export function appToCatalogue(kind: AppKind, data: AppShellData): AppValue {
       ...(dataset.rows.length > shown ? { rowCount: dataset.rows.length } : {}),
     };
   });
-  const line =
-    kind === "dashboard"
-      ? { description: (data as { description?: string }).description || undefined }
-      : { subtitle: (data as { subtitle?: string }).subtitle || undefined };
-  return {
-    title: data.title,
-    ...line,
-    datasets,
-    variables: data.variables,
-    blocks: data.blocks,
-  } as AppValue;
+  return { datasets, variables: data.variables, blocks: data.blocks };
+}
+
+/** A Dashboard as the model reads it. */
+export function appToCatalogue(data: AppShellData): AppValue {
+  return { title: data.title, description: data.description || undefined, ...piecesToCatalogue(data) };
 }
 
 /**
@@ -53,7 +52,7 @@ export function appToCatalogue(kind: AppKind, data: AppShellData): AppValue {
  * stays even when a rewrite leaves it out. So does anything shown to the
  * model in part (rowCount set). Only sample data is written from the model's rows.
  */
-export function catalogueToApp(kind: AppKind, value: AppValue, previous?: AppShellData): AppShellData {
+export function catalogueToPieces(value: CataloguePieces, previous?: Pieces): Pieces {
   const before = new Map(previous?.datasets.map((dataset) => [dataset.id, dataset]) ?? []);
   const datasets: Dataset[] = value.datasets.flatMap((incoming): Dataset[] => {
     const prior = before.get(incoming.id);
@@ -84,17 +83,15 @@ export function catalogueToApp(kind: AppKind, value: AppValue, previous?: AppShe
   for (const prior of previous?.datasets ?? []) {
     if (isTheirs(prior) && !datasets.some((dataset) => dataset.id === prior.id)) datasets.push(prior);
   }
+  return { datasets, variables: value.variables, blocks: value.blocks };
+}
 
-  const line =
-    kind === "dashboard"
-      ? { description: (value as CatalogueValueByKind["dashboard"]).description ?? (previous as { description?: string } | undefined)?.description ?? "" }
-      : { subtitle: (value as CatalogueValueByKind["article"]).subtitle ?? (previous as { subtitle?: string } | undefined)?.subtitle ?? "" };
+/** A Dashboard the model wrote, as the interface holds it. */
+export function catalogueToApp(value: AppValue, previous?: AppShellData): AppShellData {
   return {
     ...(previous?.project ? { project: previous.project } : {}),
     title: value.title || previous?.title || "",
-    ...line,
-    datasets,
-    variables: value.variables,
-    blocks: value.blocks,
+    description: value.description ?? previous?.description ?? "",
+    ...catalogueToPieces(value, previous),
   };
 }

@@ -57,7 +57,6 @@ export const PROMPT_SEED: Record<ChatShellKind, string> = {
   guide: "Give me a recipe for ",
   generator: "Generate ",
   dashboard: "Build a dashboard of ",
-  article: "Write an interactive article on ",
 };
 
 const formatLabel = (format: keyof typeof CHAT_FORMAT_META | null) => (format ? CHAT_FORMAT_META[format].label : "");
@@ -227,6 +226,39 @@ function frameOf(prompt: string) {
   return { end: match?.[0].length ?? 0, verb: match?.[1] ?? null };
 }
 
+const NUMBERS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, twenty: 20 };
+const numberOf = (word: string) => (/^\d+(\.\d+)?$/.test(word) ? Number(word) : NUMBERS[word.toLowerCase()]);
+
+/** Words in a request that say what kind of guide it is, by the fact they fill. */
+const GUIDE_KEYWORDS: { label: string; pattern: RegExp }[] = [
+  { label: "Diet", pattern: /\b(vegetarian|vegan|gluten[- ]free|dairy[- ]free|nut[- ]free|halal|kosher|keto|low[- ]carb|pescatarian)\b/gi },
+  { label: "Level", pattern: /\b(easy|simple|beginner|beginners|advanced)\b/gi },
+  { label: "Style", pattern: /\b(quick|spicy|healthy|one[- ]pot|kid[- ]friendly|budget|cheap|slow[- ]cooked|traybake|no[- ]bake)\b/gi },
+];
+
+/**
+ * A guide's facts, read from the request: "in 30 minutes" is its Time, "for
+ * six people" what it Serves, and words like vegetarian or quick what kind it
+ * is. What the request doesn't say is left for the card to suggest.
+ */
+export function guideFacts(prompt: string): { label: string; value: string }[] {
+  const facts: { label: string; value: string }[] = [];
+  const half = /\bhalf an? hour\b/i.test(prompt);
+  const time = prompt.match(/\b(\d+(?:\.\d+)?|an?|one|two|three|four|five|ten|twenty)\s*-?\s*(hours?|hrs?|minutes?|mins?)\b/i);
+  if (half) facts.push({ label: "Time", value: "30 min" });
+  else if (time) {
+    const n = numberOf(time[1]!);
+    if (n) facts.push({ label: "Time", value: /^h/i.test(time[2]!) ? `${n} ${n === 1 ? "hour" : "hours"}` : `${n} min` });
+  }
+  const people = prompt.match(/\b(?:for|serves|feeds|serving|feeding)\s+(\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty)(?!\s*-?\s*(?:hours?|hrs?|minutes?|mins?)\b)(?:\s+(?:people|persons|guests|adults|kids|of us))?\b/i);
+  if (people) facts.push({ label: "Serves", value: String(numberOf(people[1]!)) });
+  for (const { label, pattern } of GUIDE_KEYWORDS) {
+    const words = [...new Set([...prompt.matchAll(pattern)].map((m) => m[1]!.toLowerCase().replace(/\s+/g, "-")))];
+    if (words.length) facts.push({ label, value: words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(", ") });
+  }
+  return facts;
+}
+
 /** Read every field the card shows from the prompt, with where each one came from. */
 export function parsePrompt<K extends ChatShellKind>(
   kind: K,
@@ -289,6 +321,9 @@ export function parsePrompt<K extends ChatShellKind>(
   } else if (kind === "generator") {
     // The prompt is what to make; it also says whether that's writing or pictures.
     data = { ...EMPTY_SHELL_DATA.generator, title: capitalize(topic), mode: generatorModeFor(prompt) };
+  } else if (kind === "guide") {
+    // What the prompt says goes into the guide's own controls: how long, for how many, and what kind.
+    data = { ...EMPTY_SHELL_DATA.guide, title: capitalize(topic), facts: guideFacts(prompt) } as ShellDataByKind[ChatShellKind];
   } else if (kind !== "table") {
     // The other interfaces fill their title (a map, its query) from the topic;
     // everything else is set on the card.
@@ -552,7 +587,6 @@ export function applyCardEdit<K extends ChatShellKind>(
         extras.columns = b.columns;
     }
     if (a.rowCount !== b.rowCount) write("rowCount", b.rowCount);
-    if (a.description !== b.description) extras.description = b.description;
     if (a.rows !== b.rows) extras.rows = b.rows;
   }
   return { prompt: out, extras: extras as CardEdit["extras"] };

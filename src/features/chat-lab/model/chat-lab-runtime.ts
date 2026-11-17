@@ -166,9 +166,8 @@ function syncOpenInterface(id: string, messages: ChatLabMessage[]) {
       const libraryKind = input.id as VisualInterfaceKind;
       const opensAs = opensAsOf(libraryKind);
       const title = input.title?.trim() || libraryKind;
-      // A tracker, dashboard or article is a library interface holding its own data.
-      const tracker =
-        opensAs === "tracker" || opensAs === "dashboard" || opensAs === "article" ? newCatalogueArtefact(opensAs, title) : null;
+      // A tracker or dashboard is a library interface holding its own data.
+      const tracker = opensAs === "tracker" || opensAs === "dashboard" ? newCatalogueArtefact(opensAs, title) : null;
       const kind = tracker?.kind ?? input.opensAs ?? resolveImplementableKind(libraryKind);
 
       // One per turn and kind.
@@ -444,7 +443,10 @@ function chatModesForRequest(sessionId: string, messages: ChatLabMessage[]) {
   if (!session) return undefined;
   const firstTurn = messages.filter((message) => message.role === "user").length === 1;
   const persona = session.persona ? { label: session.persona, instruction: assistantInstruction(session.persona) } : undefined;
-  const format = firstTurn && session.replyFormat ? formatInstruction(session.replyFormat) : undefined;
+  const layout = firstTurn && session.replyFormat ? formatInstruction(session.replyFormat) : undefined;
+  // Choices picked on the home card: context for the first reply, not words in their message.
+  const chose = firstTurn && session.brief ? `On the interface's card they also chose: ${session.brief} Take it into account; don't repeat it back.` : undefined;
+  const format = [layout, chose].filter(Boolean).join("\n\n") || undefined;
   return persona || format ? { persona, format } : undefined;
 }
 

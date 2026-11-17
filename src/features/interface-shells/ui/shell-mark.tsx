@@ -2,12 +2,13 @@ import { createContext, useContext } from "react";
 import type { ShellSize } from "../model/shell-types";
 
 /**
- * Whether a shell draws its glyph beside its title. A large interface sits in
- * a window whose bar carries the glyph, so by default it leaves its own out;
- * a host that frames a smaller size the same way can turn it off there too.
+ * Whether a shell draws its glyph beside its title: at every size, so an
+ * interface always says what it is. A host whose own frame already shows the
+ * glyph (a window bar) can turn it off.
  */
 export const ShellMarkContext = createContext<boolean | undefined>(undefined);
 
 export function useShellMark(size: ShellSize) {
-  return useContext(ShellMarkContext) ?? size !== "large";
+  // Small is the glyph on its tile; every other size draws it by the title.
+  return useContext(ShellMarkContext) ?? size !== "small";
 }

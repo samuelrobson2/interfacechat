@@ -35,7 +35,7 @@ function Bubble({ role, children, className }: { role: "user" | "assistant"; chi
       <div
         className={cn(
           "max-w-[85%] rounded-[16px] px-3.5 py-2 font-bureau text-[14px] leading-[1.45] text-typography-primary",
-          user && "bg-gray-6",
+          user && "bg-shell-fill",
           className,
         )}
       >
@@ -73,7 +73,7 @@ function SuggestField({
     <div className="relative min-w-0 flex-1">
       <label
         className={cn(
-          "flex min-w-0 items-center gap-1.5 rounded-full bg-gray-6 font-bureau",
+          "flex min-w-0 items-center gap-1.5 rounded-full bg-shell-fill font-bureau",
           large ? "h-8 px-3 text-[13px]" : "h-7 px-2.5 text-[11px]",
         )}
       >
@@ -117,7 +117,7 @@ function SuggestField({
                   setOpen(false);
                 }}
                 className={cn(
-                  "w-full rounded-[8px] px-2.5 py-1 text-left font-bureau text-typography-primary hover:bg-gray-6",
+                  "w-full rounded-[8px] px-2.5 py-1 text-left font-bureau text-typography-primary hover:bg-shell-fill",
                   large ? "text-[13px]" : "text-[11px]",
                 )}
               >
@@ -183,9 +183,9 @@ export function ChatShell({
         <div className={cn("flex min-h-0 flex-1 flex-col justify-center gap-1.5 p-2", CONTENT_PANEL)}>
           <div className="flex justify-end">
             {/* Medium shows shapes, not words: a message bubble of bars. */}
-            <div aria-hidden className="flex w-[70%] flex-col gap-1 rounded-[14px] bg-gray-6 px-2.5 py-2">
-              <Bar width="100%" className="h-1.5 bg-gray-3/30" />
-              <Bar width="62%" className="h-1.5 bg-gray-3/30" />
+            <div aria-hidden className="flex w-[70%] flex-col gap-1 rounded-[14px] bg-shell-fill px-2.5 py-2">
+              <Bar width="100%" className="h-1.5 bg-shell-ink-soft" />
+              <Bar width="62%" className="h-1.5 bg-shell-ink-soft" />
             </div>
           </div>
           <div className="mt-auto flex justify-end">
@@ -210,7 +210,7 @@ export function ChatShell({
         </div>
         <div className={cn("mx-2.5 mt-3 mb-2.5 flex min-h-0 flex-1 flex-col justify-end gap-2 p-3", CONTENT_PANEL)}>
           <div className="flex justify-end">
-            <div className="max-w-[90%] rounded-[16px] bg-gray-6 px-3 py-2">
+            <div className="max-w-[90%] rounded-[16px] bg-shell-fill px-3 py-2">
               <AutoTextarea
                 value={data.title}
                 placeholder="Ask anything"
@@ -260,7 +260,7 @@ export function ChatShell({
       </div>
       <div className="flex flex-col gap-2 px-6 pb-5">
         <Modes data={data} large update={update} />
-        <div className="flex items-end gap-2 rounded-[18px] bg-gray-6 px-4 py-2.5">
+        <div className="flex items-end gap-2 rounded-[18px] bg-shell-fill px-4 py-2.5">
           <AutoTextarea
             value={reply}
             placeholder="Reply"

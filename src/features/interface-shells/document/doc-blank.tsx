@@ -42,7 +42,7 @@ export function DocBlankSlot({
         "rounded-[4px] px-0.5 underline decoration-dotted underline-offset-[3px]",
         filled ? "decoration-gray-3/60" : "text-gradient-ai decoration-[#a9bad1]",
         !filled && blank.wait && "text-gradient-ai-shimmer",
-        editable && "cursor-pointer hover:bg-gray-6",
+        editable && "cursor-pointer hover:bg-shell-fill",
       )}
     >
       {filled ? blank.value : blank.placeholder}
@@ -85,7 +85,7 @@ export function DocBlankSlot({
                     onClick={() => pick(option)}
                     className={cn(
                       "flex h-7 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[12px] transition-colors",
-                      chosen ? "bg-gray-5 text-white" : "bg-gray-6 text-typography-primary hover:bg-gray-2/60",
+                      chosen ? "bg-gray-5 text-white" : "bg-shell-fill text-typography-primary hover:bg-gray-2/60",
                     )}
                   >
                     {chosen && <Check className="size-3" strokeWidth={2.25} />}
@@ -105,7 +105,7 @@ export function DocBlankSlot({
                 onChange={(event) => setOwn(event.target.value)}
                 placeholder="Something else"
                 aria-label="Something else"
-                className="h-8 w-full rounded-[10px] bg-gray-6 px-2.5 text-[12px] text-typography-primary outline-none placeholder:text-typography-secondary/70"
+                className="h-8 w-full rounded-[10px] bg-shell-fill px-2.5 text-[12px] text-typography-primary outline-none placeholder:text-typography-secondary/70"
               />
             </form>
           </div>

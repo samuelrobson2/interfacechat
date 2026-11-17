@@ -8,9 +8,9 @@ import { blockSchema, variableSchema } from "../apps/app-types.js";
  * (`api/_ai-chat-lab.ts`), so it imports nothing but zod (and the app
  * schemas, which import nothing but zod).
  *
- * Piloted on Document, Table and Tracker; Dashboard and Article follow.
+ * Document (with or without live pieces), Table, Tracker and Dashboard.
  */
-export const CATALOGUE_KINDS = ["document", "table", "tracker", "dashboard", "article"] as const;
+export const CATALOGUE_KINDS = ["document", "table", "tracker", "dashboard"] as const;
 export type CatalogueKind = (typeof CATALOGUE_KINDS)[number];
 
 /** One entry per interface, not per size: the app places it, and this is the model's say. */
@@ -20,14 +20,6 @@ const placement = z
   .describe(
     "Where it should show: inline in the reply (short, to glance at) or in its own window (long, or to keep working on). Leave out to let the app decide.",
   );
-
-const documentSchema = z.object({
-  title: z.string().describe("The document's title, without markdown."),
-  placement,
-  body: z
-    .string()
-    .describe("The writing, as markdown: headings, paragraphs, lists and quotes. Do not repeat the title as a heading."),
-});
 
 const tableSchema = z.object({
   title: z.string().describe("What the table lists, such as Shot list."),
@@ -67,7 +59,7 @@ const trackerSchema = z.object({
 });
 
 /**
- * Dashboard and Article share their data, variables and blocks. Datasets go
+ * Dashboard and Document share their data, variables and blocks. Datasets go
  * as columns and rows of cells, not objects, so sample data costs fewer tokens
  * and streams in a shape that's usable row by row.
  */
@@ -92,17 +84,31 @@ const appParts = {
   blocks: z.array(blockSchema).describe("Stats, charts, tables, text, controls and code, in reading order."),
 };
 
+/**
+ * A document is writing, and can carry live pieces between its paragraphs
+ * (what Article was): the same datasets, variables and blocks as a dashboard,
+ * each block placed in the body by a line of its own, `::id`.
+ */
+const documentSchema = z.object({
+  title: z.string().describe("The document's title, without markdown."),
+  placement,
+  body: z
+    .string()
+    .describe(
+      "The writing, as markdown: headings, paragraphs, lists and quotes. Do not repeat the title as a heading. To place one of the blocks, put ::id on a line of its own where it belongs.",
+    ),
+  datasets: appParts.datasets.optional(),
+  variables: appParts.variables.optional(),
+  blocks: z
+    .array(blockSchema)
+    .optional()
+    .describe("Live pieces placed in the body by ::id: stats, charts, tables, controls and code. Leave out for plain writing."),
+});
+
 const dashboardSchema = z.object({
   title: z.string().describe("What the dashboard tracks."),
   placement,
   description: z.string().optional().describe("One line on what it covers and where the numbers come from."),
-  ...appParts,
-});
-
-const articleSchema = z.object({
-  title: z.string().describe("The headline: the claim the piece makes."),
-  placement,
-  subtitle: z.string().optional().describe("One line under the headline."),
   ...appParts,
 });
 
@@ -111,7 +117,6 @@ const SCHEMAS = {
   table: tableSchema,
   tracker: trackerSchema,
   dashboard: dashboardSchema,
-  article: articleSchema,
 };
 
 export type CatalogueValueByKind = {
@@ -119,16 +124,20 @@ export type CatalogueValueByKind = {
   table: z.infer<typeof tableSchema>;
   tracker: z.infer<typeof trackerSchema>;
   dashboard: z.infer<typeof dashboardSchema>;
-  article: z.infer<typeof articleSchema>;
 };
 export type AppCatalogueDataset = z.infer<typeof appDatasetSchema>;
 export type CatalogueValue = CatalogueValueByKind[CatalogueKind];
 
-/** How Dashboard and Article use data: the person's own first, sample numbers only until theirs arrives. */
+/** How Dashboard and a Document with live pieces use data: the person's own first, sample numbers only until theirs arrives. */
 const APP_DATA_GUIDANCE = [
   "Write it in order: title, datasets, variables, then blocks. It is drawn as you write.",
   "A dataset marked from: yours is the person's own data (a file, a link, another interface). Build on it: read its columns (only the first rows are shown), refer to it by id, and never write rows for it.",
   "With no data of theirs, write sample data (from: sample): 20 to 60 realistic, consistent rows with plain column names. Say in chat that the numbers are samples and that they can bring their own from the Data menu.",
+];
+
+/** The same, for a document's live pieces. */
+const APP_DATA_GUIDANCE_SHORT = [
+  "Datasets marked from: yours are the person's own data: read their columns, refer to them by id, never write their rows. Otherwise write sample data (20 to 60 consistent rows) and say in chat that the numbers are samples.",
 ];
 
 /** How their blocks are written, for both. */
@@ -155,11 +164,16 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
     kind: "document",
     label: "Document",
     tool: "fill_document",
-    description: "A piece of writing the user creates and edits: a paper, report, memo or email.",
+    description:
+      "A piece of writing the user creates and edits: a paper, report, memo or email. It can carry live stats, charts, tables, controls and code between the paragraphs: a data story or an explorable explanation.",
     guidance: [
       "Work in stages: outline, then a section, then revise. Prefer one stage at a time over a finished paper.",
       "Send the whole body for the current stage; do not paste the document into chat.",
       "Help the user develop their own reasoning rather than picking wording or a conclusion for them.",
+      "Plain writing has no datasets or blocks. Add them only when the piece is about data, or the person asks for a chart, a figure or something to play with.",
+      "With live pieces: the prose carries the argument and each block shows something it claims. Put ::id on its own line right after the paragraph it supports. A control goes just before what it changes; write {{id}} in a sentence to show a variable's value, so the sentence moves with it.",
+      ...APP_DATA_GUIDANCE_SHORT,
+      ...APP_BLOCK_GUIDANCE,
     ],
     schema: documentSchema,
   },
@@ -201,21 +215,6 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
       ...APP_BLOCK_GUIDANCE,
     ],
     schema: dashboardSchema,
-  },
-  article: {
-    kind: "article",
-    label: "Article",
-    tool: "fill_article",
-    description:
-      "A piece to read with live charts, controls and runnable code between the prose: a data story or an explorable explanation.",
-    guidance: [
-      ...APP_DATA_GUIDANCE,
-      "The prose carries the argument; each chart, control or code cell shows something the prose claims. Three to six text blocks of short paragraphs, a ## heading per section.",
-      "Put a control just before what it changes, and use its value in the text with {{variable}} so the sentence moves with it.",
-      "Set a code block's showCode to true when the working is part of the explanation.",
-      ...APP_BLOCK_GUIDANCE,
-    ],
-    schema: articleSchema,
   },
 };
 
@@ -270,6 +269,45 @@ function readPlacement(value: unknown): "inline" | "window" | undefined {
   return value === "inline" || value === "window" ? value : undefined;
 }
 
+/** The data, variables and blocks of a dashboard or a document, read as they stream. */
+function readPieces(source: Record<string, unknown>) {
+  // While it streams, the block being written is incomplete: it's left out until it parses.
+  const parsed = <T,>(schema: z.ZodType<T>, value: unknown): T[] => {
+    const result = schema.safeParse(value);
+    return result.success ? [result.data] : [];
+  };
+  const datasets = list(source.datasets).flatMap((item) => {
+    const fields = record(item);
+    const id = text(fields?.id).trim();
+    if (!fields || !id) return [];
+    const columns = list(fields.columns).filter((column): column is string => typeof column === "string" && !!column);
+    const rows = list(fields.rows)
+      .filter(Array.isArray)
+      .map((cells) =>
+        columns.map((_, index) => {
+          const cell = cells[index];
+          return typeof cell === "number" || typeof cell === "boolean" ? cell : typeof cell === "string" ? text(cell) : null;
+        }),
+      );
+    const from = fields.from === "code" || fields.from === "yours" ? fields.from : "sample";
+    return [
+      {
+        id,
+        label: text(fields.label) || id,
+        from,
+        columns,
+        rows,
+        ...(typeof fields.rowCount === "number" ? { rowCount: fields.rowCount } : {}),
+      } as AppCatalogueDataset,
+    ];
+  });
+  return {
+    datasets,
+    variables: list(source.variables).flatMap((item) => parsed(variableSchema, item)),
+    blocks: list(source.blocks).flatMap((item) => parsed(blockSchema, item)),
+  };
+}
+
 /**
  * Read a fill that may still be streaming, or be slightly off: keep what is
  * usable, drop what isn't (a column with no label yet, an item with no text),
@@ -282,47 +320,16 @@ export function readCatalogueValue(kind: CatalogueKind, input: unknown): Catalog
   const where = readPlacement(source.placement);
   const base = { title: text(source.title), ...(where ? { placement: where } : {}) };
 
-  if (kind === "document") return { ...base, body: text(source.body) };
+  if (kind === "document") {
+    const body = { ...base, body: text(source.body) };
+    if (source.datasets === undefined && source.variables === undefined && source.blocks === undefined) return body;
+    const { datasets, variables, blocks } = readPieces(source);
+    return { ...body, datasets, variables, blocks };
+  }
 
-  if (kind === "dashboard" || kind === "article") {
-    // While it streams, the block being written is incomplete: it's left out until it parses.
-    const parsed = <T,>(schema: z.ZodType<T>, value: unknown): T[] => {
-      const result = schema.safeParse(value);
-      return result.success ? [result.data] : [];
-    };
-    const datasets = list(source.datasets).flatMap((item) => {
-      const fields = record(item);
-      const id = text(fields?.id).trim();
-      if (!fields || !id) return [];
-      const columns = list(fields.columns).filter((column): column is string => typeof column === "string" && !!column);
-      const rows = list(fields.rows)
-        .filter(Array.isArray)
-        .map((cells) =>
-          columns.map((_, index) => {
-            const cell = cells[index];
-            return typeof cell === "number" || typeof cell === "boolean" ? cell : typeof cell === "string" ? text(cell) : null;
-          }),
-        );
-      const from = fields.from === "code" || fields.from === "yours" ? fields.from : "sample";
-      return [
-        {
-          id,
-          label: text(fields.label) || id,
-          from,
-          columns,
-          rows,
-          ...(typeof fields.rowCount === "number" ? { rowCount: fields.rowCount } : {}),
-        } as AppCatalogueDataset,
-      ];
-    });
-    const line = kind === "dashboard" ? "description" : "subtitle";
-    return {
-      ...base,
-      ...(optionalText(source[line]) ? { [line]: optionalText(source[line]) } : {}),
-      datasets,
-      variables: list(source.variables).flatMap((item) => parsed(variableSchema, item)),
-      blocks: list(source.blocks).flatMap((item) => parsed(blockSchema, item)),
-    } as CatalogueValue;
+  if (kind === "dashboard") {
+    const line = optionalText(source.description);
+    return { ...base, ...(line ? { description: line } : {}), ...readPieces(source) } as CatalogueValue;
   }
 
   if (kind === "table") {
@@ -427,9 +434,10 @@ export function catalogueSummary(kind: CatalogueKind, value: CatalogueValue): st
     return `${table.columns.length} columns, ${table.rows.length} rows`;
   }
   if (kind === "tracker") return `${(value as CatalogueValueByKind["tracker"]).items.length} items`;
-  if (kind === "dashboard" || kind === "article") {
+  if (kind === "dashboard") {
     const app = value as CatalogueValueByKind["dashboard"];
     return `${app.blocks.length} blocks over ${app.datasets.length} datasets, ${app.variables.length} controls`;
   }
-  return `${(value as CatalogueValueByKind["document"]).body.length} characters`;
+  const doc = value as CatalogueValueByKind["document"];
+  return `${doc.body.length} characters${doc.blocks?.length ? `, ${doc.blocks.length} live pieces` : ""}`;
 }

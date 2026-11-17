@@ -20,7 +20,7 @@ type BlockProps<T extends AppBlock["type"]> = {
 /** A quiet line where a block can't draw, naming what's wrong. */
 function BlockNotice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="flex items-start gap-1.5 rounded-[10px] bg-gray-6 px-3 py-2 font-bureau text-[12px] text-typography-secondary">
+    <p className="flex items-start gap-1.5 rounded-[10px] bg-shell-fill px-3 py-2 font-bureau text-[12px] text-typography-secondary">
       <TriangleAlert className="mt-px size-3.5 shrink-0" />
       <span>{children}</span>
     </p>
@@ -59,7 +59,7 @@ const MD_TEXT: Record<string, string> = {
   paragraph: "text-[15px] leading-[1.6] text-typography-primary",
   bullet: "text-[15px] leading-[1.6] text-typography-primary",
   numbered: "text-[15px] leading-[1.6] text-typography-primary",
-  quote: "border-l-2 border-gray-3/30 pl-4 text-[15px] leading-[1.6] text-typography-secondary",
+  quote: "border-l-2 border-shell-line-strong pl-4 text-[15px] leading-[1.6] text-typography-secondary",
 };
 
 export function MarkdownView({ markdown, className }: { markdown: string; className?: string }) {
@@ -82,7 +82,7 @@ export function MarkdownView({ markdown, className }: { markdown: string; classN
                   ) : segment.strike ? (
                     <s>{segment.text}</s>
                   ) : segment.code ? (
-                    <code className="rounded-[4px] bg-gray-6 px-1 font-mono text-[0.9em]">{segment.text}</code>
+                    <code className="rounded-[4px] bg-shell-fill px-1 font-mono text-[0.9em]">{segment.text}</code>
                   ) : segment.href ? (
                     <a href={segment.href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
                       {segment.text}
@@ -116,14 +116,14 @@ export function TextBlock({ block, data, runtime, onChange }: BlockProps<"text">
           stopFieldEvent(event);
           if (event.key === "Escape") setEditing(false);
         }}
-        className="w-full rounded-[10px] bg-gray-6 px-3 py-2 font-mono text-[13px] leading-[1.55] text-typography-primary outline-none"
+        className="w-full rounded-[10px] bg-shell-fill px-3 py-2 font-mono text-[13px] leading-[1.55] text-typography-primary outline-none"
       />
     );
   }
   return (
     <div
       onClick={onChange ? () => setEditing(true) : undefined}
-      className={cn(onChange && "-mx-2 cursor-text rounded-[10px] px-2 py-1 transition-colors hover:bg-gray-6/60")}
+      className={cn(onChange && "-mx-2 cursor-text rounded-[10px] px-2 py-1 transition-colors hover:bg-shell-fill/60")}
     >
       <MarkdownView markdown={interpolate(block.markdown, data.variables, runtime.values)} />
     </div>
@@ -192,6 +192,8 @@ function vegaSpec(block: AppBlockOf<"chart">, rows: Row[]): TopLevelSpec {
     width: "container",
     height: block.height ?? 200,
     autosize: { type: "fit", contains: "padding" },
+    // Axis and legend text that's read is 12px, the interfaces' small size (no text under 11px; 12 at large).
+    config: { axis: { labelFontSize: 12, titleFontSize: 12 }, legend: { labelFontSize: 12, titleFontSize: 12 } },
   } as TopLevelSpec;
 }
 
@@ -222,12 +224,12 @@ export function TableBlock({ block, data, runtime }: BlockProps<"table"> & { blo
       {problem ? (
         <BlockNotice>{problem}</BlockNotice>
       ) : (
-        <div className="no-scrollbar max-h-72 overflow-auto rounded-[10px] border border-gray-3/15">
+        <div className="no-scrollbar max-h-72 overflow-auto rounded-[10px] border border-shell-line">
           <table className="w-full border-collapse font-bureau text-[13px]">
             <thead className="sticky top-0 bg-background-primary">
               <tr>
                 {columns.map((column) => (
-                  <th key={column} className="border-b border-gray-3/15 px-3 py-2 text-left font-normal text-typography-secondary">
+                  <th key={column} className="border-b border-shell-line px-3 py-2 text-left font-normal text-typography-secondary">
                     {column}
                   </th>
                 ))}
@@ -235,7 +237,7 @@ export function TableBlock({ block, data, runtime }: BlockProps<"table"> & { blo
             </thead>
             <tbody>
               {rows.slice(0, 200).map((row, index) => (
-                <tr key={index} className="border-b border-gray-3/10 last:border-0">
+                <tr key={index} className="border-b border-shell-line last:border-0">
                   {columns.map((column) => (
                     <td
                       key={column}
@@ -269,7 +271,7 @@ export function VariableControl({ variable, runtime }: { variable: Variable; run
     return (
       <div className="flex items-center gap-2">
         {label}
-        <div role="radiogroup" aria-label={variable.label} className="flex flex-wrap rounded-full bg-gray-6 p-0.5">
+        <div role="radiogroup" aria-label={variable.label} className="flex flex-wrap rounded-full bg-shell-fill p-0.5">
           {all.map((option) => (
             <button
               key={option.value}
@@ -332,8 +334,8 @@ export function VariableControl({ variable, runtime }: { variable: Variable; run
       className="flex cursor-pointer items-center gap-2"
     >
       {label}
-      <span className={cn("flex h-4 w-7 items-center rounded-full p-0.5 transition-colors", value ? "bg-gray-5" : "bg-gray-3/30")}>
-        <span className={cn("size-3 rounded-full bg-white transition-transform", Boolean(value) && "translate-x-3")} />
+      <span className={cn("flex h-4 w-7 items-center rounded-full p-0.5 transition-colors", value ? "bg-gray-5" : "bg-shell-ink-soft")}>
+        <span className={cn("size-3 rounded-full bg-shell-panel transition-transform", Boolean(value) && "translate-x-3")} />
       </span>
     </button>
   );
@@ -358,8 +360,8 @@ export function CodeBlock({ block, data, runtime, onChange }: BlockProps<"code">
   const missing = inputIds.filter((id) => !data.datasets.some((dataset) => dataset.id === id));
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-[14px] border border-gray-3/20">
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-gray-3/15 bg-gray-6/60 pr-1.5 pl-3">
+    <div className="flex flex-col overflow-hidden rounded-[14px] border border-shell-line">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-shell-line bg-shell-fill/60 pr-1.5 pl-3">
         <Code2 className="size-3.5 text-typography-secondary" />
         <span className="min-w-0 flex-1 truncate font-bureau text-[13px] text-typography-primary">
           {block.title ?? "Code"}
@@ -376,7 +378,7 @@ export function CodeBlock({ block, data, runtime, onChange }: BlockProps<"code">
             stopFieldEvent(event);
             setShown((value) => !value);
           }}
-          className="flex h-7 cursor-pointer items-center gap-1 rounded-[8px] px-2 font-bureau text-[12px] text-typography-secondary hover:bg-gray-6 hover:text-typography-primary"
+          className="flex h-7 cursor-pointer items-center gap-1 rounded-[8px] px-2 font-bureau text-[12px] text-typography-secondary hover:bg-shell-fill hover:text-typography-primary"
         >
           {shown ? <EyeOff className="size-3.5" /> : <Code2 className="size-3.5" />}
           {shown ? "Hide code" : "Show code"}
@@ -403,7 +405,7 @@ export function CodeBlock({ block, data, runtime, onChange }: BlockProps<"code">
           {...fieldEvents}
           onKeyDown={stopFieldEvent}
           onChange={(event) => onChange?.({ ...block, source: event.target.value })}
-          className="w-full border-b border-gray-3/15 bg-[#fbfaf9] px-4 py-3 font-mono text-[12.5px] leading-[1.6] text-typography-primary outline-none"
+          className="w-full border-b border-shell-line bg-[#fbfaf9] px-4 py-3 font-mono text-[12.5px] leading-[1.6] text-typography-primary outline-none"
         />
       )}
       <div className="px-4 py-3">

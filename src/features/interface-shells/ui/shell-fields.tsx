@@ -58,7 +58,7 @@ export function SoftChip({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full bg-gray-6 font-bureau font-normal whitespace-nowrap text-typography-primary",
+        "inline-flex shrink-0 items-center rounded-full bg-shell-fill font-bureau font-normal whitespace-nowrap text-typography-primary",
         CHIP_SIZE[size],
         onRemove && (size === "sm" ? "pr-1" : "pr-1.5"),
         className,
@@ -76,7 +76,7 @@ export function SoftChip({
             stopFieldEvent(event);
             onRemove();
           }}
-          className="ml-0.5 grid size-4 place-items-center rounded-full text-typography-secondary transition-colors hover:bg-gray-3/20 hover:text-typography-primary"
+          className="ml-0.5 grid size-4 place-items-center rounded-full text-typography-secondary transition-colors hover:bg-shell-ink-faint hover:text-typography-primary"
         >
           <X className="!size-2.5" />
         </button>
@@ -87,7 +87,7 @@ export function SoftChip({
 
 const addChipClass = (size: ChipSize) =>
   cn(
-    "inline-flex shrink-0 items-center rounded-full border border-dashed border-gray-3/40 font-bureau font-normal whitespace-nowrap text-typography-secondary",
+    "inline-flex shrink-0 items-center rounded-full border border-dashed border-shell-line-strong font-bureau font-normal whitespace-nowrap text-typography-secondary",
     CHIP_SIZE[size],
   );
 
@@ -214,7 +214,7 @@ export function FieldRow({
 
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-grid h-5 min-w-5 place-items-center rounded-[6px] bg-gray-6 px-1.5 font-bureau text-[11px] font-normal text-typography-secondary">
+    <kbd className="inline-grid h-5 min-w-5 place-items-center rounded-[6px] bg-shell-fill px-1.5 font-bureau text-[11px] font-normal text-typography-secondary">
       {children}
     </kbd>
   );

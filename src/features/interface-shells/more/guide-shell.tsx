@@ -1,13 +1,16 @@
-import { Check, ChefHat, Copy, ListChecks, Minus, Pause, Play, Plus, RotateCcw, ShoppingCart, Users, X } from "lucide-react";
+import { Check, ChefHat, ListPlus, Minus, Pause, Play, Plus, RotateCcw, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { shellId, type GuideFact, type GuideNeed, type GuideShellData, type GuideStep, type ShellProps, type ShellSize } from "../model/shell-types";
-import { AddChip } from "../ui/shell-fields";
-import { ghostLabels } from "../ui/shell-accents";
-import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle } from "../ui/shell-kit";
+import { ghostLabels, ghostsAfter } from "../ui/shell-accents";
+import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle, SHELL_BODY_PAD, SHELL_EDGE_X } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
+import { SuggestedBox, SuggestedText, placedSuggestions, suggestionsAfter, type PlacedSuggestion } from "../ui/suggested-chip";
 import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
-import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider } from "../ui/shell-toolbar";
+import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolPopover } from "../ui/shell-toolbar";
+
+/** Facts a guide often has, offered when adding one from the toolbar. */
+const FACT_SUGGESTIONS = ["Serves", "Time", "Difficulty", "People", "Cost", "Distance", "Equipment"];
 
 const TERRACOTTA = "#c2563a";
 
@@ -50,15 +53,6 @@ const servesOf = (facts: GuideFact[]) => {
   return index < 0 ? null : { index, value: readAmount(facts[index]!.value.trim())!.value };
 };
 
-const recipeText = (data: GuideShellData) =>
-  [
-    data.title,
-    data.facts.map((fact) => `${fact.label} ${fact.value}`).join(" · "),
-    data.needs.length ? `\nYou need\n${data.needs.map((need) => `- ${need.text}`).join("\n")}` : "",
-    data.steps.length ? `\nSteps\n${data.steps.map((step, i) => `${i + 1}. ${step.text}${step.note ? ` (${step.note})` : ""}`).join("\n")}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
 
 /** Keeps the screen on while cooking, where the browser allows it. */
 function useWakeLock(on: boolean) {
@@ -84,11 +78,13 @@ function Tick({ done, size, onToggle, label }: { done: boolean; size: "xs" | "sm
   const box = cn(
     "grid shrink-0 place-items-center rounded-full border transition-colors",
     size === "md" ? "size-[18px]" : size === "sm" ? "size-3.5" : "size-2.5",
-    done ? "border-transparent text-white" : "border-gray-3/50 bg-white",
+    done ? "border-transparent text-white" : "border-shell-control bg-shell-panel",
   );
   const style = done ? { backgroundColor: TERRACOTTA } : undefined;
   const mark = size !== "xs" && done && <Check className={size === "md" ? "size-3" : "size-2.5"} strokeWidth={3} />;
   if (!onToggle) return <span className={box} style={style}>{mark}</span>;
+  // The circle stays small; the button around it is 24px to hit (WCAG 2.5.8), with negative margin so the row doesn't grow.
+  const pull = size === "md" ? "-m-[3px]" : size === "sm" ? "-m-[5px]" : "-m-[7px]";
   return (
     <button
       type="button"
@@ -99,10 +95,11 @@ function Tick({ done, size, onToggle, label }: { done: boolean; size: "xs" | "sm
         stopFieldEvent(event);
         onToggle();
       }}
-      className={cn(box, "active:scale-[0.9]")}
-      style={style}
+      className={cn("grid size-6 shrink-0 cursor-pointer place-items-center rounded-full active:scale-[0.9]", pull)}
     >
-      {mark}
+      <span className={box} style={style}>
+        {mark}
+      </span>
     </button>
   );
 }
@@ -136,7 +133,7 @@ function Timer({ minutes }: { minutes: number }) {
         stopFieldEvent(event);
         onPress();
       }}
-      className="grid size-6 place-items-center rounded-full text-typography-secondary hover:bg-white hover:text-typography-primary"
+      className="grid size-6 place-items-center rounded-full text-typography-secondary hover:bg-shell-panel hover:text-typography-primary"
     >
       {icon}
     </button>
@@ -145,7 +142,7 @@ function Timer({ minutes }: { minutes: number }) {
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-0.5 rounded-full py-0.5 pr-0.5 pl-2.5 font-bureau text-[12px] tabular-nums",
-        finished ? "text-white" : running ? "bg-white text-typography-primary ring-1 ring-[#c2563a]/40" : "bg-gray-6 text-typography-secondary",
+        finished ? "text-white" : running ? "bg-shell-panel text-typography-primary ring-1 ring-[#c2563a]/40" : "bg-shell-fill text-typography-secondary",
       )}
       style={finished ? { backgroundColor: TERRACOTTA } : undefined}
     >
@@ -187,7 +184,7 @@ function Remove({ label, onRemove }: { label: string; onRemove: () => void }) {
         stopFieldEvent(event);
         onRemove();
       }}
-      className="grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-gray-6 focus-visible:opacity-100"
+      className="grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-shell-fill focus-visible:opacity-100"
     >
       <X className="size-3.5" />
     </button>
@@ -204,6 +201,7 @@ export function GuideShell({
   actions,
   className,
   suggestions,
+  suggested,
 }: ShellProps<GuideShellData>) {
   const [cooking, setCooking] = useState(false);
   // What the recipe said before scaling, so each step scales from it and rounding never adds up.
@@ -219,20 +217,20 @@ export function GuideShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="guide" title={data.title} />
         {/* Shapes, not words: facts as pills, then numbered steps of a line or two. */}
-        <PreviewBody className="gap-2 pt-2.5">
+        <PreviewBody>
           <span className="flex shrink-0 gap-1">
             {[30, 24].map((width) => (
-              <span key={width} className="h-3 rounded-full bg-gray-6" style={{ width }} />
+              <span key={width} className="h-3 rounded-full bg-shell-fill" style={{ width }} />
             ))}
           </span>
           <ol className="relative flex flex-col gap-1.5">
-            <span aria-hidden className="absolute top-2 bottom-2 left-[5px] w-px bg-gray-3/25" />
+            <span aria-hidden className="absolute top-2 bottom-2 left-[5px] w-px bg-shell-ink-faint" />
             {(ghostSteps ? [false, false, false] : data.steps.slice(0, 3).map((step) => step.done)).map((done, i) => (
               <li key={i} className="relative flex gap-1.5">
                 <span
                   className={cn(
                     "size-[11px] shrink-0 rounded-full ring-2 ring-white",
-                    done ? "bg-gray-3/45" : "bg-gray-3/25",
+                    done ? "bg-shell-ink-soft" : "bg-shell-ink-faint",
                   )}
                 />
                 <span className="flex flex-1 flex-col gap-[3px] pt-[3px]">
@@ -257,16 +255,39 @@ export function GuideShell({
   const setFact = (index: number, patch: Partial<GuideFact>) =>
     update?.({ facts: data.facts.map((fact, i) => (i === index ? { ...fact, ...patch } : fact)) });
   const text = large ? "text-[13px]" : "text-[11px]";
+  // Serves and Time are the guide's standard controls: what the request said shows as written; what it
+  // didn't is guessed in the suggestion colour, in the control, until they set it. Time is always there;
+  // Serves when there's a number for it.
+  const factIndex = (label: string) => data.facts.findIndex((fact) => fact.label.trim().toLowerCase() === label.toLowerCase());
+  const guessOf = (group: "serves" | "time") => {
+    const first = suggested?.[group]?.[0];
+    return first === undefined ? undefined : typeof first === "string" ? first : first.value;
+  };
+  const standard = (["Serves", "Time"] as const).filter((label) => factIndex(label) < 0 && (label === "Time" || guessOf("serves")));
+  const setStandard = (label: string, value: string) => update?.({ facts: [...data.facts, { label, value }] });
   const facts = (
     <div className="flex flex-wrap items-center gap-1.5">
-      {(data.facts.length ? data.facts : [{ label: "Time", value: "" }]).map((fact, i) => (
+      {standard.map((label) => {
+        const guess = guessOf(label === "Serves" ? "serves" : "time");
+        return (
+          <span key={label} className={cn("inline-flex items-center gap-1 rounded-full bg-shell-fill font-bureau", large ? "h-8 px-3" : "h-6 px-2")}>
+            <span className={cn(text, "text-typography-secondary")}>{label}</span>
+            {guess ? (
+              <SuggestedText text={guess} onAccept={update && (() => setStandard(label, guess))} className={cn(text, "px-0.5")} />
+            ) : (
+              <InlineInput value="" placeholder="Add" label={label} onChange={update && ((value) => setStandard(label, value))} className={cn(text, "field-sizing-content min-w-6")} />
+            )}
+          </span>
+        );
+      })}
+      {data.facts.map((fact, i) => (
         <span
           key={i}
-          className={cn("group inline-flex items-center gap-1 rounded-full bg-gray-6 font-bureau", large ? "h-8 px-3" : "h-6 px-2")}
+          className={cn("group inline-flex items-center gap-1 rounded-full bg-shell-fill font-bureau", large ? "h-8 px-3" : "h-6 px-2")}
         >
-          <InlineInput value={fact.label} placeholder="Label" label="Fact" onChange={update && ((label) => (data.facts.length ? setFact(i, { label }) : update?.({ facts: [{ label, value: "" }] })))} className={cn(text, "field-sizing-content min-w-6 text-typography-secondary")} />
-          <InlineInput value={fact.value} placeholder="Add" label={fact.label || "Value"} onChange={update && ((value) => (data.facts.length ? setFact(i, { value }) : update?.({ facts: [{ label: fact.label, value }] })))} className={cn(text, "field-sizing-content min-w-6")} />
-          {update && large && data.facts.length > 0 && (
+          <InlineInput value={fact.label} placeholder="Label" label="Fact" onChange={update && ((label) => setFact(i, { label }))} className={cn(text, "field-sizing-content min-w-6 text-typography-secondary")} />
+          <InlineInput value={fact.value} placeholder="Add" label={fact.label || "Value"} onChange={update && ((value) => setFact(i, { value }))} className={cn(text, "field-sizing-content min-w-6")} />
+          {update && large && (
             <button
               type="button"
               aria-label={`Remove ${fact.label}`}
@@ -282,32 +303,48 @@ export function GuideShell({
           )}
         </span>
       ))}
-      {update && large && (
-        <AddChip size="md" placeholder="e.g. Difficulty" onSubmitValue={(label) => update({ facts: [...data.facts, { label, value: "" }] })}>
-          Add a fact
-        </AddChip>
-      )}
     </div>
   );
 
+  // Suggested steps go after the step they follow (or after the last), numbered in place.
+  // With no steps yet, the suggested ones are the method as it's written (all of them); otherwise two at most.
+  const stepsWhere = suggestionsAfter(
+    placedSuggestions(suggested?.steps, data.steps.map((step) => step.text)).slice(0, data.steps.length ? 2 : 6),
+    data.steps.map((step) => step.text),
+  );
+  // Real steps keep their numbers; a suggestion between them has none, one after the last takes the next.
+  const suggestedStep = (placed: PlacedSuggestion, at: number, number?: number) => (
+    <li key={placed.value} data-shell-part="suggest" className={cn("flex min-w-0 items-start gap-2.5", large && "rounded-[14px] px-4 py-3")}>
+      <span className={cn("shrink-0 pt-0.5 font-bureau text-shell-suggest tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]")}>{number}</span>
+      <SuggestedText
+        text={placed.value}
+        onAccept={update && (() => update({ steps: [...data.steps.slice(0, at), { id: shellId("step"), text: placed.value, done: false }, ...data.steps.slice(at)] }))}
+        className={cn("min-w-0 flex-1 font-bureau leading-[1.5]", large ? "text-[14px]" : "h-6 truncate text-[12px] leading-6")}
+      />
+      {/* Its tick, empty, outlined in violet: what it gets once added. */}
+      <SuggestedBox shape="round" className={large ? "mt-0.5 size-[18px]" : "size-3.5 self-center"} />
+    </li>
+  );
   const steps = (
     <ol className={cn("flex flex-col", large ? "gap-2" : "gap-1")}>
+      {/* No steps yet: suggested steps fill the placeholders, numbered as they would be; what's left stays a placeholder. */}
+      {ghostSteps && stepsWhere.atEnd.map((placed, k) => suggestedStep(placed, k, k + 1))}
       {ghostSteps &&
-        ghostLabels("Step").map((label, i) => (
-          <li key={label} className={cn("flex items-center gap-2.5", large && "rounded-[14px] bg-gray-6 px-4 py-3")}>
-            <span className={cn("font-bureau text-typography-secondary tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]")}>{i + 1}</span>
+        ghostsAfter("Step", stepsWhere.atEnd.length).map((label) => (
+          <li key={label} className={cn("flex items-center gap-2.5", large && "rounded-[14px] bg-shell-fill px-4 py-3")}>
+            <span className={cn("font-bureau text-typography-secondary tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]")}>{label.split(" ").pop()}</span>
             <span className={cn("font-bureau font-light text-typography-secondary", large ? "text-[14px]" : "text-[12px]")}>{label}</span>
           </li>
         ))}
       {data.steps.map((step, i) => {
         const isCurrent = i === current;
-        return (
+        return [
           <li
             key={step.id}
             className={cn(
               "group flex min-w-0 items-start gap-2.5",
               large && "rounded-[14px] px-4 py-3 transition-colors",
-              large && (isCurrent ? "bg-white shadow-[0_1px_4px_rgba(26,23,24,0.1)] ring-1 ring-[#c2563a]/30" : "bg-gray-6"),
+              large && (isCurrent ? "bg-shell-panel ring-1 ring-[#c2563a]/40 ring-inset" : "bg-shell-fill"),
             )}
           >
             <span className={cn("shrink-0 pt-0.5 font-bureau tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]", isCurrent ? "text-[#c2563a]" : "text-typography-secondary")}>
@@ -341,32 +378,19 @@ export function GuideShell({
                 placeholder={`Step ${i + 1}`}
                 label={`Step ${i + 1}`}
                 onChange={update && ((text) => setStep({ ...step, text }))}
-                className={cn("flex-1 px-1 text-[12px]", step.done && "text-typography-secondary line-through")}
+                className={cn("h-6 flex-1 px-1 text-[12px]", step.done && "text-typography-secondary line-through")}
               />
             )}
             {large && step.minutes ? <Timer key={`${step.id}-${step.minutes}`} minutes={step.minutes} /> : null}
             <Tick done={step.done} size={large ? "md" : "sm"} label={step.done ? "Mark step as not done" : "Mark step as done"} onToggle={update && (() => setStep({ ...step, done: !step.done }))} />
             {large && update && <Remove label={`Remove step ${i + 1}`} onRemove={() => update({ steps: data.steps.filter((s) => s.id !== step.id) })} />}
-          </li>
-        );
+          </li>,
+          ...stepsWhere.after(i).map((placed) => suggestedStep(placed, i + 1, i === data.steps.length - 1 ? data.steps.length + 1 : undefined)),
+        ];
       })}
+      {!ghostSteps && stepsWhere.atEnd.map((placed, k) => suggestedStep(placed, data.steps.length, data.steps.length + k + 1))}
     </ol>
   );
-
-  if (!large) {
-    return (
-      <ShellSurface size={size} surface={surface} className={className}>
-        <ShellTitle kind="guide" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
-        <ShellBody size={size} className="gap-2">
-          {/* On the chat home: what the request leaves open. */}
-          {suggestions?.brief}
-          {facts}
-          {steps}
-          {update && <Add label="Add a step" size={size} onAdd={() => update({ steps: [...data.steps, { id: shellId("step"), text: "", done: false }] })} />}
-        </ShellBody>
-      </ShellSurface>
-    );
-  }
 
   // A recipe app's tools: scale the servings, cook hands-free, tick off the shop, start over, share.
   const serves = servesOf(data.facts);
@@ -390,17 +414,22 @@ export function GuideShell({
       needs,
     });
   };
-  const missing = data.needs.filter((need) => !need.have);
-  const toolbar = (
-    <ShellToolbar tools={tools} actions={actions}>
+  const standardTools = (
+    <>
       <span
         role="group"
         aria-label="Servings"
+        aria-disabled={!serves || undefined}
         title={serves ? "Scale the recipe" : "Add a Serves fact to scale the recipe"}
-        className={cn("flex shrink-0 items-center gap-0.5 rounded-full bg-gray-6 pr-0.5 pl-2.5 font-bureau text-[13px] tabular-nums", !serves && "opacity-40")}
+        // Sized from the toolbar's tokens like every other tool: the same icon and type, no bigger.
+        // The people icon and how many, with − and +: no word, no fill, like the tools beside it.
+        className={cn(
+          "flex h-[calc(var(--shell-tools-icon,16px)+16px)] shrink-0 items-center gap-0.5 pl-2 font-bureau text-[length:var(--shell-tools-font-size,13px)] tabular-nums",
+          !serves && "opacity-40",
+        )}
       >
-        <Users className="mr-1 size-4 text-typography-secondary" />
-        <span className="text-typography-primary">{serves ? `Serves ${writeAmount(serves.value)}` : "Serves"}</span>
+        <Users aria-hidden className="mr-1 size-[var(--shell-tools-icon,16px)] shrink-0 text-typography-secondary" />
+        <span className="min-w-[2ch] text-typography-primary">{serves ? writeAmount(serves.value) : "–"}</span>
         <ShellToolButton label="Fewer servings" disabled={!serves || !update || serves.value <= 1} onPress={() => serves && rescale(Math.round(serves.value) - 1)}>
           <Minus />
         </ShellToolButton>
@@ -408,17 +437,28 @@ export function GuideShell({
           <Plus />
         </ShellToolButton>
       </span>
-      <ShellToolButton label={cooking ? "Leave cook mode" : "Cook mode: keep the screen on, bigger steps"} active={cooking} disabled={data.steps.length === 0} onPress={() => setCooking((value) => !value)}>
-        <ChefHat />
-      </ShellToolButton>
+      {/* The facts show under the toolbar; this is where one is added. */}
+      <ShellToolPopover label="Add a fact" icon={<ListPlus />} disabled={!update}>
+        {(close) => (
+          <ShellToolField
+            label="Fact"
+            placeholder="e.g. Difficulty"
+            apply="Add"
+            suggestions={FACT_SUGGESTIONS.filter((label) => !data.facts.some((fact) => fact.label.toLowerCase() === label.toLowerCase()))}
+            onApply={(label) => {
+              update?.({ facts: [...data.facts, { label, value: "" }] });
+              close();
+            }}
+          />
+        )}
+      </ShellToolPopover>
+      {/* Cook mode keeps the screen on and enlarges the large layout's steps, so the medium plus card leaves it out. */}
+      {large && (
+        <ShellToolButton label={cooking ? "Leave cook mode" : "Cook mode: keep the screen on, bigger steps"} active={cooking} disabled={data.steps.length === 0} onPress={() => setCooking((value) => !value)}>
+          <ChefHat />
+        </ShellToolButton>
+      )}
       <ShellToolDivider />
-      <ShellToolButton
-        label="Got everything"
-        disabled={!update || missing.length === 0}
-        onPress={() => update?.({ needs: data.needs.map((need) => ({ ...need, have: true })) })}
-      >
-        <ListChecks />
-      </ShellToolButton>
       <ShellToolButton
         label="Start over"
         disabled={!update || (data.steps.every((step) => !step.done) && data.needs.every((need) => !need.have))}
@@ -428,19 +468,26 @@ export function GuideShell({
       >
         <RotateCcw />
       </ShellToolButton>
-      <ShellToolDivider />
-      <ShellToolButton
-        label={missing.length ? `Copy the shopping list (${missing.length})` : "Copy the shopping list"}
-        disabled={missing.length === 0}
-        onPress={() => copyText([`${data.title || "Shopping list"}`, ...missing.map((need) => `- ${need.text}`)].join("\n"))}
-      >
-        <ShoppingCart />
-      </ShellToolButton>
-      <ShellToolButton label="Copy the recipe" disabled={!data.steps.length && !data.needs.length} onPress={() => copyText(recipeText(data))}>
-        <Copy />
-      </ShellToolButton>
-    </ShellToolbar>
+    </>
   );
+
+  if (!large) {
+    return (
+      <ShellSurface size={size} surface={surface} className={className}>
+        <ShellTitle kind="guide" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
+        <ShellToolbar tools={tools} actions={actions}>
+          {standardTools}
+        </ShellToolbar>
+        <ShellBody size={size}>
+          {/* On the chat home: what the request leaves open. */}
+          {suggestions?.brief}
+          {facts}
+          {steps}
+          {update && <Add label="Add a step" size={size} onAdd={() => update({ steps: [...data.steps, { id: shellId("step"), text: "", done: false }] })} />}
+        </ShellBody>
+      </ShellSurface>
+    );
+  }
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
@@ -452,10 +499,12 @@ export function GuideShell({
         onSubmit={onSubmit}
         aside={progress && <span className="font-bureau text-[13px] text-typography-secondary tabular-nums">{progress}</span>}
       />
-      {toolbar}
-      <div className="px-6 pt-3">{facts}</div>
-      <div className="flex min-h-0 flex-1 gap-6 px-6 pt-4 pb-6">
-        <aside className="no-scrollbar flex w-56 shrink-0 flex-col gap-1.5 overflow-y-auto">
+      <ShellToolbar tools={tools} actions={actions}>
+        {standardTools}
+      </ShellToolbar>
+      <div className={cn("pt-3", SHELL_EDGE_X)}>{facts}</div>
+      <div data-shell-part="body" className={cn("flex min-h-0 flex-1", SHELL_BODY_PAD)}>
+        <aside aria-label="What you need" className="no-scrollbar flex w-56 shrink-0 flex-col gap-1.5 overflow-y-auto">
           <h3 className="font-bureau text-[12px] text-typography-secondary">
             You need{data.needs.length ? ` · ${data.needs.filter((n) => n.have).length} of ${data.needs.length}` : ""}
           </h3>
@@ -483,7 +532,7 @@ export function GuideShell({
                   onKeyDown={stopFieldEvent}
                   onChange={(event) => setNeed({ ...need, text: event.target.value })}
                   className={cn(
-                    "min-w-0 flex-1 rounded-[6px] px-1 py-0.5 font-bureau text-[13px] leading-[1.35] text-typography-primary placeholder:font-light placeholder:text-typography-secondary focus:bg-gray-6",
+                    "min-w-0 flex-1 rounded-[6px] px-1 py-0.5 font-bureau text-[13px] leading-[1.35] text-typography-primary placeholder:font-light placeholder:text-typography-secondary focus:bg-shell-fill",
                     need.have && "text-typography-secondary line-through",
                   )}
                 />
@@ -500,7 +549,8 @@ export function GuideShell({
             />
           )}
         </aside>
-        <div className="no-scrollbar flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto">
+        {/* The steps scroll on the keylines; the current step's ring is drawn inside its own edge, so the scroller never cuts it. */}
+        <div className="no-scrollbar flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto pb-3">
           {steps}
           {update && <Add label="Add a step" size={size} onAdd={() => update({ steps: [...data.steps, { id: shellId("step"), text: "", done: false }] })} />}
         </div>

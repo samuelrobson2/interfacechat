@@ -92,9 +92,9 @@ describe("shell retrieval", () => {
     ["Build a dashboard of our monthly sales by region", "dashboard"],
     ["Show me our KPIs: sign-ups, churn and revenue", "dashboard"],
     ["Turn this CSV into a dashboard with a filter for region", "dashboard"],
-    ["Write an interactive article on how compound interest grows, with a slider", "article"],
-    ["Make a data story about the election turnout with charts", "article"],
-    ["An explorable explanation of how vaccines reach herd immunity", "article"],
+    ["Write an interactive article on how compound interest grows, with a slider", "document"],
+    ["Make a data story about the election turnout with charts", "document"],
+    ["An explorable explanation of how vaccines reach herd immunity", "document"],
     ["Write an article about remote work", "document"],
     ["Make a table comparing three cameras", "table"],
   ])("generalises: %s goes to %s", (draft, kind) => {

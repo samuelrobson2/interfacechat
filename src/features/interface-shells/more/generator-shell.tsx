@@ -1,4 +1,4 @@
-import { Bookmark, Check, Copy, Download, ImageOff, ImagePlus, Loader2, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
+import { Bookmark, Check, Copy, Download, ImagePlus, Loader2, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import {
@@ -16,22 +16,10 @@ import {
   storePresets,
   type GeneratorPreset,
 } from "../model/generator";
-import {
-  GENERATOR_MODES,
-  shellId,
-  type GeneratorControls,
-  type GeneratorMode,
-  type GeneratorOptions,
-  type SuggestedValues,
-  type GeneratorReference,
-  type GeneratorShellData,
-  type GeneratorVariation,
-  type ShellProps,
-  type ShellSize,
-} from "../model/shell-types";
+import { GENERATOR_MODES, shellId, type GeneratorControls, type GeneratorMode, type GeneratorOptions, type SuggestedValues, type GeneratorReference, type GeneratorShellData, type GeneratorVariation, type ShellProps, type ShellSize, type Suggestion } from "../model/shell-types";
 import { ghostLabels } from "../ui/shell-accents";
-import { PreviewBody, PreviewHead, ShellBody, ShellTitle } from "../ui/shell-kit";
-import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolFile, ShellToolPopover } from "../ui/shell-toolbar";
+import { PreviewBody, PreviewHead, ShellBody, ShellTitle, SHELL_BODY_PAD } from "../ui/shell-kit";
+import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolFile, ShellToolPopover } from "../ui/shell-toolbar";
 import { AddChip } from "../ui/shell-fields";
 import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
 import { ShellAppIcon } from "../ui/shell-icons";
@@ -79,7 +67,7 @@ function Segmented<T extends string>({
 }) {
   const large = size === "large";
   return (
-    <span role="radiogroup" aria-label={label} className={cn("inline-flex shrink-0 rounded-full bg-gray-6 p-0.5", large ? "h-8" : "h-6")}>
+    <span role="radiogroup" aria-label={label} className={cn("inline-flex shrink-0 rounded-full bg-shell-fill p-0.5", large ? "h-8" : "h-6")}>
       {options.map((option) => {
         const on = option.value === value;
         return (
@@ -92,7 +80,7 @@ function Segmented<T extends string>({
             className={cn(
               "rounded-full font-bureau transition-colors",
               large ? "px-3 text-[13px]" : "px-2 text-[11px]",
-              on ? "bg-white text-typography-primary shadow-[0_1px_2px_rgba(26,23,24,0.12)]" : "text-typography-secondary enabled:hover:text-typography-primary",
+              on ? "bg-shell-panel text-typography-primary shadow-[0_1px_2px_rgba(26,23,24,0.12)]" : "text-typography-secondary enabled:hover:text-typography-primary",
             )}
           >
             {option.label}
@@ -127,7 +115,7 @@ function ChoiceChips({
   label: string;
   /** What one choice is, for "Add a tone". */
   noun: string;
-  suggested?: string[];
+  suggested?: Suggestion[];
   /** Add one of the person's own, and pick it. */
   onAdd?: (value: string) => void;
   onRemove?: (value: string) => void;
@@ -147,7 +135,7 @@ function ChoiceChips({
               onPress={() => onChange?.(option.value)}
               className={cn(
                 "h-7 rounded-full px-2.5 font-bureau text-[13px] transition-colors",
-                on ? "bg-gray-5 text-typography-inverse" : "bg-gray-6 text-typography-primary enabled:hover:bg-gray-3/20",
+                on ? "bg-gray-5 text-typography-inverse" : "bg-shell-fill text-typography-primary enabled:hover:bg-shell-ink-faint",
               )}
             >
               {option.label}
@@ -366,7 +354,7 @@ function References({
         <FieldButton
           onPress={() => file.current?.click()}
           className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-full font-bureau text-typography-secondary hover:bg-gray-3/15 hover:text-typography-primary",
+            "flex shrink-0 items-center gap-1.5 rounded-full font-bureau text-typography-secondary hover:bg-shell-ink-faint hover:text-typography-primary",
             large ? "h-8 px-2.5 text-[13px]" : "h-6 px-1.5 text-[11px]",
           )}
         >
@@ -377,6 +365,7 @@ function References({
       <input
         ref={file}
         type="file"
+        aria-label="Add reference images"
         accept="image/*"
         multiple
         className="sr-only"
@@ -403,7 +392,7 @@ function VariationAction({ label, icon, onPress }: { label: string; icon: React.
       aria-label={label}
       title={label}
       onPress={onPress}
-      className="grid size-7 place-items-center rounded-full bg-white/90 text-typography-primary shadow-[0_1px_3px_rgba(26,23,24,0.16)] hover:bg-white"
+      className="grid size-7 place-items-center rounded-full bg-shell-panel/90 text-typography-primary shadow-[0_1px_3px_rgba(26,23,24,0.16)] hover:bg-shell-panel"
     >
       {icon}
     </FieldButton>
@@ -431,33 +420,23 @@ function VariationCard({
   const [copied, setCopied] = useState(false);
   const label = `Variation ${index + 1}`;
   return (
+    // A click anywhere on the card chooses it; for the keyboard, the name under it is the button
+    // (a card that is itself a button can't hold the copy and download buttons).
     <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={chosen}
-      aria-label={chosen ? `${label}, chosen` : `Choose ${label.toLowerCase()}`}
       {...fieldEvents}
       onClick={(event) => {
         stopFieldEvent(event);
         onChoose?.();
       }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        stopFieldEvent(event);
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onChoose?.();
-        }
-      }}
       className={cn(
-        "group relative flex min-w-0 cursor-pointer flex-col rounded-[14px] transition-shadow outline-none focus-visible:ring-2 focus-visible:ring-blue-4",
-        chosen ? "ring-2 ring-blue-4 ring-offset-2" : "hover:ring-1 hover:ring-gray-3/40 hover:ring-offset-2",
+        "group relative flex min-w-0 cursor-pointer flex-col rounded-[14px] transition-shadow outline-none has-[[data-choose]:focus-visible]:ring-2 has-[[data-choose]:focus-visible]:ring-blue-4",
+        chosen ? "ring-2 ring-blue-4 ring-offset-2" : "hover:ring-1 hover:ring-shell-line-strong hover:ring-offset-2",
       )}
     >
       {variation.src ? (
-        <img src={variation.src} alt={label} draggable={false} className={cn("w-full rounded-[14px] bg-gray-6 object-cover", ASPECT_CLASS[aspect])} />
+        <img src={variation.src} alt="" draggable={false} className={cn("w-full rounded-[14px] bg-shell-fill object-cover", ASPECT_CLASS[aspect])} />
       ) : (
-        <div className="flex min-h-40 flex-col rounded-[14px] bg-white p-4 shadow-[0_1px_3px_rgba(26,23,24,0.08)] hairline [--hairline-radius:14px] [--hairline-color:var(--color-gray-3)] [--hairline-opacity:0.25]">
+        <div className="flex min-h-40 flex-col rounded-[14px] bg-shell-panel p-4 shadow-[0_1px_3px_rgba(26,23,24,0.08)] hairline [--hairline-radius:14px] [--hairline-color:var(--color-gray-3)] [--hairline-opacity:0.25]">
           <AutoTextarea
             value={variation.text ?? ""}
             aria-label={label}
@@ -475,7 +454,20 @@ function VariationCard({
         </div>
       )}
       <span className="flex items-center justify-between px-1 pt-2 font-bureau text-[12px] text-typography-secondary">
-        <span>{label}</span>
+        <button
+          type="button"
+          data-choose
+          aria-pressed={chosen}
+          aria-label={chosen ? `${label}, chosen` : `Choose ${label.toLowerCase()}`}
+          {...fieldEvents}
+          onClick={(event) => {
+            stopFieldEvent(event);
+            onChoose?.();
+          }}
+          className="cursor-pointer outline-none"
+        >
+          {label}
+        </button>
         {chosen && (
           <span className="flex items-center gap-1 text-blue-5">
             <Check className="size-3.5" strokeWidth={2.5} />
@@ -510,7 +502,7 @@ function PendingCard({ mode, aspect, index, loading }: { mode: GeneratorMode; as
     <div className="flex min-w-0 flex-col">
       <div
         className={cn(
-          "grid place-items-center rounded-[14px] bg-gray-6 font-bureau text-[13px] font-light text-typography-secondary",
+          "grid place-items-center rounded-[14px] bg-shell-fill font-bureau text-[13px] font-light text-typography-secondary",
           mode === "image" ? ASPECT_CLASS[aspect] : "min-h-40",
           loading && "animate-pulse",
         )}
@@ -561,7 +553,7 @@ function Presets({
                       onApply?.(preset);
                       close();
                     }}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-[9px] px-2 py-1.5 text-left hover:bg-gray-6"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-[9px] px-2 py-1.5 text-left hover:bg-shell-fill"
                   >
                     <Check className={cn("size-3.5 shrink-0", !on && "invisible")} />
                     <span className="flex min-w-0 flex-col">
@@ -574,7 +566,7 @@ function Presets({
                       type="button"
                       aria-label={`Delete ${preset.name}`}
                       onClick={() => save(own.filter((saved) => saved.id !== preset.id))}
-                      className="grid size-7 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/preset:opacity-100 hover:bg-gray-6 hover:text-typography-primary focus-visible:opacity-100"
+                      className="grid size-7 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/preset:opacity-100 hover:bg-shell-fill hover:text-typography-primary focus-visible:opacity-100"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -583,7 +575,7 @@ function Presets({
               );
             })}
           </ul>
-          <span aria-hidden className="h-px bg-gray-3/20" />
+          <span aria-hidden className="h-px bg-shell-ink-faint" />
           <span className="px-1 font-bureau text-[11px] text-typography-secondary">
             {current ? `Settings match ${current.name}` : "Save these settings"}
           </span>
@@ -630,15 +622,15 @@ export function GeneratorShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="generator" title={data.title} />
         {/* Shapes, not words: a prompt line, then three variations side by side. */}
-        <PreviewBody className="gap-2 pt-2">
-          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-gray-6 px-2 py-1.5">
+        <PreviewBody>
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-shell-fill px-2 py-1.5">
             <Sparkles className="size-2.5 shrink-0 text-typography-secondary" />
             <Bar width="70%" className="h-1" />
           </span>
           <div className="grid min-h-0 flex-1 grid-cols-3 gap-1">
             {images.length === 3
               ? images.map((v) => <img key={v.id} src={v.src} alt="" draggable={false} className="size-full min-h-0 rounded-[5px] object-cover" />)
-              : [0, 1, 2].map((i) => <span key={i} className={cn("rounded-[5px]", i === 0 ? "bg-gray-3/25" : "bg-gray-6")} />)}
+              : [0, 1, 2].map((i) => <span key={i} className={cn("rounded-[5px]", i === 0 ? "bg-shell-ink-faint" : "bg-shell-fill")} />)}
           </div>
         </PreviewBody>
       </ShellSurface>
@@ -668,6 +660,60 @@ export function GeneratorShell({
     <Segmented<GeneratorMode> label="Generate" size={size} options={modes} value={data.mode} onChange={update && ((mode) => update({ mode }))} />
   );
 
+  // The standard tools, the same on the medium plus card and at large.
+  const standardTools = (
+    <>
+      {modeToggle}
+      <Presets
+        data={data}
+        onApply={
+          update &&
+          ((preset) => {
+            // A preset with a tone, style or length of someone's own brings it onto the lists.
+            const own = (list: string[] | undefined, value: string, builtIn: string[]) =>
+              builtIn.includes(value) || list?.includes(value) ? list : [...(list ?? []), value];
+            const options = data.options ?? {};
+            update({
+              mode: preset.mode,
+              controls: { ...preset.controls },
+              options: {
+                tones: own(options.tones, preset.controls.tone, GENERATOR_TONES),
+                styles: own(options.styles, preset.controls.style, GENERATOR_STYLES),
+                lengths: own(options.lengths, preset.controls.length, GENERATOR_LENGTHS.map((length) => length.value)),
+              },
+            });
+          })
+        }
+      />
+      <ShellToolDivider />
+      <ShellToolFile
+        label="Add reference images"
+        accept="image/*"
+        multiple
+        disabled={!update || data.references.length >= MAX_REFERENCES}
+        onFiles={async (files) => {
+          const room = MAX_REFERENCES - latest.current.references.length;
+          const read = await Promise.all(
+            files
+              .filter((f) => f.type.startsWith("image/"))
+              .slice(0, room)
+              .map(async (f) => ({ id: shellId("ref"), src: await readReferenceFile(f), name: f.name.replace(/\.[^.]+$/, "") })),
+          );
+          update?.({ references: [...latest.current.references, ...read] });
+        }}
+      >
+        <ImagePlus />
+      </ShellToolFile>
+      <ShellToolDivider />
+      {/* Results and errors show only once open, so the medium plus card is set up to run there and leaves Generate out. */}
+      {large && (
+        <ShellToolButton label={data.variations.length ? "Generate again (⌘↵)" : "Generate (⌘↵)"} disabled={!update || !ready || loading} onPress={() => void run()}>
+          {loading ? <Loader2 className="animate-spin" /> : <Sparkles />}
+        </ShellToolButton>
+      )}
+    </>
+  );
+
   if (!large) {
     // Medium plus: the prompt is the title; the rest is set up, ready to run once open.
     return (
@@ -680,9 +726,12 @@ export function GeneratorShell({
           onChange={update && ((title) => update({ title }))}
           onSubmit={onSubmit}
         />
-        <ShellBody size={size} className="gap-2.5">
+        <ShellToolbar tools={tools} actions={actions}>
+          {standardTools}
+        </ShellToolbar>
+        <ShellBody size={size}>
+          {/* The mode toggle sits in the toolbar now; the settings it runs with stay here. */}
           <div className="flex items-center justify-between gap-2">
-            {modeToggle}
             <span className="truncate font-bureau text-[11px] text-typography-secondary">
               {data.mode === "text" ? `${data.controls.tone} · ${data.controls.length}` : `${data.controls.style} · ${data.controls.aspect}`}
             </span>
@@ -693,9 +742,9 @@ export function GeneratorShell({
           <div className="grid grid-cols-3 gap-1.5">
             {[0, 1, 2].map((i) => {
               const v = data.variations[i];
-              if (v?.src) return <img key={v.id} src={v.src} alt="" draggable={false} className={cn("w-full rounded-[8px] bg-gray-6 object-cover", ASPECT_CLASS[data.controls.aspect], data.chosen === v.id && "ring-2 ring-blue-4")} />;
-              if (v?.text) return <span key={v.id} className={cn("line-clamp-4 rounded-[8px] bg-gray-6 p-1.5 font-bureau text-[10px] leading-[1.35]", data.chosen === v.id && "ring-2 ring-blue-4")}>{v.text}</span>;
-              return <span key={i} className={cn("rounded-[8px] bg-gray-6", data.mode === "image" ? ASPECT_CLASS[data.controls.aspect] : "h-14")} />;
+              if (v?.src) return <img key={v.id} src={v.src} alt="" draggable={false} className={cn("w-full rounded-[8px] bg-shell-fill object-cover", ASPECT_CLASS[data.controls.aspect], data.chosen === v.id && "ring-2 ring-blue-4")} />;
+              if (v?.text) return <span key={v.id} className={cn("line-clamp-4 rounded-[8px] bg-shell-fill p-1.5 font-bureau text-[10px] leading-[1.35]", data.chosen === v.id && "ring-2 ring-blue-4")}>{v.text}</span>;
+              return <span key={i} className={cn("rounded-[8px] bg-shell-fill", data.mode === "image" ? ASPECT_CLASS[data.controls.aspect] : "h-14")} />;
             })}
           </div>
         </ShellBody>
@@ -708,82 +757,11 @@ export function GeneratorShell({
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle kind="generator" size={size} value="Generator" />
       <ShellToolbar tools={tools} actions={actions}>
-        {modeToggle}
-        <Presets
-          data={data}
-          onApply={
-            update &&
-            ((preset) => {
-              // A preset with a tone, style or length of someone's own brings it onto the lists.
-              const own = (list: string[] | undefined, value: string, builtIn: string[]) =>
-                builtIn.includes(value) || list?.includes(value) ? list : [...(list ?? []), value];
-              const options = data.options ?? {};
-              update({
-                mode: preset.mode,
-                controls: { ...preset.controls },
-                options: {
-                  tones: own(options.tones, preset.controls.tone, GENERATOR_TONES),
-                  styles: own(options.styles, preset.controls.style, GENERATOR_STYLES),
-                  lengths: own(options.lengths, preset.controls.length, GENERATOR_LENGTHS.map((length) => length.value)),
-                },
-              });
-            })
-          }
-        />
-        <ShellToolDivider />
-        <ShellToolFile
-          label="Add reference images"
-          accept="image/*"
-          multiple
-          disabled={!update || data.references.length >= MAX_REFERENCES}
-          onFiles={async (files) => {
-            const room = MAX_REFERENCES - latest.current.references.length;
-            const read = await Promise.all(
-              files
-                .filter((f) => f.type.startsWith("image/"))
-                .slice(0, room)
-                .map(async (f) => ({ id: shellId("ref"), src: await readReferenceFile(f), name: f.name.replace(/\.[^.]+$/, "") })),
-            );
-            update?.({ references: [...latest.current.references, ...read] });
-          }}
-        >
-          <ImagePlus />
-        </ShellToolFile>
-        <ShellToolButton
-          label="Clear references"
-          disabled={!update || data.references.length === 0}
-          onPress={() => update?.({ references: [] })}
-        >
-          <ImageOff />
-        </ShellToolButton>
-        <ShellToolDivider />
-        <ShellToolButton label={data.variations.length ? "Generate again (⌘↵)" : "Generate (⌘↵)"} disabled={!update || !ready || loading} onPress={() => void run()}>
-          {loading ? <Loader2 className="animate-spin" /> : <Sparkles />}
-        </ShellToolButton>
-        {data.variations.some((v) => v.src) ? (
-          <ShellToolButton
-            label="Download all"
-            disabled={loading}
-            onPress={() => data.variations.forEach((v, i) => v.src && download(v.src, `variation-${i + 1}.webp`))}
-          >
-            <Download />
-          </ShellToolButton>
-        ) : (
-          <ShellToolButton
-            label="Copy all"
-            disabled={loading || !data.variations.some((v) => v.text)}
-            onPress={() => copyText(data.variations.flatMap((v) => (v.text ? [v.text] : [])).join("\n\n"))}
-          >
-            <Copy />
-          </ShellToolButton>
-        )}
-        <ShellToolButton label="Clear results" disabled={!update || loading || data.variations.length === 0} onPress={() => update?.({ variations: [], chosen: undefined })}>
-          <Trash2 />
-        </ShellToolButton>
+        {standardTools}
       </ShellToolbar>
-      <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pt-4 pb-6">
+      <div data-shell-part="body" className={cn("no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto", SHELL_BODY_PAD)}>
         {/* The prompt box: what to make, the pictures to work from, and Generate. */}
-        <div className="flex shrink-0 flex-col gap-3 rounded-[16px] bg-gray-6 px-4 pt-3.5 pb-3">
+        <div className="flex shrink-0 flex-col gap-3 rounded-[16px] bg-shell-fill px-4 pt-3.5 pb-3">
           <AutoTextarea
             value={data.title}
             placeholder={data.mode === "text" ? "Describe what to write: taglines for a coffee brand…" : "Describe the image: a lighthouse at dusk…"}

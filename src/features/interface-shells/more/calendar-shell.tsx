@@ -89,7 +89,7 @@ function MonthNav({ data, size, update }: { data: CalendarShellData; size: Shell
           stopFieldEvent(event);
           update({ month: shiftMonth(data.month, delta) });
         }}
-        className="grid size-6 place-items-center rounded-full text-typography-secondary hover:bg-gray-6 hover:text-typography-primary"
+        className="grid size-6 place-items-center rounded-full text-typography-secondary hover:bg-shell-fill hover:text-typography-primary"
       >
         {delta < 0 ? <ChevronLeft className="size-3.5" /> : <ChevronRight className="size-3.5" />}
       </button>
@@ -136,7 +136,7 @@ function DayCell({
     const ghostEvent = data.events.length === 0 && GHOST_EVENT_DAYS.includes(day);
     return (
       <span
-        className={cn("relative aspect-square rounded-[3px]", events.length ? "" : ghostEvent ? "bg-gray-3/35" : "bg-gray-6")}
+        className={cn("relative aspect-square rounded-[3px]", events.length ? "" : ghostEvent ? "bg-shell-ink-soft" : "bg-shell-fill")}
         style={events.length ? { backgroundColor: VIOLET } : undefined}
       />
     );
@@ -149,31 +149,43 @@ function DayCell({
   };
 
   return (
+    // A click anywhere on the day adds an event; for the keyboard, the day's number is the button
+    // (a day that is itself a button can't hold its events' fields and buttons).
     <div
-      role={onStartAdd ? "button" : undefined}
-      tabIndex={onStartAdd ? 0 : undefined}
-      aria-label={`${shortDate(date)}${events.length ? `, ${events.length} events` : ""}${onStartAdd ? ". Add an event" : ""}`}
       {...fieldEvents}
       onClick={(event) => {
         stopFieldEvent(event);
         if (!editing) onStartAdd?.();
       }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter" && !editing) onStartAdd?.();
-      }}
       className={cn(
         "group relative flex min-w-0 flex-col overflow-hidden rounded-[8px] text-left transition-colors",
         large ? "h-[74px] gap-0.5 p-1.5" : "h-[30px] items-center justify-center",
-        large && events.length ? "bg-gray-6" : "bg-white ring-1 ring-gray-3/15 ring-inset",
+        large && events.length ? "bg-shell-fill" : "bg-shell-panel ring-1 ring-shell-line ring-inset",
         onStartAdd && "cursor-pointer hover:ring-2 hover:ring-[#7c66f0]/40",
         !large && events.length > 0 && "text-white",
       )}
       style={!large && events.length ? { backgroundColor: VIOLET } : undefined}
     >
-      <span className={cn("font-bureau tabular-nums", large ? "text-[12px] text-typography-primary" : "text-[10px]")}>
-        {day}
-      </span>
+      {onStartAdd ? (
+        <button
+          type="button"
+          aria-label={`${shortDate(date)}${events.length ? `, ${events.length} events` : ""}. Add an event`}
+          {...fieldEvents}
+          onClick={(event) => {
+            stopFieldEvent(event);
+            if (!editing) onStartAdd();
+          }}
+          className={cn("cursor-pointer self-start rounded-[4px] font-bureau tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50", large ? "text-[12px] text-typography-primary" : "self-center text-[10px]")}
+        >
+          {day}
+        </button>
+      ) : (
+        <span
+          className={cn("font-bureau tabular-nums", large ? "text-[12px] text-typography-primary" : "text-[10px]")}
+        >
+          {day}
+        </span>
+      )}
       {large && (
         <>
           {events.slice(0, 2).map((event) => (
@@ -228,7 +240,7 @@ function DayCell({
                   onEndAdd?.();
                 }
               }}
-              className="min-w-0 rounded-[4px] bg-white px-1 py-px font-bureau text-[10px] text-typography-primary outline-none ring-1 ring-[#7c66f0]"
+              className="min-w-0 rounded-[4px] bg-shell-panel px-1 py-px font-bureau text-[10px] text-typography-primary outline-none ring-1 ring-[#7c66f0]"
             />
           )}
         </>
@@ -260,7 +272,7 @@ function MonthGrid({
       {size === "medium" && (
         <div aria-hidden className="grid grid-cols-7 gap-[3px]">
           {WEEKDAYS.map((day) => (
-            <span key={day} className="mx-auto h-[3px] w-2/3 rounded-full bg-gray-3/35" />
+            <span key={day} className="mx-auto h-[3px] w-2/3 rounded-full bg-shell-ink-soft" />
           ))}
         </div>
       )}
@@ -321,7 +333,7 @@ function EventList({
   return (
     <ul className="flex flex-col gap-1">
       {events.map((event) => (
-        <li key={event.id} className={cn("group flex min-w-0 items-center gap-2 rounded-[10px]", large ? "bg-gray-6 px-3 py-2" : "")}>
+        <li key={event.id} className={cn("group flex min-w-0 items-center gap-2 rounded-[10px]", large ? "bg-shell-fill px-3 py-2" : "")}>
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: VIOLET }} />
           <span className={cn("shrink-0 font-bureau text-typography-secondary tabular-nums", large ? "w-12 text-[12px]" : "w-9 text-[11px]")}>
             {new Date(`${event.date}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}

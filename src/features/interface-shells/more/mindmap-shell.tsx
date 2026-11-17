@@ -153,7 +153,7 @@ function MindScene({
               spot.level === 0 && "min-h-14 min-w-28 px-5 text-[16px] text-white shadow-[0_4px_14px_rgba(164,92,240,0.35)]",
               spot.level === 1 && "min-h-9 min-w-16 px-3.5 text-[13px]",
               spot.level === 2 && "min-h-7 px-2.5 text-[11px] text-typography-primary ring-1",
-              ghost && "border-2 border-dashed border-gray-3/50 bg-white font-light text-typography-secondary shadow-none ring-0",
+              ghost && "border-2 border-dashed border-shell-line-strong bg-shell-panel font-light text-typography-secondary shadow-none ring-0",
               onSelect && "cursor-pointer",
               isSel && spot.level !== 1 && "ring-2 ring-offset-2",
             )}

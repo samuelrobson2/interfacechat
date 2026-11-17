@@ -133,7 +133,7 @@ function Stage({ kind, column }: { kind: ShellKind; column: Column }) {
       data-edit-size={column.size}
       data-edit-state={column.state}
       data-edit-label={`${SHELL_META[kind].label} · ${column.label}`}
-      className="flex items-center justify-center overflow-hidden rounded-[22px] bg-gray-6"
+      className="flex items-center justify-center overflow-hidden rounded-[22px] bg-shell-fill"
       style={{ ...DOTS, height: stageHeight(column.size) }}
     >
       <ShellMorph kind={kind} size={column.size} width={width} height={shellHeight} origin={null}>
@@ -147,7 +147,7 @@ function StatesRow({ kind }: { kind: ShellKind }) {
   return (
     <section
       aria-label={SHELL_META[kind].label}
-      className="flex flex-col gap-3 border-t border-gray-3/20 py-8 first:border-t-0"
+      className="flex flex-col gap-3 border-t border-shell-line py-8 first:border-t-0"
     >
       {/* Stays at the left edge while the row scrolls sideways. */}
       <div className="sticky left-6 flex w-fit items-center gap-2.5 md:left-24">
@@ -177,7 +177,7 @@ function InterfaceStatesPage() {
           </Text>
         </header>
 
-        <div className="sticky top-0 z-20 -mx-6 border-b border-gray-3/20 bg-background-primary/90 px-6 py-3 backdrop-blur-md md:-mr-10 md:-ml-24 md:pr-10 md:pl-24">
+        <div className="sticky top-0 z-20 -mx-6 border-b border-shell-line bg-background-primary/90 px-6 py-3 backdrop-blur-md md:-mr-10 md:-ml-24 md:pr-10 md:pl-24">
           <div className="grid items-center gap-x-6" style={{ gridTemplateColumns: GRID_TEMPLATE }}>
             {COLUMNS.map((column) => (
               <span

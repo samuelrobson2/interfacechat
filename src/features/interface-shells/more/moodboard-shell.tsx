@@ -95,7 +95,7 @@ function Palette({
                 onChange(colours.filter((_, i) => i !== index));
               }}
               className={cn(
-                "absolute grid place-items-center rounded-full bg-white text-typography-secondary shadow-[0_1px_3px_rgba(26,23,24,0.2)] opacity-0 transition-opacity group-hover:opacity-100 hover:text-typography-primary focus-visible:opacity-100",
+                "absolute grid place-items-center rounded-full bg-shell-panel text-typography-secondary shadow-[0_1px_3px_rgba(26,23,24,0.2)] opacity-0 transition-opacity group-hover:opacity-100 hover:text-typography-primary focus-visible:opacity-100",
                 large ? "-top-1.5 -right-1.5 size-5" : "-top-1 -right-1 size-4",
               )}
             >
@@ -108,7 +108,7 @@ function Palette({
         // Only the first blank on an empty palette says what to do; the rest show + on hover.
         const label = colours.length === 0 && i === 0 && large ? "Add a colour" : null;
         const blankClass = cn(
-          "group/blank grid place-items-center border border-dashed border-gray-3/40 font-bureau font-light text-typography-secondary",
+          "group/blank grid place-items-center border border-dashed border-shell-line-strong font-bureau font-light text-typography-secondary",
           large ? "h-12 flex-1 rounded-[10px] text-[11px]" : "size-6 rounded-full",
         );
         return onChange ? (
@@ -122,7 +122,7 @@ function Palette({
               stopFieldEvent(event);
               pick(-1, colours.at(-1) ?? "#b9b2a5");
             }}
-            className={cn(blankClass, "transition-colors hover:border-gray-3 hover:text-typography-primary active:scale-[0.96]")}
+            className={cn(blankClass, "transition-colors hover:border-shell-line-strong hover:text-typography-primary active:scale-[0.96]")}
           >
             {label ?? <Plus className="size-3.5 opacity-0 transition-opacity group-hover/blank:opacity-100" />}
           </button>
@@ -142,7 +142,7 @@ function Palette({
             pick(-1, colours.at(-1) ?? "#b9b2a5");
           }}
           className={cn(
-            "grid shrink-0 place-items-center border border-dashed border-gray-3/50 text-typography-secondary transition-colors hover:border-gray-3 hover:text-typography-primary",
+            "grid shrink-0 place-items-center border border-dashed border-shell-line-strong text-typography-secondary transition-colors hover:border-shell-line-strong hover:text-typography-primary",
             large ? "h-12 w-12 rounded-[10px]" : "size-6 rounded-full",
           )}
         >
@@ -199,7 +199,7 @@ function AddImages({ large, onAdd }: { large: boolean; onAdd: (images: Moodboard
       }}
       className={cn(
         "flex items-center gap-2 rounded-[12px] border border-dashed font-bureau text-typography-secondary transition-colors",
-        over ? "border-[#e956a1] bg-[#e956a1]/5" : "border-gray-3/40",
+        over ? "border-[#e956a1] bg-[#e956a1]/5" : "border-shell-line-strong",
         large ? "px-3 py-2 text-[13px]" : "px-2 py-1.5 text-[11px]",
       )}
     >
@@ -235,6 +235,7 @@ function AddImages({ large, onAdd }: { large: boolean; onAdd: (images: Moodboard
       <input
         ref={file}
         type="file"
+        aria-label="Add images"
         accept="image/*"
         multiple
         className="sr-only"

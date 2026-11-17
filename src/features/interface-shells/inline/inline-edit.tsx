@@ -44,7 +44,7 @@ export function InlineText({
       ref={ref}
       role="textbox"
       aria-multiline={multiline || undefined}
-      aria-label={placeholder}
+      aria-label={placeholder || "Edit text"}
       contentEditable="plaintext-only"
       suppressContentEditableWarning
       spellCheck={focused}
@@ -84,7 +84,7 @@ export function InlineToggle({
 }) {
   const classes = cn(
     "grid size-4 shrink-0 place-items-center rounded-full",
-    done ? "bg-green-5 text-white" : "border border-gray-3/50",
+    done ? "bg-green-5 text-white" : "border border-shell-control",
     className,
   );
   if (!onToggle) {
@@ -101,7 +101,7 @@ export function InlineToggle({
       aria-checked={done}
       aria-label={label}
       onClick={onToggle}
-      className={cn(classes, "cursor-pointer transition-transform active:scale-90", !done && "hover:border-gray-3")}
+      className={cn(classes, "cursor-pointer transition-transform active:scale-90", !done && "hover:border-typography-secondary")}
     >
       {done ? <Check className="size-2.5" strokeWidth={3} /> : children}
     </button>
@@ -118,7 +118,7 @@ export function InlineRemove({ label, onRemove }: { label: string; onRemove: () 
         event.stopPropagation();
         onRemove();
       }}
-      className="-mr-0.5 ml-1 grid size-3.5 cursor-pointer place-items-center rounded-full text-typography-secondary hover:bg-gray-3/20 hover:text-typography-primary"
+      className="-mr-0.5 ml-1 grid size-3.5 cursor-pointer place-items-center rounded-full text-typography-secondary hover:bg-shell-ink-faint hover:text-typography-primary"
     >
       <X className="size-2.5" />
     </button>

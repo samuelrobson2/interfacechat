@@ -13,3 +13,13 @@ export const accentOf = (index: number) => ACCENTS[((index % ACCENTS.length) + A
 export function ghostLabels(noun: string, count = 3) {
   return Array.from({ length: count }, (_, i) => `${noun} ${i + 1}`);
 }
+
+/**
+ * The placeholders left once suggestions take their places. In an empty list
+ * the placeholder rows are where suggestions go: each suggestion fills the
+ * next one, with its number, and only what's not suggested yet stays a
+ * placeholder ("Step 3"). Never placeholders and suggestions both, numbered twice.
+ */
+export function ghostsAfter(noun: string, suggested: number, count = 3) {
+  return ghostLabels(noun, Math.max(count, suggested)).slice(suggested);
+}

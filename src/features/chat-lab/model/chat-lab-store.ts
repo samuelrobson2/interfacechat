@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ChatShellKind, ShellDataByKind } from "@/features/interface-shells";
+import type { ChatShellKind, DocumentPieces, ShellDataByKind } from "@/features/interface-shells";
 import {
   addEntry,
   applyLayoutChange,
@@ -51,6 +51,8 @@ export type ChatLabArtefact = {
   added?: boolean;
   /** kind "shell": which interface it is, and its data. */
   shell?: ArtefactShell;
+  /** kind "document": the live pieces between its paragraphs (data, controls, charts), placed by `::id` lines in `content`. */
+  pieces?: DocumentPieces;
 };
 
 export type CreateSessionOptions = {
@@ -62,6 +64,8 @@ export type CreateSessionOptions = {
   replyFormat?: string;
   /** Chat from the home: who replies or what it uses, for the whole thread. */
   persona?: string;
+  /** From the home: the choices picked on the interface's card, as context for the first reply (the message stays as typed). */
+  brief?: string;
 };
 
 const ARTEFACT_FALLBACK_TITLE: Record<ChatLabArtefactKind, string> = {
@@ -98,6 +102,8 @@ export type ChatLabSession = {
   fromChatCard?: boolean;
   /** Who replies in this thread, or what it uses. */
   persona?: string;
+  /** Choices picked on the home card, sent as context with the first turn. */
+  brief?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -118,7 +124,7 @@ type ChatLabState = {
   resolveTitle: (id: string, title: string | null) => void;
   updateArtefact: (
     sessionId: string,
-    patch: Partial<Pick<ChatLabArtefact, "title" | "content" | "filters" | "shell">>,
+    patch: Partial<Pick<ChatLabArtefact, "title" | "content" | "filters" | "shell" | "pieces">>,
     artefactId?: string,
   ) => void;
   /** Open a new interface mid-thread (e.g. model chose one from retrieval). */
@@ -344,6 +350,7 @@ export const useChatLabStore = create<ChatLabState>()(
               ...(options?.fromChatCard ? { fromChatCard: true } : {}),
               ...(options?.replyFormat?.trim() ? { replyFormat: options.replyFormat.trim() } : {}),
               ...(options?.persona?.trim() ? { persona: options.persona.trim() } : {}),
+              ...(options?.brief?.trim() ? { brief: options.brief.trim() } : {}),
               createdAt: now,
               updatedAt: now,
             },
@@ -453,6 +460,7 @@ export const useChatLabStore = create<ChatLabState>()(
                             .filter(Boolean)
                         : (artefact.filters ?? []),
                     ...(patch.shell ? { shell: patch.shell } : {}),
+                    ...(patch.pieces ? { pieces: patch.pieces } : {}),
                   },
                 },
                 updatedAt: Date.now(),

@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/shared/lib/css";
+import { useHiddenParts, useShellVars } from "../design/shell-tokens";
 import { SHELL_META } from "../model/shell-meta";
 import type { ShellData, ShellKind } from "../model/shell-types";
 import { InlineMedium } from "./inline-medium";
@@ -17,7 +18,7 @@ function PinButton({ label, onPin, quiet }: { label: string; onPin: () => void; 
       aria-label={`Pin this ${label.toLowerCase()} beside the chat`}
       title="Pin beside the chat"
       className={cn(
-        "flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 font-bureau text-[12px] text-typography-secondary transition-opacity hover:bg-gray-6 hover:text-typography-primary",
+        "flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 font-bureau text-[12px] text-typography-secondary transition-opacity hover:bg-shell-fill hover:text-typography-primary",
         quiet && "opacity-0 group-hover/inline:opacity-100 focus-visible:opacity-100",
       )}
     >
@@ -56,8 +57,13 @@ export function InlineShell({
   className?: string;
 }) {
   const label = SHELL_META[kind].label;
+  const vars = useShellVars("inline");
+  const hide = useHiddenParts("inline");
   return (
     <div
+      style={vars}
+      data-shell-size="inline"
+      data-hide-parts={hide}
       role="group"
       aria-label={`${inlineTitle(kind, data)}, ${label}`}
       data-selected={selected || undefined}
@@ -66,9 +72,9 @@ export function InlineShell({
       onFocusCapture={onSelect}
       className={cn(
         // Same padding either way, so selecting never changes its size.
-        "group/inline rounded-[18px] px-6 py-3 outline-none",
+        "group/inline rounded-[var(--shell-frame-radius,18px)] px-[var(--shell-layout-edge,24px)] py-3 outline-none",
         "transition-[background-color,box-shadow] duration-200 ease-out",
-        "hairline [--hairline-radius:18px] [--hairline-color:var(--color-gray-3)]",
+        "hairline [--hairline-radius:var(--shell-frame-radius,18px)] [--hairline-color:var(--color-gray-3)]",
         selected
           ? "bg-background-primary shadow-[0_1px_3px_rgba(26,23,24,0.04),0_8px_24px_rgba(26,23,24,0.05)] [--hairline-opacity:0.3]"
           : "[--hairline-opacity:0]",

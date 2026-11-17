@@ -51,8 +51,10 @@ const SCHEMAS = {
         .describe("Real, well-known domains worth searching first, e.g. nature.com"),
     }),
   }),
+  // No text: a table has a title and its columns, not a line about what one row is.
   table: z.object({
-    ...base,
+    title: base.title,
+    project: base.project,
     details: z.object({
       columns: z
         .array(
@@ -80,8 +82,7 @@ queries the search would actually run, each a different wording or angle of the
 same question. These are searches, not results, titles, or descriptions.
 details.filters: chips that narrow the search. details.sources: real domains to
 look at first.`,
-  table: `This is a Table interface. title: the table's name. text: what one row is
-("One row per ..."). details.columns: the columns in order, the first one naming
+  table: `This is a Table interface. title: the table's name. details.columns: the columns in order, the first one naming
 each row. details.rowCount: how many rows it will likely have.`,
 };
 

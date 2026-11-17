@@ -206,7 +206,7 @@ function ShellRow({
           onClick={onReset}
           title="Reset content"
           aria-label={`Reset ${SHELL_META[kind].label} content`}
-          className="ml-auto grid size-7 place-items-center rounded-full text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary active:scale-[0.95]"
+          className="ml-auto grid size-7 place-items-center rounded-full text-typography-secondary transition-colors hover:bg-shell-fill hover:text-typography-primary active:scale-[0.95]"
         >
           <RotateCcw className="size-3.5" />
         </button>
@@ -214,7 +214,7 @@ function ShellRow({
 
       <motion.div
         ref={stageRef}
-        className="relative flex items-center justify-center overflow-hidden rounded-[22px] bg-gray-6"
+        className="relative flex items-center justify-center overflow-hidden rounded-[22px] bg-shell-fill"
         style={{
           backgroundImage:
             "radial-gradient(circle at 1px 1px, rgba(26,23,24,0.07) 1px, transparent 0)",
@@ -255,7 +255,7 @@ function ShellRow({
   return (
     <section
       aria-label={SHELL_META[kind].label}
-      className={cn(ROW_GRID, "border-t border-gray-3/20 py-8 first:border-t-0")}
+      className={cn(ROW_GRID, "border-t border-shell-line py-8 first:border-t-0")}
     >
       {interfaceCell}
       <PartsCell kind={kind} parts={shellParts(kind)} data={shellData} />
@@ -301,7 +301,7 @@ function LibraryToolbar({
     </div>
   );
   return (
-    <div className="sticky top-0 z-20 -mx-6 border-b border-gray-3/20 bg-background-primary/90 px-6 py-3 backdrop-blur-md md:-mr-10 md:-ml-24 md:pr-10 md:pl-24">
+    <div className="sticky top-0 z-20 -mx-6 border-b border-shell-line bg-background-primary/90 px-6 py-3 backdrop-blur-md md:-mr-10 md:-ml-24 md:pr-10 md:pl-24">
       <div className={cn(ROW_GRID, "items-center gap-y-2")}>
         {controls}
         {COLUMNS.slice(1).map((column) => (

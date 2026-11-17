@@ -1,4 +1,5 @@
-import type { ArticleShellData, DashboardShellData } from "../apps/app-types";
+import SHELL_TOKEN_FILE from "../design/shell-tokens.json";
+import type { AppBlock, DashboardShellData, Dataset, Variable } from "../apps/app-types";
 /** Every interface in the library. */
 export const SHELL_KINDS = [
   "chat",
@@ -15,7 +16,6 @@ export const SHELL_KINDS = [
   "guide",
   "generator",
   "dashboard",
-  "article",
 ] as const;
 export type ShellKind = (typeof SHELL_KINDS)[number];
 
@@ -45,11 +45,20 @@ export const SHELL_STATES = ["empty", "suggestion", "history"] as const;
 export type ShellState = (typeof SHELL_STATES)[number];
 
 /** Natural footprint per size; large is fluid wherever it docks. */
+/**
+ * Each size's card, from the design system's tokens (`frame.width` and
+ * `frame.height` in shell-tokens.json), so resizing a card on the Design
+ * System page and saving it resizes it everywhere. Small is the 64px tile.
+ */
+const frameSize = (size: "medium" | "medium-plus" | "large") => ({
+  width: Number.parseFloat(SHELL_TOKEN_FILE.shell[size].frame.width.$value),
+  height: Number.parseFloat(SHELL_TOKEN_FILE.shell[size].frame.height.$value),
+});
 export const SHELL_DIMENSIONS: Record<ShellSize, { width: number; height: number }> = {
   small: { width: 64, height: 64 },
-  medium: { width: 148, height: 148 },
-  "medium-plus": { width: 280, height: 280 },
-  large: { width: 760, height: 540 },
+  medium: frameSize("medium"),
+  "medium-plus": frameSize("medium-plus"),
+  large: frameSize("large"),
 };
 
 /**
@@ -69,6 +78,14 @@ export type DocumentShellData = ProjectSlot & {
   length?: string;
   /** Slots the model left for the person instead of making something up, by key. */
   blanks?: Record<string, DocBlank>;
+  /**
+   * Live pieces between the prose (what Article was): the data they read, the
+   * variables controls set, and the blocks themselves (stats, charts, tables,
+   * controls, code). A `::id` line in the body places a block.
+   */
+  datasets?: Dataset[];
+  variables?: Variable[];
+  blocks?: AppBlock[];
 };
 
 /**
@@ -129,8 +146,6 @@ export type TableRow = {
 
 export type TableShellData = ProjectSlot & {
   title: string;
-  /** What one row is, e.g. "One row per shot, in shooting order." */
-  description?: string;
   columns: TableColumn[];
   rows: TableRow[];
   /** Rows expected before they arrive. */
@@ -438,7 +453,6 @@ export type ShellDataByKind = {
   guide: GuideShellData;
   generator: GeneratorShellData;
   dashboard: DashboardShellData;
-  article: ArticleShellData;
 };
 
 export type ShellData = ShellDataByKind[ShellKind];
@@ -465,14 +479,14 @@ export type ShellProps<D> = {
   /** Host controls at the end of the large shell's toolbar (pin, close…). */
   actions?: React.ReactNode;
   /**
-   * Large only: tools generated for what's in the interface now, drawn by the
-   * host in the toolbar after the interface's own standard tools.
+   * Medium plus and large: tools generated for what's in the interface now,
+   * drawn by the host in the toolbar after the interface's own standard tools.
    */
   tools?: React.ReactNode;
   /**
-   * Large only: generated tools that belong beside part of the interface
-   * rather than in the toolbar, such as suggested filters in Search's filter
-   * row. Each interface draws the places it has; see SUGGESTION_PLACES.
+   * Medium plus and large: generated tools that belong beside part of the
+   * interface rather than in the toolbar, such as Document's Length by its
+   * word count. Each interface draws the places it has; see SUGGESTION_PLACES.
    */
   suggestions?: ShellSuggestions;
   /**
@@ -489,16 +503,24 @@ export type ShellProps<D> = {
 /**
  * Groups of values an interface can show suggestions in: Search's and Map's
  * filters, Generator's tones, styles and lengths, Schedule's constraints,
- * a Table's columns, a Tracker's items, a Moodboard canvas's notes.
+ * a Table's columns, a Tracker's items, a Moodboard canvas's notes, and text
+ * offered in place: a Document's next sentences, a Guide's next steps, a
+ * Schedule's next lines.
  */
-export const SUGGESTED_GROUPS = ["filters", "tones", "styles", "lengths", "constraints", "columns", "items", "notes"] as const;
+export const SUGGESTED_GROUPS = ["filters", "tones", "styles", "lengths", "constraints", "columns", "items", "notes", "text", "steps", "tasks", "serves", "time"] as const;
 export type SuggestedGroup = (typeof SUGGESTED_GROUPS)[number];
-export type SuggestedValues = Partial<Record<SuggestedGroup, string[]>>;
+/**
+ * One suggestion. Plain words go at the end of their list; a suggestion can
+ * also say where it belongs inside the content: after an existing item (by
+ * its words: an item, a step, a task, a paragraph's opening) and in a group
+ * (a checklist's section). It's drawn there, among the real ones.
+ */
+export type Suggestion = string | { value: string; after?: string; group?: string };
+export type SuggestedValues = Partial<Record<SuggestedGroup, Suggestion[]>>;
 
 /**
  * Where a suggested tool sits: the toolbar, or inside a row the interface
  * already has, beside what it acts on. It never gets a row of its own.
- * - footer: by Document's word count.
  * - days: by Schedule's day settings.
  * - prompt: in Generator's prompt box, by the references.
  * - board: floating on a Diagram's or Moodboard's canvas.
@@ -506,7 +528,7 @@ export type SuggestedValues = Partial<Record<SuggestedGroup, string[]>>;
  * SuggestedValues, drawn among the real ones.
  */
 /** Where a suggestion can sit. `brief` is the medium plus card's body: what a request typed on the chat home leaves open. */
-export const SUGGESTION_PLACES = ["toolbar", "footer", "days", "prompt", "board", "brief"] as const;
+export const SUGGESTION_PLACES = ["toolbar", "days", "prompt", "board", "brief"] as const;
 export type SuggestionPlace = (typeof SUGGESTION_PLACES)[number];
 export type ShellSuggestions = Partial<Record<Exclude<SuggestionPlace, "toolbar">, React.ReactNode>>;
 

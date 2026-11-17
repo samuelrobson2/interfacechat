@@ -87,7 +87,11 @@ function useArtefactView(sessionId: string, artefact: ChatLabArtefact): Artefact
       status,
       onChange: (next) => {
         const doc = next as ReturnType<typeof artefactDocument>;
-        updateArtefact(sessionId, { title: doc.title, content: doc.body }, artefact.id);
+        const pieces =
+          doc.datasets || doc.variables || doc.blocks
+            ? { datasets: doc.datasets ?? [], variables: doc.variables ?? [], blocks: doc.blocks ?? [] }
+            : undefined;
+        updateArtefact(sessionId, { title: doc.title, content: doc.body, ...(pieces ? { pieces } : {}) }, artefact.id);
       },
       onAsk,
     };

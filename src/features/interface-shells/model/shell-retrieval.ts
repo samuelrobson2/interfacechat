@@ -70,7 +70,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
   },
   document: {
     description:
-      "Create or edit a piece of writing: a paper, essay, report, memo or email, drafted in place and revised through direct edits. Choose this when the person wants new writing produced, with a title, a structure and a target length.",
+      "Create or edit a piece of writing: a paper, essay, report, memo or email, drafted in place and revised through direct edits. It can carry live stats, charts, tables, controls and code between the paragraphs: a data story or an explorable explanation where moving a slider changes the charts and the numbers in the text. Choose this when the person wants new writing produced, with or without data in it.",
     notFor:
       "Understanding or finding something in a document they already have (use Reader), looking things up (use Search), or rows and columns (use Table).",
     queries: [
@@ -78,12 +78,16 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Draft a memo about the hiring plan",
       "Compose an essay on what cools a city street",
       "Write an email to the location manager confirming the dates",
+      "Write an interactive article on why some streets run hotter, with a slider for tree cover",
+      "Make a data story about our sales year with charts",
+      "Explain compound interest with a calculator readers can play with",
+      "An explorable explanation of how vaccines reach herd immunity",
+      "Write a blog post with live charts of the survey results",
     ],
     avoidQueries: [
       "Find sources on urban heat islands",
       "Explain this paper to me",
       "Make a table of essay topics with due dates",
-      "Write an interactive article with a slider",
     ],
     triggers: [
       "document",
@@ -99,6 +103,15 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "report",
       "memo",
       "article",
+      "interactive article",
+      "data story",
+      "explorable",
+      "explorable explanation",
+      "interactive essay",
+      "article with charts",
+      "post with charts",
+      "live charts",
+      "readers can play",
       "brief",
       "email",
       "write",
@@ -812,38 +825,6 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "visualize my data",
     ],
     hints: ["revenue", "sales", "conversion", "churn", "traffic", "by month", "by region", "csv", "spreadsheet", "filter", "forecast"],
-  },
-  article: {
-    description:
-      "A piece to read top to bottom with live charts, controls and runnable code between the prose: a data story or an explorable explanation where moving a slider changes the charts and the numbers in the text. Choose this when the person wants writing that lets readers explore data or a model, not just read about it.",
-    notFor:
-      "Plain writing without data or interaction (use Document), or figures to monitor at a glance (use Dashboard).",
-    queries: [
-      "Write an interactive article on why some streets run hotter, with a slider for tree cover",
-      "Make a data story about our sales year with charts",
-      "Explain compound interest with a calculator readers can play with",
-      "An explorable explanation of how vaccines reach herd immunity",
-      "Write a blog post with live charts of the survey results",
-    ],
-    avoidQueries: [
-      "Write an article about remote work",
-      "Build a dashboard of our café sales",
-      "Write a memo about the hiring plan",
-    ],
-    triggers: [
-      "interactive article",
-      "data story",
-      "explorable",
-      "explorable explanation",
-      "interactive essay",
-      "article with charts",
-      "post with charts",
-      "live charts",
-      "readers can play",
-      "with a slider",
-      "with a calculator",
-    ],
-    hints: ["chart", "charts", "slider", "simulate", "simulation", "model", "what if", "explain", "data"],
   },
   generator: {
     description:

@@ -50,7 +50,7 @@ function Dot({ size, ghost, colour = LIME }: { size: "xs" | "sm" | "md"; ghost?:
       className={cn(
         "block shrink-0 rounded-full border-2",
         size === "md" ? "size-4" : size === "sm" ? "size-3" : "size-2 border",
-        ghost ? "border-dashed border-gray-3/60 bg-white" : "border-white",
+        ghost ? "border-dashed border-shell-line-strong bg-shell-panel" : "border-white",
       )}
       style={ghost ? undefined : { backgroundColor: colour, boxShadow: `0 0 0 1px ${colour}` }}
     />
@@ -83,7 +83,7 @@ export function TimelineShell({
         {/* Shapes, not words: a line with stops, and small event cards above and below it. */}
         <PreviewBody className="justify-center">
           <div className="relative mx-1 h-[78px]">
-            <span className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-gray-3/30" />
+            <span className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-shell-ink-soft" />
             {(ghost ? [0.06, 0.36, 0.64, 0.94] : at).map((x, i) => {
               const above = i % 2 === 0;
               return (
@@ -96,9 +96,9 @@ export function TimelineShell({
                     className="size-2.5 shrink-0 rounded-full ring-2 ring-white"
                     style={{ backgroundColor: ghost ? "color-mix(in srgb, var(--color-gray-3) 50%, transparent)" : LIME }}
                   />
-                  <span className="h-1.5 w-px bg-gray-3/40" />
-                  <span className="flex w-full flex-col gap-[3px] rounded-[4px] bg-gray-6 px-1.5 py-1.5">
-                    <Bar width="70%" className="h-1 bg-gray-3/35" />
+                  <span className="h-1.5 w-px bg-shell-ink-soft" />
+                  <span className="flex w-full flex-col gap-[3px] rounded-[4px] bg-shell-fill px-1.5 py-1.5">
+                    <Bar width="70%" className="h-1 bg-shell-ink-soft" />
                     <Bar width="100%" className="h-1" />
                   </span>
                 </span>
@@ -143,7 +143,7 @@ export function TimelineShell({
         <ShellTitle kind="chart" size={size} value={data.title} onChange={update && ((title) => update({ title }))} onSubmit={onSubmit} />
         <ShellBody size={size} className="gap-2">
           <ol className="relative flex flex-col gap-1.5 pl-1">
-            <span className="absolute top-1.5 bottom-1.5 left-[9px] w-0.5 rounded-full bg-gray-3/25" />
+            <li aria-hidden className="absolute top-1.5 bottom-1.5 left-[9px] w-0.5 list-none rounded-full bg-shell-ink-faint" />
             {ghost ? (
               // Empty: one stop that invites the first event, and adds it when editable.
               <li className="relative flex items-center gap-2.5">
@@ -230,7 +230,7 @@ export function TimelineShell({
           setSelected(null);
         }}
       >
-        <span className="absolute inset-x-0 h-1 -translate-y-1/2 rounded-full bg-gray-3/25" style={{ top: mid }} />
+        <span className="absolute inset-x-0 h-1 -translate-y-1/2 rounded-full bg-shell-ink-faint" style={{ top: mid }} />
         {ghost &&
           GHOST_STOPS.map((label, i) => (
             <div key={i} className="absolute flex -translate-x-1/2 -translate-y-2 flex-col items-center gap-2" style={{ left: `${15 + i * 35}%`, top: mid }}>
@@ -255,9 +255,9 @@ export function TimelineShell({
               style={{ left: xOf(i), width: CARD_WIDTH, ...(above ? { bottom: SCENE_HEIGHT - mid } : { top: mid }) }}
             >
               <Dot size="md" colour={colour} />
-              <span className="h-5 w-px bg-gray-3/40" />
+              <span className="h-5 w-px bg-shell-ink-soft" />
               <div
-                className={cn("relative flex w-full flex-col gap-0.5 rounded-[12px] bg-gray-6 px-3 py-2", isSel && "ring-2 ring-blue-4")}
+                className={cn("relative flex w-full flex-col gap-0.5 rounded-[12px] bg-shell-fill px-3 py-2", isSel && "ring-2 ring-blue-4")}
                 style={colour ? { backgroundColor: tint(colour, 14), ...(isSel ? { ["--tw-ring-color" as string]: colour } : {}) } : undefined}
               >
                 <InlineInput value={event.date} placeholder="Year" label="Date" size={4} onChange={update && ((date) => set({ ...event, date }))} className="px-0.5 text-[13px] tabular-nums" />

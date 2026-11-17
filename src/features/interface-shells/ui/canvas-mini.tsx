@@ -26,7 +26,7 @@ function MiniItem({ item, ghost }: { item: MoodboardItem; ghost: boolean }) {
   if (ghost) {
     return (
       <span
-        className={cn("absolute rounded-[18px]", item.kind === "note" ? "bg-orange-5/20" : item.kind === "colour" ? "bg-gray-3/30" : "bg-gray-3/15")}
+        className={cn("absolute rounded-[18px]", item.kind === "note" ? "bg-orange-5/20" : item.kind === "colour" ? "bg-shell-ink-soft" : "bg-shell-ink-faint")}
         style={box}
       />
     );
@@ -34,23 +34,23 @@ function MiniItem({ item, ghost }: { item: MoodboardItem; ghost: boolean }) {
   switch (item.kind) {
     case "image":
       return item.src ? (
-        <img src={item.src} alt="" draggable={false} className="absolute rounded-[18px] bg-gray-6 object-cover" style={box} />
+        <img src={item.src} alt="" draggable={false} className="absolute rounded-[18px] bg-shell-fill object-cover" style={box} />
       ) : (
-        <span className="absolute rounded-[18px] bg-gray-6" style={box} />
+        <span className="absolute rounded-[18px] bg-shell-fill" style={box} />
       );
     case "drawing":
       return (
-        <span className="absolute overflow-hidden rounded-[18px] bg-white p-3 shadow-[0_2px_8px_rgba(26,23,24,0.1)]" style={box}>
+        <span className="absolute overflow-hidden rounded-[18px] bg-shell-panel p-3 shadow-[0_2px_8px_rgba(26,23,24,0.1)]" style={box}>
           {item.code && <img src={svgUrl(item.code)} alt="" draggable={false} className="size-full object-contain" />}
         </span>
       );
     case "component":
       // Shapes, not a live frame: a card with a heading line, two text lines and a button.
       return (
-        <span className="absolute flex flex-col gap-4 rounded-[18px] bg-white p-6 shadow-[0_2px_8px_rgba(26,23,24,0.1)]" style={box}>
-          <span className="h-5 w-1/2 rounded-full bg-gray-3/35" />
-          <span className="h-3.5 w-5/6 rounded-full bg-gray-3/20" />
-          <span className="h-3.5 w-2/3 rounded-full bg-gray-3/20" />
+        <span className="absolute flex flex-col gap-4 rounded-[18px] bg-shell-panel p-6 shadow-[0_2px_8px_rgba(26,23,24,0.1)]" style={box}>
+          <span className="h-5 w-1/2 rounded-full bg-shell-ink-soft" />
+          <span className="h-3.5 w-5/6 rounded-full bg-shell-ink-faint" />
+          <span className="h-3.5 w-2/3 rounded-full bg-shell-ink-faint" />
           <span className="mt-auto h-10 w-2/5 rounded-full bg-gray-5/80" />
         </span>
       );

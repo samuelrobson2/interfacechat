@@ -1,8 +1,5 @@
 import {
   Bold,
-  Code,
-  Copy,
-  Download,
   Heading,
   Heading1,
   Heading2,
@@ -11,9 +8,7 @@ import {
   List,
   ListOrdered,
   Pilcrow,
-  Quote,
-  RemoveFormatting,
-  Strikethrough,
+  Plus,
 } from "lucide-react";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
@@ -24,20 +19,21 @@ import {
   numberedIndices,
   parseBlocks,
   parseInline,
-  resolveBlanks,
-  plainInline,
+  plainText,
   renderedToRawOffset,
   serializeBlocks,
   type BlockType,
   type DocBlock,
 } from "../model/markdown-blocks";
-import type { DocumentShellData, ShellStatus, ShellSuggestions } from "../model/shell-types";
-import { SHELL_TITLE_LARGE } from "../ui/shell-kit";
+import type { DocumentShellData, ShellStatus, ShellSuggestions, Suggestion } from "../model/shell-types";
+import { CONTENT_PANEL, SHELL_BODY_BOX, SHELL_TITLE_ROW } from "../ui/shell-kit";
 import { DocBlankSlot } from "./doc-blank";
+import { placedSuggestions, SuggestedText, suggestionsAfter, type PlacedSuggestion } from "../ui/suggested-chip";
+import { DocumentEmbed, documentApp, INSERT_KINDS, newEmbed, type InsertKind } from "./document-embeds";
+import { useAppRuntime } from "../apps/use-app-runtime";
+import { displayValue } from "../apps/app-query";
+import type { AppBlock } from "../apps/app-types";
 import {
-  copyText,
-  downloadText,
-  fileNameOf,
   ShellToolbar,
   ShellToolButton,
   ShellToolDivider,
@@ -63,6 +59,7 @@ const BLOCK_TEXT: Record<EditorDensity, Record<BlockType, string>> = {
     bullet: "text-[15px] leading-[1.65]",
     numbered: "text-[15px] leading-[1.65]",
     quote: "text-[15px] leading-[1.65] text-typography-secondary",
+    embed: "",
   },
   compact: {
     paragraph: "text-[12px] leading-[1.5]",
@@ -71,6 +68,7 @@ const BLOCK_TEXT: Record<EditorDensity, Record<BlockType, string>> = {
     bullet: "text-[12px] leading-[1.5]",
     numbered: "text-[12px] leading-[1.5]",
     quote: "text-[12px] leading-[1.5] text-typography-secondary",
+    embed: "",
   },
 };
 
@@ -82,6 +80,7 @@ const BLOCK_GAP: Record<EditorDensity, Record<BlockType, string>> = {
     bullet: "mt-1",
     numbered: "mt-1",
     quote: "mt-4",
+    embed: "mt-5",
   },
   compact: {
     paragraph: "mt-1.5",
@@ -90,6 +89,7 @@ const BLOCK_GAP: Record<EditorDensity, Record<BlockType, string>> = {
     bullet: "mt-0.5",
     numbered: "mt-0.5",
     quote: "mt-1.5",
+    embed: "mt-2",
   },
 };
 
@@ -100,6 +100,7 @@ const BLOCK_PLACEHOLDER: Record<BlockType, string> = {
   bullet: "List item",
   numbered: "List item",
   quote: "Quote",
+  embed: "",
 };
 
 const isList = (type: BlockType) => type === "bullet" || type === "numbered";
@@ -108,17 +109,28 @@ function InlineText({
   text,
   blanks,
   onFill,
+  live,
 }: {
   text: string;
   blanks?: DocumentShellData["blanks"];
   /** Given when the document is editable: fills a blank by key. */
   onFill?: (key: string, value: string) => void;
+  /** A control's current value, for a `{{id}}` that names one of the document's variables: the sentence moves with it. */
+  live?: (key: string) => string | undefined;
 }) {
   return (
     <>
       {parseInline(text).map((segment, i) => {
         if (segment.blank !== undefined) {
           const key = segment.blank;
+          const value = blanks?.[key] ? undefined : live?.(key);
+          if (value !== undefined) {
+            return (
+              <span key={i} className="font-normal text-blue-5 tabular-nums">
+                {value}
+              </span>
+            );
+          }
           return (
             <DocBlankSlot
               key={i}
@@ -139,7 +151,7 @@ function InlineText({
         if (segment.strike) return <s key={i}>{segment.text}</s>;
         if (segment.code) {
           return (
-            <code key={i} className="rounded-[4px] bg-gray-6 px-1 font-bureau text-[0.95em] font-normal">
+            <code key={i} className="rounded-[4px] bg-shell-fill px-1 font-bureau text-[0.95em] font-normal">
               {segment.text}
             </code>
           );
@@ -195,14 +207,14 @@ function ToolbarButton({
   label,
   active,
   disabled,
-  density,
   onPress,
   children,
 }: {
   label: string;
   active?: boolean;
   disabled?: boolean;
-  density: EditorDensity;
+  /** Kept for callers; the size now comes from the toolbar tokens for the size it's drawn at. */
+  density?: EditorDensity;
   onPress: () => void;
   children: React.ReactNode;
 }) {
@@ -225,10 +237,11 @@ function ToolbarButton({
       }}
       className={cn(
         "flex shrink-0 items-center justify-center text-typography-secondary transition-colors",
-        "hover:bg-gray-6 hover:text-typography-primary active:scale-[0.97]",
+        "hover:bg-shell-fill hover:text-typography-primary active:scale-[0.97]",
         "disabled:pointer-events-none disabled:opacity-40",
-        density === "compact" ? "size-6 rounded-[6px] [&_svg]:size-3.5" : "size-8 rounded-[8px] [&_svg]:size-4",
-        active && "bg-gray-6 text-typography-primary",
+        // Sized by the toolbar tokens, like every standard tool.
+        "size-[calc(var(--shell-tools-icon,16px)+16px)] rounded-[8px] [&_svg]:size-[var(--shell-tools-icon,16px)]",
+        active && "bg-shell-fill text-typography-primary",
       )}
     >
       {children}
@@ -239,7 +252,7 @@ function ToolbarButton({
 const Divider = ({ density }: { density: EditorDensity }) => (
   <span
     aria-hidden
-    className={cn("mx-1 w-px shrink-0 bg-gray-3/25", density === "compact" ? "h-3" : "h-4")}
+    className={cn("mx-1 w-px shrink-0 bg-shell-ink-faint", density === "compact" ? "h-3" : "h-4")}
   />
 );
 
@@ -287,9 +300,12 @@ export function DocumentEditor({
   actions,
   tools,
   suggestions,
+  suggestedText,
   lengthGuess,
   className,
 }: {
+  /** Sentences the model offers to add, drawn in the suggestion colour after the writing; a click adds one. */
+  suggestedText?: Suggestion[];
   /** Medium plus: the model's guess for the length, shown in the length field. */
   lengthGuess?: string;
   data: DocumentShellData;
@@ -342,11 +358,38 @@ export function DocumentEditor({
     bumpFocus();
   };
 
-  const commit = (next: DocBlock[]) => {
+  const commit = (next: DocBlock[], patch?: Partial<DocumentShellData>) => {
     const body = serializeBlocks(next);
     setSyncedBody(body);
     setBlocks(next);
-    onChange?.({ ...data, body });
+    onChange?.({ ...data, ...patch, body });
+  };
+
+  // The live pieces: their data, the values controls set, and the rows code emits.
+  const app = documentApp(data);
+  const runtime = useAppRuntime(app);
+  const liveValue = (key: string) => {
+    const variable = data.variables?.find((v) => v.id === key);
+    return variable ? displayValue(variable, runtime.values[key]) : undefined;
+  };
+  const setEmbed = (next: AppBlock) =>
+    onChange?.({ ...data, blocks: (data.blocks ?? []).map((block) => (block.id === next.id ? next : block)) });
+  /** Insert a stat, chart or table after the block being edited (or at the end), over the first dataset. */
+  const insertEmbed = (kind: InsertKind) => {
+    const block = newEmbed(kind, data);
+    if (!block) return;
+    const at = blocks.findIndex((entry) => entry.id === targetId());
+    const index = at === -1 ? blocks.length : at + 1;
+    const line = newBlock("embed", block.id);
+    commit([...blocks.slice(0, index), line, ...blocks.slice(index)], { blocks: [...(data.blocks ?? []), block] });
+  };
+  /** Take a piece out: its line goes, and the block with it unless it's placed elsewhere too. */
+  const removeEmbed = (index: number) => {
+    const line = blocks[index];
+    if (!line) return;
+    const rest = blocks.filter((_, i) => i !== index);
+    const stillUsed = rest.some((entry) => entry.type === "embed" && entry.text === line.text);
+    commit(rest.length ? rest : [newBlock()], stillUsed ? undefined : { blocks: (data.blocks ?? []).filter((block) => block.id !== line.text) });
   };
 
   const replaceBlock = (id: string, block: DocBlock) =>
@@ -413,16 +456,7 @@ export function DocumentEditor({
     focusBlock(block.id, start + 1, start + 1 + words.length);
   };
 
-  /** Docs' Clear formatting: the block keeps its style, its words lose bold, links and the rest. */
-  const clearFormatting = () => {
-    const at = target();
-    if (!at) return;
-    replaceBlock(at.block.id, { ...at.block, text: plainInline(at.block.text) });
-    focusBlock(at.block.id, 0);
-  };
 
-  const asMarkdown = () =>
-    [data.title.trim() && `# ${data.title.trim()}`, resolveBlanks(serializeBlocks(blocks), data.blanks)].filter(Boolean).join("\n\n");
   const fillBlank = (key: string, value: string) => {
     const blank = data.blanks?.[key];
     if (!blank || !onChange) return;
@@ -497,6 +531,16 @@ export function DocumentEditor({
         return;
       }
       const previous = blocks[index - 1];
+      if (previous?.type === "embed") {
+        // Text never merges into a live piece: an empty line just goes.
+        event.preventDefault();
+        if (!value) {
+          commit(blocks.filter((_, i) => i !== index));
+          const before = [...blocks.slice(0, index - 1)].reverse().find((entry) => entry.type !== "embed");
+          if (before) focusBlock(before.id, before.text.length);
+        }
+        return;
+      }
       if (previous) {
         event.preventDefault();
         commit([
@@ -510,7 +554,7 @@ export function DocumentEditor({
     }
 
     if (event.key === "ArrowUp" && start === 0 && end === 0) {
-      const previous = blocks[index - 1];
+      const previous = [...blocks.slice(0, index)].reverse().find((entry) => entry.type !== "embed");
       if (previous) {
         event.preventDefault();
         focusBlock(previous.id, previous.text.length);
@@ -521,7 +565,7 @@ export function DocumentEditor({
       return;
     }
     if (event.key === "ArrowDown" && start === value.length && end === value.length) {
-      const next = blocks[index + 1];
+      const next = blocks.slice(index + 1).find((entry) => entry.type !== "embed");
       if (next) {
         event.preventDefault();
         focusBlock(next.id, 0);
@@ -640,19 +684,33 @@ export function DocumentEditor({
           >
             <ListOrdered />
           </ToolbarButton>
-          <ToolbarButton
-            label="Quote"
-            density={density}
-            disabled={!editable}
-            active={focusedBlock?.type === "quote"}
-            onPress={() => setType("quote")}
-          >
-            <Quote />
-          </ToolbarButton>
         </>
       )}
     </>
   );
+  // Live pieces (what Article was): put a stat, chart or table where you're writing, from the document's data.
+  const hasData = (data.datasets?.length ?? 0) > 0;
+  const pieceTools = (
+    <>
+      <ShellToolMenu
+        label="Insert a stat, chart or table"
+        icon={<Plus />}
+        disabled={!editable}
+        items={[
+          // Data comes in through the chat (ask for a chart of something); the toolbar only places it.
+          ...(hasData ? [] : [{ heading: "Ask in the chat for the data first", id: "hint" }]),
+          ...INSERT_KINDS.map(({ kind, label, icon: Icon }) => ({
+            id: kind,
+            label,
+            icon: <Icon />,
+            disabled: !hasData,
+            onSelect: () => insertEmbed(kind),
+          })),
+        ]}
+      />
+    </>
+  );
+
   // Large follows Google Docs: style, inline formatting, link, lists, then copy and download.
   const STYLE_LABEL: Record<BlockType, string> = {
     paragraph: "Normal text",
@@ -661,6 +719,7 @@ export function DocumentEditor({
     bullet: "Normal text",
     numbered: "Normal text",
     quote: "Normal text",
+    embed: "Normal text",
   };
   const style = focusedBlock ? STYLE_LABEL[focusedBlock.type] : "Normal text";
   const largeTools = (
@@ -682,12 +741,6 @@ export function DocumentEditor({
       <ShellToolButton label="Italic (⌘I)" disabled={!editable} onPress={() => wrapSelection("*")}>
         <Italic />
       </ShellToolButton>
-      <ShellToolButton label="Strikethrough (⌘⇧X)" disabled={!editable} onPress={() => wrapSelection("~~")}>
-        <Strikethrough />
-      </ShellToolButton>
-      <ShellToolButton label="Inline code" disabled={!editable} onPress={() => wrapSelection("`")}>
-        <Code />
-      </ShellToolButton>
       <ShellToolPopover label="Insert link" icon={<Link2 />} disabled={!editable}>
         {(close) => (
           <ShellToolField
@@ -700,9 +753,6 @@ export function DocumentEditor({
           />
         )}
       </ShellToolPopover>
-      <ShellToolButton label="Clear formatting" disabled={!editable} onPress={clearFormatting}>
-        <RemoveFormatting />
-      </ShellToolButton>
       <ShellToolDivider />
       <ShellToolButton label="Bulleted list" disabled={!editable} active={focusedBlock?.type === "bullet"} onPress={() => setType("bullet")}>
         <List />
@@ -710,35 +760,40 @@ export function DocumentEditor({
       <ShellToolButton label="Numbered list" disabled={!editable} active={focusedBlock?.type === "numbered"} onPress={() => setType("numbered")}>
         <ListOrdered />
       </ShellToolButton>
-      <ShellToolButton label="Quote" disabled={!editable} active={focusedBlock?.type === "quote"} onPress={() => setType("quote")}>
-        <Quote />
-      </ShellToolButton>
       <ShellToolDivider />
-      <ShellToolButton label="Copy as Markdown" disabled={!words && !data.title} onPress={() => copyText(asMarkdown())}>
-        <Copy />
-      </ShellToolButton>
-      <ShellToolButton
-        label="Download (.md)"
-        disabled={!words && !data.title}
-        onPress={() => downloadText(`${fileNameOf(data.title, "document")}.md`, asMarkdown(), "text/markdown")}
-      >
-        <Download />
-      </ShellToolButton>
+      {pieceTools}
     </>
   );
 
-  const toolbar = compact ? (
-    <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-gray-3/15 bg-white/80 px-2">
-      {formatButtons}
-      {actions && <div className="ml-auto flex items-center gap-1">{actions}</div>}
-    </div>
-  ) : (
+  // The same toolbar at every editable size, sized by the tokens: formatting on the card, everything at large.
+  const toolbar = (
     <ShellToolbar tools={tools} actions={actions}>
-      {largeTools}
+      {compact ? (
+        <>
+          {formatButtons}
+          <ShellToolDivider />
+          {pieceTools}
+        </>
+      ) : (
+        largeTools
+      )}
     </ShellToolbar>
   );
 
   const renderBlock = (block: DocBlock, index: number) => {
+    if (block.type === "embed") {
+      return (
+        <DocumentEmbed
+          key={block.id}
+          id={block.text}
+          data={data}
+          runtime={runtime}
+          compact={compact}
+          onChange={editable ? setEmbed : undefined}
+          onRemove={editable ? () => removeEmbed(index) : undefined}
+        />
+      );
+    }
     const focused = editable && block.id === focusedId;
     const textClass = cn(
       "font-bureau font-light text-typography-primary break-words",
@@ -753,10 +808,12 @@ export function DocumentEditor({
     return (
       <div
         key={block.id}
+        // Prose keeps the document's own type scale; the type ramp leaves it alone.
+        data-prose
         className={cn(
           "flex first:mt-0",
           BLOCK_GAP[density][block.type],
-          block.type === "quote" && (compact ? "border-l-2 border-gray-3/30 pl-2" : "border-l-2 border-gray-3/30 pl-4"),
+          block.type === "quote" && (compact ? "border-l-2 border-shell-line-strong pl-2" : "border-l-2 border-shell-line-strong pl-4"),
         )}
       >
         {marker && (
@@ -802,7 +859,7 @@ export function DocumentEditor({
                 textClass,
                 "whitespace-pre-wrap",
                 editable && "cursor-text",
-                showPlaceholder && "text-typography-secondary/70",
+                showPlaceholder && "text-typography-secondary",
               )}
               onPointerDown={editable ? stopFieldEvent : undefined}
               onClick={editable ? stopFieldEvent : undefined}
@@ -823,7 +880,7 @@ export function DocumentEditor({
               {showPlaceholder ? (
                 placeholder
               ) : block.text ? (
-                <InlineText text={block.text} blanks={data.blanks} onFill={editable ? fillBlank : undefined} />
+                <InlineText text={block.text} blanks={data.blanks} onFill={editable ? fillBlank : undefined} live={liveValue} />
               ) : (
                 "\u200b"
               )}
@@ -833,6 +890,28 @@ export function DocumentEditor({
       </div>
     );
   };
+
+  // Suggested writing sits where it would go: after the paragraph it names (by its opening words), or
+  // where the writing stops. In the paragraph's type and the suggestion colour; accepted, it's written there.
+  const suggestedPlaced = placedSuggestions(suggestedText, []).filter((s) => !data.body.includes(s.value.trim())).slice(0, 2);
+  const proseWhere = suggestionsAfter(suggestedPlaced, blocks.map((block) => plainText(block.text)));
+  const prose = (suggestion: PlacedSuggestion, at: number) => (
+    <div key={suggestion.value} data-prose className={cn("flex", BLOCK_GAP[density].paragraph)}>
+      <SuggestedText
+        text={suggestion.value}
+        onAccept={
+          editable
+            ? () => commit([...blocks.slice(0, at), newBlock("paragraph", suggestion.value), ...blocks.slice(at)].filter((block) => block.text || block.type === "embed"))
+            : undefined
+        }
+        className={cn("font-bureau font-light break-words", BLOCK_TEXT[density].paragraph)}
+      />
+    </div>
+  );
+  /** The writing, with each suggestion after the paragraph it names. */
+  const withSuggestions = () =>
+    blocks.flatMap((block, index) => [renderBlock(block, index), ...proseWhere.after(index).map((suggestion) => prose(suggestion, index + 1))]);
+  const suggestedProse = proseWhere.atEnd.map((suggestion) => prose(suggestion, blocks.length));
 
   const titleKeys = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     stopFieldEvent(event);
@@ -861,7 +940,8 @@ export function DocumentEditor({
         {...fieldEvents}
         onChange={(event) => onChange?.({ ...data, title: event.target.value.replace(/\s*\n\s*/g, " ") })}
         onKeyDown={titleKeys}
-        className="block max-h-[34px] w-full shrink-0 resize-none overflow-hidden bg-transparent font-bureau text-[13px] font-normal leading-[1.3] text-typography-primary outline-none placeholder:text-typography-secondary"
+        // Two lines of the title's type, then cut.
+        className="shell-title-type block max-h-[calc(2*var(--shell-title-font-size)*var(--shell-title-line-height))] w-full shrink-0 resize-none overflow-hidden bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary"
       />
     ) : (
       <input
@@ -874,17 +954,14 @@ export function DocumentEditor({
         {...fieldEvents}
         onChange={(event) => onChange?.({ ...data, title: event.target.value })}
         onKeyDown={titleKeys}
-        className={cn(
-          "w-full shrink-0 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary",
-          SHELL_TITLE_LARGE,
-        )}
+        className="shell-title-type w-full shrink-0 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary"
       />
     )
   ) : (
     <div
-      className={cn(
+      className={cn("shell-title-type", 
         "shrink-0 font-bureau",
-        compact ? "line-clamp-2 text-[13px] font-normal leading-[1.3]" : "truncate " + SHELL_TITLE_LARGE,
+        compact ? "line-clamp-2" : "truncate",
         data.title ? "text-typography-primary" : "text-typography-secondary",
       )}
     >
@@ -893,29 +970,31 @@ export function DocumentEditor({
   );
   const title = (
     // Starts at the top, so a two-line title keeps its glyph on the first line.
-    <div className={cn("flex min-w-0 gap-2", compact ? "items-start [&>svg]:mt-px" : "items-center")}>
+    <div className={cn("flex min-w-0 gap-[var(--shell-title-gap)]", compact ? "items-start [&>svg]:mt-px" : "items-center")}>
       {titleMark}
       <div className="min-w-0 flex-1">{titleText}</div>
     </div>
   );
 
   if (compact) {
-    const hasFooter = Boolean(data.length || editable);
     return (
       <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-        <div className="shrink-0 px-3 pt-2.5 pb-1.5">{title}</div>
+        <div data-shell-part="title" className={cn("shrink-0", SHELL_TITLE_ROW)}>{title}</div>
         {toolbar}
         <div
+          data-shell-part="body"
           className={cn(
-            "mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col rounded-[10px] bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(26,23,24,0.06)]",
-            hasFooter ? "mb-2" : "mb-2.5",
+            "flex min-h-0 flex-1 flex-col",
+            SHELL_BODY_BOX,
+            CONTENT_PANEL,
           )}
         >
-          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <div tabIndex={0} className="no-scrollbar min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50">
             {/* With choices showing and nothing written yet, the empty first line would only leave a gap above them. */}
             {(isEmpty && !editingEmpty) || (suggestions?.brief && blocks.length === 1 && !blocks[0]?.text && !focusedId)
               ? null
-              : blocks.map(renderBlock)}
+              : withSuggestions()}
+            {suggestedProse}
             {/* On the chat home: what the request leaves open, as choices, instead of asking them to think of context. */}
             {suggestions?.brief}
           </div>
@@ -930,7 +1009,7 @@ export function DocumentEditor({
               onChange={(length) => onChange?.({ ...data, length })}
             />
           }
-          className="mx-3 mb-2.5"
+          className="mx-[var(--shell-meta-padding-x)] mb-[var(--shell-meta-padding-bottom)]"
         />
       </div>
     );
@@ -940,24 +1019,25 @@ export function DocumentEditor({
   // and the text keeps a readable width without being centred away from it.
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-      <div className="w-full max-w-[728px] shrink-0 px-6 pt-3 pb-3">{title}</div>
+      <div data-shell-part="title" className={cn("w-full max-w-[728px] shrink-0", SHELL_TITLE_ROW)}>{title}</div>
       {toolbar}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="w-full max-w-[728px] px-6 pt-5 pb-16">
-          {isEmpty && !editingEmpty ? null : blocks.map(renderBlock)}
+      <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50">
+        <div data-shell-part="body" className="mx-[var(--shell-body-inset-x)] flex w-full max-w-[728px] flex-col gap-[var(--shell-body-gap)] rounded-[var(--shell-body-radius)] px-[var(--shell-body-padding-x)] pt-[var(--shell-body-padding-top)] pb-16">
+          {isEmpty && !editingEmpty ? null : withSuggestions()}
+          {suggestedProse}
         </div>
       </div>
       <div
+        data-shell-part="meta"
         className={cn(
-          "flex shrink-0 items-center justify-between gap-3 border-t border-gray-3/15 px-6 font-bureau text-[12px] text-typography-secondary",
-          suggestions?.footer ? "min-h-11 py-1.5" : "h-9",
+          "flex shrink-0 items-center justify-between gap-3 border-t border-shell-line px-[var(--shell-meta-padding-x)] font-bureau text-[length:var(--shell-meta-font-size)] text-typography-secondary",
+          "h-9",
         )}
       >
         <span className="flex items-center gap-3">
           <span className="shrink-0 tabular-nums">
             {words} {words === 1 ? "word" : "words"}
           </span>
-          {suggestions?.footer}
         </span>
         {status === "loading" && <span className="animate-pulse">Writing…</span>}
       </div>

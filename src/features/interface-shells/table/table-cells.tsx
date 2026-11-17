@@ -45,7 +45,7 @@ export function Thumbnail({
     return (
       <span
         className={cn(
-          "flex shrink-0 items-center justify-center bg-gray-6 text-typography-secondary",
+          "flex shrink-0 items-center justify-center bg-shell-fill text-typography-secondary",
           className,
         )}
       >
@@ -59,7 +59,7 @@ export function Thumbnail({
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}
-      className={cn("shrink-0 bg-gray-6 object-cover", className)}
+      className={cn("shrink-0 bg-shell-fill object-cover", className)}
     />
   );
 }

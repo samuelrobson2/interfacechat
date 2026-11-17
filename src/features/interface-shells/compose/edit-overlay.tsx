@@ -210,7 +210,7 @@ function LogView({ lines }: { lines: LogLine[] }) {
   }, [lines]);
   if (lines.length === 0) return null;
   return (
-    <div ref={ref} className="mt-1 max-h-32 overflow-y-auto rounded-[10px] bg-gray-0 px-2.5 py-1.5 text-[12px] leading-relaxed">
+    <div ref={ref} className="mt-1 max-h-32 overflow-y-auto rounded-[10px] bg-shell-panel px-2.5 py-1.5 text-[12px] leading-relaxed">
       {lines.map((line) => (
         <p
           key={line.id}
@@ -411,7 +411,7 @@ export function EditOverlay() {
         {...{ [OVERLAY_ATTR]: "" }}
         onClick={() => setMinimised(false)}
         title="Open the editor"
-        className="fixed right-6 bottom-6 z-50 flex items-center gap-1.5 rounded-full border border-gray-3/20 bg-gray-0/95 py-2 pr-3.5 pl-3 font-bureau text-[13px] text-typography-primary shadow-[0_8px_24px_-10px_rgba(26,23,24,0.3)] backdrop-blur-md transition-transform active:scale-[0.97]"
+        className="fixed right-6 bottom-6 z-50 flex items-center gap-1.5 rounded-full border border-shell-line bg-shell-panel/95 py-2 pr-3.5 pl-3 font-bureau text-[13px] text-typography-primary shadow-[0_8px_24px_-10px_rgba(26,23,24,0.3)] backdrop-blur-md transition-transform active:scale-[0.97]"
       >
         {busy ? <Loader2 className="size-3.5 animate-spin text-blue-4" /> : <MousePointerSquareDashed className="size-3.5" />}
         Edit
@@ -431,7 +431,7 @@ export function EditOverlay() {
 
       <div
         {...{ [OVERLAY_ATTR]: "" }}
-        className="fixed bottom-6 left-1/2 z-50 flex w-[min(620px,calc(100vw-32px))] -translate-x-1/2 flex-col gap-2 rounded-[20px] border border-gray-3/20 bg-gray-0/95 p-3 font-bureau shadow-[0_12px_40px_-12px_rgba(26,23,24,0.25)] backdrop-blur-md"
+        className="fixed bottom-6 left-1/2 z-50 flex w-[min(620px,calc(100vw-32px))] -translate-x-1/2 flex-col gap-2 rounded-[20px] border border-shell-line bg-shell-panel/95 p-3 font-bureau shadow-[0_12px_40px_-12px_rgba(26,23,24,0.25)] backdrop-blur-md"
       >
         {queue.length > 0 && (
           <div className="flex flex-col gap-1">
@@ -445,21 +445,21 @@ export function EditOverlay() {
                 <button
                   type="button"
                   onClick={() => setPaused(false)}
-                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-typography-primary hover:bg-gray-6"
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-typography-primary hover:bg-shell-fill"
                 >
                   <Play className="size-3" />
                   Resume
                 </button>
               )}
               {finished && (
-                <button type="button" onClick={clearFinished} className="ml-auto rounded-full px-2 py-0.5 hover:bg-gray-6">
+                <button type="button" onClick={clearFinished} className="ml-auto rounded-full px-2 py-0.5 hover:bg-shell-fill">
                   Clear finished
                 </button>
               )}
             </div>
             <ol className="flex max-h-64 flex-col gap-1 overflow-y-auto">
               {queue.map((edit, index) => (
-                <li key={edit.id} className="rounded-[12px] bg-gray-6 px-2.5 py-1.5">
+                <li key={edit.id} className="rounded-[12px] bg-shell-fill px-2.5 py-1.5">
                   <div className="flex items-center gap-2 text-[13px]">
                     <span className="shrink-0">{STATUS_ICON[edit.status]}</span>
                     <button
@@ -480,7 +480,7 @@ export function EditOverlay() {
                         type="button"
                         onClick={() => abortRef.current?.abort()}
                         aria-label="Stop this edit"
-                        className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-gray-0"
+                        className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-shell-panel"
                       >
                         <Square className="size-2.5 fill-current" />
                       </button>
@@ -490,7 +490,7 @@ export function EditOverlay() {
                         type="button"
                         onClick={() => retry(edit.id)}
                         aria-label="Run this edit again"
-                        className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-gray-0"
+                        className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-shell-panel"
                       >
                         <RotateCcw className="size-3" />
                       </button>
@@ -500,7 +500,7 @@ export function EditOverlay() {
                         type="button"
                         onClick={() => removeEdit(edit.id)}
                         aria-label="Remove this edit"
-                        className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-gray-0"
+                        className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-shell-panel"
                       >
                         <X className="size-3" />
                       </button>
@@ -567,7 +567,7 @@ export function EditOverlay() {
             onClick={() => setSelecting((value) => !value)}
             className={cn(
               "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] transition-colors active:scale-[0.97]",
-              selecting ? "bg-blue-4 text-gray-0" : "bg-gray-6 text-typography-primary hover:bg-blue-1",
+              selecting ? "bg-blue-4 text-gray-0" : "bg-shell-fill text-typography-primary hover:bg-blue-1",
             )}
           >
             <MousePointerSquareDashed className="size-3.5" />
@@ -578,7 +578,7 @@ export function EditOverlay() {
             onClick={() => setMinimised(true)}
             aria-label="Minimise the editor"
             title="Minimise"
-            className="grid size-[30px] place-items-center rounded-full text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary active:scale-[0.95]"
+            className="grid size-[30px] place-items-center rounded-full text-typography-secondary transition-colors hover:bg-shell-fill hover:text-typography-primary active:scale-[0.95]"
           >
             <Minimize2 className="size-3.5" />
           </button>
@@ -587,7 +587,7 @@ export function EditOverlay() {
               type="button"
               onClick={newSession}
               title="Start the next edit in a new Claude session instead of following up"
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-typography-secondary hover:bg-gray-6"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-typography-secondary hover:bg-shell-fill"
             >
               <RotateCcw className="size-3.5" />
               New session

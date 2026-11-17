@@ -1,5 +1,4 @@
 import type {
-  ArticleShellData,
   ChartShellData,
   DashboardShellData,
   DocumentShellData,
@@ -16,7 +15,7 @@ import type { GeneratedTool, ToolIcon } from "./tool-spec";
 import { canvasTools } from "./generate-tools-canvas";
 import { diagramTools } from "./generate-tools-diagram";
 import { generatorTools, scheduleTools, searchTools } from "./generate-tools-more";
-import { articleTools, dashboardTools } from "./generate-tools-apps";
+import { dashboardTools } from "./generate-tools-apps";
 import { withoutStandard } from "./standard-tools";
 
 export type { GeneratedTool, ToolContext, ToolIcon };
@@ -32,7 +31,6 @@ export const TOOLBAR_KINDS = [
   "schedule",
   "generator",
   "dashboard",
-  "article",
 ] as const;
 export type ToolbarKind = (typeof TOOLBAR_KINDS)[number];
 
@@ -46,7 +44,6 @@ export type ToolbarDataByKind = {
   schedule: ScheduleShellData;
   generator: GeneratorShellData;
   dashboard: DashboardShellData;
-  article: ArticleShellData;
 };
 
 
@@ -119,6 +116,9 @@ function documentActions(
         detail: `Rewrite ${quoted} for a general reader`,
         icon: "text",
       },
+      // A document can hold live pieces: a claim can get the chart or the control behind it.
+      { type: "action", id: "sel-chart", label: "Chart this", detail: `Find the data behind ${quoted}`, icon: "chart" },
+      { type: "action", id: "sel-interactive", label: "Make it explorable", detail: `Add a control that changes ${quoted}`, icon: "sliders" },
     ];
   }
 
@@ -167,6 +167,31 @@ function documentActions(
       icon: "sparkles",
       apply: guess ? (d) => ({ ...d, title: guess }) : undefined,
     });
+  }
+
+  // Live pieces: show or hide the working, and say when the numbers are only samples.
+  const code = (data.blocks ?? []).filter((block) => block.type === "code");
+  if (code.length) {
+    tools.push({
+      type: "choice",
+      id: "code",
+      label: "Code",
+      detail: "Show the working, or only its results",
+      icon: "text",
+      options: [
+        { id: "shown", label: "Shown" },
+        { id: "hidden", label: "Hidden" },
+      ],
+      value: code.every((block) => block.type === "code" && block.showCode) ? "shown" : "hidden",
+      apply: (d, value) => ({
+        ...d,
+        blocks: (d.blocks ?? []).map((block) => (block.type === "code" ? { ...block, showCode: value === "shown" } : block)),
+      }),
+    });
+  }
+  const sample = data.datasets?.find((dataset) => dataset.source.type === "generated");
+  if (sample) {
+    tools.push({ type: "action", id: "check", label: "Check the numbers", detail: `${sample.label} is sample data`, icon: "search" });
   }
 
   if (body) {
@@ -301,7 +326,7 @@ function tableActions(
       type: "action",
       id: "rows",
       label: data.rowCount ? `Fill ${data.rowCount} rows` : "Fill the rows",
-      detail: data.description || `From the ${plural(textColumns.length, "column")} you set up`,
+      detail: `From the ${plural(textColumns.length, "column")} you set up`,
       icon: "sparkles",
     });
   }
@@ -407,7 +432,7 @@ function tableActions(
       type: "action",
       id: "more-rows",
       label: "Suggest more rows",
-      detail: data.description ? clip(data.description, 40) : "What's missing from the list",
+      detail: "What's missing from the list",
       icon: "plus",
     });
   }
@@ -940,7 +965,6 @@ const GENERATORS: { [K in ToolbarKind]: (data: ToolbarDataByKind[K], context: To
   schedule: scheduleTools,
   generator: generatorTools,
   dashboard: dashboardTools,
-  article: articleTools,
 };
 
 export function generateTools<K extends ToolbarKind>(

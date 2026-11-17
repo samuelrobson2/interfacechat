@@ -65,6 +65,10 @@ export const sharedAppRoutes: RouteObject[] = [
     lazy: () => import("@/features/interface-shells/interface-states.page"),
   },
   {
+    path: ROUTES.DESIGN_SYSTEM,
+    lazy: () => import("@/features/interface-shells/design-system.page"),
+  },
+  {
     path: ROUTES.WORKBENCH,
     lazy: () => import("@/features/workbench/workbench.page"),
   },

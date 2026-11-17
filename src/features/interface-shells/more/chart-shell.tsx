@@ -28,8 +28,8 @@ function ChartTypePicker({
       className={cn(
         "flex shrink-0 items-center gap-1.5 rounded-full font-bureau text-typography-secondary",
         large ? "px-2.5 py-1 text-[13px]" : "px-2 py-0.5 text-[11px]",
-        onChange && "cursor-pointer transition-colors hover:bg-gray-6 hover:text-typography-primary",
-        open && "bg-gray-6 text-typography-primary",
+        onChange && "cursor-pointer transition-colors hover:bg-shell-fill hover:text-typography-primary",
+        open && "bg-shell-fill text-typography-primary",
       )}
     >
       <ChartTypeGlyph type={value} className={large ? "size-4" : "size-3"} />
@@ -49,7 +49,7 @@ function ChartTypePicker({
       <PopoverContent align="end" sideOffset={6} className="w-auto border-0 bg-transparent p-0 shadow-none" {...fieldEvents}>
         <div
           role="menu"
-          className="flex w-[248px] flex-col rounded-[16px] border-[0.5px] border-gray-2 bg-gray-1 p-1.5 shadow-[0_4px_6px_rgba(26,23,24,0.15)]"
+          className="flex w-[248px] flex-col rounded-[16px] border-[0.5px] border-shell-line-strong bg-gray-1 p-1.5 shadow-[0_4px_6px_rgba(26,23,24,0.15)]"
         >
           {CHART_TYPES.map((type) => (
             <button
@@ -62,8 +62,8 @@ function ChartTypePicker({
                 setOpen(false);
               }}
               className={cn(
-                "flex w-full cursor-pointer items-start gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-gray-6",
-                type === value && "bg-gray-6",
+                "flex w-full cursor-pointer items-start gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-shell-fill",
+                type === value && "bg-shell-fill",
               )}
             >
               <ChartTypeGlyph type={type} className="mt-0.5 size-4" />

@@ -54,7 +54,7 @@ export function ScheduleInline({ data }: Editable<ScheduleShellData>) {
       {days.map((day) => (
         <div key={day} className="flex items-center gap-3">
           <span className={cn(INLINE_META, "w-10 shrink-0")}>{dayName(day)}</span>
-          <div className="relative h-6 min-w-0 flex-1 rounded-[6px] bg-gray-6/70">
+          <div className="relative h-6 min-w-0 flex-1 rounded-[6px] bg-shell-fill/70">
             {data.tasks
               .filter((task) => task.day === day)
               .map((task) => (
@@ -110,11 +110,11 @@ export function MapInline({ data, onChange }: Editable<MapShellData>) {
                   onClick={() => update(place.id, { shortlisted: !place.shortlisted })}
                   className="shrink-0 cursor-pointer transition-transform active:scale-90"
                 >
-                  <Star className={cn("size-3.5", place.shortlisted ? "fill-[#f2b630] text-[#f2b630]" : "text-gray-3")} />
+                  <Star className={cn("size-3.5", place.shortlisted ? "fill-[#f2b630] text-[#f2b630]" : "text-typography-secondary")} />
                 </button>
               ) : (
                 <Star
-                  className={cn("size-3.5 shrink-0", place.shortlisted ? "fill-[#f2b630] text-[#f2b630]" : "text-gray-3")}
+                  className={cn("size-3.5 shrink-0", place.shortlisted ? "fill-[#f2b630] text-[#f2b630]" : "text-typography-secondary")}
                   aria-label={place.shortlisted ? "Shortlisted" : undefined}
                 />
               )}
@@ -174,7 +174,7 @@ export function TimelineInline({ data, onChange }: Editable<TimelineShellData>) 
     <div className="flex flex-col gap-1.5">
       <div className="relative">
         {/* The line runs between the first and last dots. */}
-        <span aria-hidden className="absolute top-[24px] h-px bg-gray-3/35" style={{ left: edge, right: edge }} />
+        <span aria-hidden className="absolute top-[24px] h-px bg-shell-ink-soft" style={{ left: edge, right: edge }} />
         <div className="grid" style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}>
           {shown.map((event) => {
             const colour = event.colour ? canvasColour(event.colour) : LIME;
@@ -235,7 +235,7 @@ export function FlowchartInline({ data, onChange }: Editable<FlowchartShellData>
             <span key={node.id} className="flex items-center gap-1.5">
               {index > 0 && (
                 <>
-                  <ArrowRight className="size-3.5 shrink-0 text-gray-3" />
+                  <ArrowRight className="size-3.5 shrink-0 text-typography-secondary" />
                   {via && <span className={cn(INLINE_META, "-ml-0.5")}>{via}</span>}
                 </>
               )}
@@ -243,7 +243,7 @@ export function FlowchartInline({ data, onChange }: Editable<FlowchartShellData>
                 className={cn(
                   "inline-flex max-w-[180px] items-center gap-1.5 border px-2.5 py-1 font-bureau text-[12.5px] text-typography-primary",
                   node.kind === "start" || node.kind === "end" ? "rounded-full" : "rounded-[8px]",
-                  !colour && "border-gray-3/30",
+                  !colour && "border-shell-line-strong",
                 )}
                 style={colour ? { backgroundColor: tint(colour, 12), borderColor: tint(colour, 40) } : undefined}
               >

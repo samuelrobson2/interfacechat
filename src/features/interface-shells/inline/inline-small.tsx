@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/shared/lib/css";
+import { useShellVars } from "../design/shell-tokens";
 import type { ShellData, ShellDataByKind, ShellKind } from "../model/shell-types";
 import { ShellGlyph } from "../ui/shell-icons";
 import { InlineRing } from "./inline-kit";
@@ -30,6 +31,8 @@ export function InlineSmall({
   className?: string;
 }) {
   const title = inlineTitle(kind, data);
+  // The design system's inline tokens, for the title's type.
+  const vars = useShellVars("inline");
   const detail = inlineDetail(kind, data);
   const progress = progressOf(kind, data);
   const palette = kind === "moodboard" ? (data as ShellDataByKind["moodboard"]).palette.slice(0, 3) : [];
@@ -44,7 +47,7 @@ export function InlineSmall({
           </span>
         )}
       </span>
-      <span className="min-w-0 truncate font-bureau text-[14px] text-typography-primary">{title}</span>
+      <span className="shell-title-type min-w-0 truncate font-bureau text-typography-primary">{title}</span>
       {progress && <InlineRing done={progress.done} total={progress.total} className="text-typography-primary" />}
       {palette.length > 0 && (
         <span aria-hidden className="flex shrink-0 -space-x-1">
@@ -65,15 +68,15 @@ export function InlineSmall({
 
   const classes = cn(
     "group/small flex h-10 w-full min-w-0 items-center gap-2.5 rounded-[12px] px-2.5 text-left",
-    onClick && "cursor-pointer transition-colors hover:bg-gray-6/70",
+    onClick && "cursor-pointer transition-colors hover:bg-shell-fill/70",
     className,
   );
 
   return onClick ? (
-    <button type="button" onClick={onClick} aria-label={`${title}. ${action ?? "Open"}`} className={classes}>
+    <button type="button" onClick={onClick} aria-label={`${title}. ${action ?? "Open"}`} style={vars} className={classes}>
       {body}
     </button>
   ) : (
-    <div className={classes}>{body}</div>
+    <div style={vars} className={classes}>{body}</div>
   );
 }

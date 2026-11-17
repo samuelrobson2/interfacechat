@@ -216,7 +216,7 @@ function FlowScene({
             className={cn(
               base,
               terminal ? "rounded-full" : "rounded-[10px]",
-              ghost ? "border-2 border-dashed border-gray-3/50 bg-white" : terminal ? "text-white" : "bg-white shadow-[0_1px_3px_rgba(26,23,24,0.12)] ring-1 ring-gray-3/20",
+              ghost ? "border-2 border-dashed border-shell-line-strong bg-shell-panel" : terminal ? "text-white" : "bg-shell-panel shadow-[0_1px_3px_rgba(26,23,24,0.12)] ring-1 ring-shell-line",
               ring,
             )}
             style={{
@@ -328,7 +328,7 @@ export function FlowchartShell({
           stopFieldEvent(event);
           onPress();
         }}
-        className="rounded-full bg-gray-6 px-2 py-0.5 font-bureau text-[10px] text-typography-primary transition-colors hover:bg-gray-5/60 disabled:opacity-40"
+        className="rounded-full bg-shell-fill px-2 py-0.5 font-bureau text-[10px] text-typography-primary transition-colors hover:bg-gray-5/60 disabled:opacity-40"
       >
         {label}
       </button>

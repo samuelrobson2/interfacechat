@@ -3,11 +3,10 @@ import {
   type AppBlock,
   type AppBlockOf,
   type AppShellData,
-  type ArticleShellData,
   type DashboardShellData,
   type Row,
 } from "@/features/interface-shells";
-import { clip, mix, type ToolContext } from "./tool-helpers";
+import { clip, mix } from "./tool-helpers";
 import type { GeneratedTool } from "./tool-spec";
 
 const titleCase = (field: string) =>
@@ -182,88 +181,5 @@ export function dashboardTools(data: DashboardShellData): GeneratedTool<Dashboar
     actions.push({ type: "action", id: "forecast", label: "Add a forecast", detail: "Code that projects the trend forward", icon: "chart" });
   }
   actions.push({ type: "action", id: "alert", label: "Alert me", detail: "When a figure moves past a line you set", icon: "bell" });
-  return mix(controls, actions);
-}
-
-/* ── Article ──────────────────────────────────────────────────────────── */
-
-export function articleTools(data: ArticleShellData, { selection }: ToolContext): GeneratedTool<ArticleShellData>[] {
-  if (selection) {
-    const quoted = `“${clip(selection, 22)}”`;
-    return [
-      { type: "action", id: "sel-chart", label: "Chart this", detail: `Find the data behind ${quoted}`, icon: "chart" },
-      { type: "action", id: "sel-interactive", label: "Make it explorable", detail: `Add a control that changes ${quoted}`, icon: "sliders" },
-      { type: "action", id: "sel-cite", label: "Cite this", detail: `A source for ${quoted}`, icon: "search" },
-    ];
-  }
-  if (data.blocks.length === 0) {
-    return [
-      { type: "action", id: "outline", label: "Draft the piece", detail: "Prose, a chart, and something to play with", icon: "sparkles" },
-      { type: "action", id: "from-data", label: "Find the story", detail: "In data you bring from the Data menu", icon: "search" },
-    ];
-  }
-
-  const code = data.blocks.filter((block): block is AppBlockOf<"code"> => block.type === "code");
-  const charts = data.blocks.filter((block): block is AppBlockOf<"chart"> => block.type === "chart");
-  const staticChart = charts.find((chart) => !chart.query?.where?.some((clause) => String(clause.value).startsWith("$")) && !code.some((c) => c.output === chart.dataset));
-
-  const controls: GeneratedTool<ArticleShellData>[] = [
-    {
-      type: "slider",
-      id: "reading-level",
-      label: "Reading level",
-      detail: "Who the prose is written for",
-      icon: "sliders",
-      min: { label: "Plain" },
-      max: { label: "Expert" },
-      steps: ["Plain", "General", "Expert"],
-      value: 1,
-    },
-  ];
-  if (code.length) {
-    controls.push({
-      type: "choice",
-      id: "code",
-      label: "Code",
-      detail: "Show the working, or only its results",
-      icon: "text",
-      options: [
-        { id: "shown", label: "Shown" },
-        { id: "hidden", label: "Hidden" },
-      ],
-      value: code.every((block) => block.showCode) ? "shown" : "hidden",
-      apply: (d, value) => ({
-        ...d,
-        blocks: d.blocks.map((block): AppBlock => (block.type === "code" ? { ...block, showCode: value === "shown" } : block)),
-      }),
-    });
-  }
-  controls.push({
-    type: "toggle",
-    id: "annotate",
-    label: "Annotate charts",
-    detail: "Call out the point each chart makes",
-    icon: "chart",
-    value: false,
-  });
-
-  const actions: GeneratedTool<ArticleShellData>[] = [];
-  if (staticChart) {
-    actions.push({
-      type: "action",
-      id: "interactive",
-      label: "Make it explorable",
-      detail: `Let readers steer “${clip(staticChart.title ?? "the chart", 26)}”`,
-      icon: "sliders",
-    });
-  }
-  const samples = sampleSets(data);
-  if (samples.length) {
-    actions.push({ type: "action", id: "check", label: "Check the numbers", detail: `${samples[0]!.label} is sample data`, icon: "search" });
-  }
-  actions.push(
-    { type: "action", id: "headline", label: "Sharper headline", detail: `Than “${clip(data.title || "Untitled", 26)}”`, icon: "text" },
-    { type: "action", id: "dashboard", label: "Make a dashboard", detail: "The same data, as figures at a glance", icon: "chart" },
-  );
   return mix(controls, actions);
 }

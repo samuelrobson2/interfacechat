@@ -68,7 +68,7 @@ function IconButton({
       }}
       className={cn(
         "grid size-8 shrink-0 place-items-center rounded-[10px] text-typography-primary transition-colors active:scale-[0.94] disabled:pointer-events-none disabled:opacity-30",
-        active ? "bg-blue-4 text-gray-0" : "hover:bg-gray-6",
+        active ? "bg-blue-4 text-gray-0" : "hover:bg-shell-fill",
         className,
       )}
     >
@@ -77,14 +77,14 @@ function IconButton({
   );
 }
 
-const Divider = () => <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-gray-3/25" />;
+const Divider = () => <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-shell-ink-faint" />;
 
 /** The bar that floats above a selection. Compose it from the pieces below. */
 export function SelectionBar({ children }: { children: React.ReactNode }) {
   return (
     <div
       {...fieldEvents}
-      className="flex items-center gap-0.5 rounded-[12px] border border-gray-3/20 bg-gray-0 p-1 shadow-[0_6px_20px_-8px_rgba(26,23,24,0.3)]"
+      className="flex items-center gap-0.5 rounded-[12px] border border-shell-line bg-shell-panel p-1 shadow-[0_6px_20px_-8px_rgba(26,23,24,0.3)]"
     >
       {children}
     </div>
@@ -382,7 +382,7 @@ export function CanvasBoard({
       {/* Tools, bottom centre. */}
       <div
         {...fieldEvents}
-        className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-[14px] border border-gray-3/20 bg-gray-0 p-1 shadow-[0_6px_20px_-8px_rgba(26,23,24,0.3)]"
+        className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-[14px] border border-shell-line bg-shell-panel p-1 shadow-[0_6px_20px_-8px_rgba(26,23,24,0.3)]"
       >
         <IconButton icon={MousePointer2} label="Select (V)" active={!hand} onClick={() => setTool("select")} />
         <IconButton icon={Hand} label="Hand (H, or hold Space)" active={hand} onClick={() => setTool("hand")} />
@@ -404,7 +404,7 @@ export function CanvasBoard({
       {/* Zoom, bottom right. */}
       <div
         {...fieldEvents}
-        className="absolute right-3 bottom-3 z-10 flex items-center gap-0.5 rounded-[12px] border border-gray-3/20 bg-gray-0 p-1 shadow-[0_6px_20px_-8px_rgba(26,23,24,0.3)]"
+        className="absolute right-3 bottom-3 z-10 flex items-center gap-0.5 rounded-[12px] border border-shell-line bg-shell-panel p-1 shadow-[0_6px_20px_-8px_rgba(26,23,24,0.3)]"
       >
         <IconButton icon={Minus} label="Zoom out (−)" onClick={() => zoomAt(0.8)} className="size-7" />
         <button
@@ -415,7 +415,7 @@ export function CanvasBoard({
             stopFieldEvent(event);
             fit();
           }}
-          className="h-7 w-11 rounded-[8px] font-bureau text-[11px] text-typography-primary tabular-nums hover:bg-gray-6"
+          className="h-7 w-11 rounded-[8px] font-bureau text-[11px] text-typography-primary tabular-nums hover:bg-shell-fill"
         >
           {view ? `${Math.round(view.zoom * 100)}%` : "–"}
         </button>

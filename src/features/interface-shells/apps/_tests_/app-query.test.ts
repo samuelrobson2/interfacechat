@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { articleFixture, dashboardFixture, emptyArticle, emptyDashboard } from "../app-fixtures";
+import { dashboardFixture, emptyDashboard, HEAT_PIECES } from "../app-fixtures";
 import {
   ALL,
   aggregate,
@@ -9,7 +9,7 @@ import {
   parseJsonRows,
   runQuery,
 } from "../app-query";
-import { articleSchema, dashboardSchema, type Row } from "../app-types";
+import { dashboardSchema, type Row } from "../app-types";
 
 const rows: Row[] = [
   { month: "Jan", monthIndex: 1, region: "North", revenue: 100 },
@@ -84,12 +84,11 @@ describe("fixtures", () => {
   it("fit the schema the model writes to", () => {
     expect(dashboardSchema.safeParse(dashboardFixture).success).toBe(true);
     expect(dashboardSchema.safeParse(emptyDashboard).success).toBe(true);
-    expect(articleSchema.safeParse(articleFixture).success).toBe(true);
-    expect(articleSchema.safeParse(emptyArticle).success).toBe(true);
+    expect(dashboardSchema.safeParse({ title: "Heat", ...HEAT_PIECES }).success).toBe(true);
   });
 
   it("only point blocks at datasets and variables that exist", () => {
-    for (const app of [dashboardFixture, articleFixture]) {
+    for (const app of [dashboardFixture, HEAT_PIECES]) {
       const datasets = new Set(app.datasets.map((d) => d.id));
       const variables = new Set(app.variables.map((v) => v.id));
       for (const block of app.blocks) {

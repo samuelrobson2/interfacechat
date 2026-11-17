@@ -1,4 +1,4 @@
-import { ArrowDownAZ, ArrowUpDown, CalendarClock, Check, CheckCheck, Copy, Eye, EyeOff, ListChecks, ListPlus, ListX, Plus, User, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpDown, CalendarClock, Check, Eye, EyeOff, ListChecks, ListPlus, Plus, User, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { shellId, type ShellProps, type TrackerItem, type TrackerShellData } from "../model/shell-types";
@@ -11,10 +11,10 @@ import {
   ShellDetail,
   ShellTitle,
 } from "../ui/shell-kit";
-import { accentOf, ghostLabels } from "../ui/shell-accents";
+import { accentOf, ghostsAfter } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { SuggestedRing, unusedSuggestions } from "../ui/suggested-chip";
-import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolMenu } from "../ui/shell-toolbar";
+import { DismissSuggestion, SuggestedBox, SuggestedText, placedSuggestions, suggestionsAfter, type PlacedSuggestion } from "../ui/suggested-chip";
+import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolMenu } from "../ui/shell-toolbar";
 import { Bar, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
 const CORAL = "#f0525c";
@@ -23,7 +23,7 @@ function Tick({ done, size, onToggle }: { done: boolean; size: "xs" | "sm" | "md
   const box = cn(
     "grid shrink-0 place-items-center rounded-[4px] border transition-colors",
     size === "md" ? "size-[18px]" : size === "sm" ? "size-3.5" : "size-2.5 rounded-[3px]",
-    done ? "border-transparent text-white" : "border-gray-3/50 bg-white",
+    done ? "border-transparent text-white" : "border-shell-control bg-shell-panel",
   );
   const style = done ? { backgroundColor: CORAL } : undefined;
   const mark = size !== "xs" && <Check className={size === "md" ? "size-3" : "size-2.5"} strokeWidth={3} />;
@@ -69,17 +69,12 @@ function sortItems(items: TrackerItem[], by: TrackerSort): TrackerItem[] {
   return [...items].sort(compare[by]);
 }
 
-const checklistText = (data: TrackerShellData) =>
-  [
-    data.title,
-    ...data.items.map(
-      (item) => `- [${item.done ? "x" : " "}] ${item.label}${item.owner ? ` · ${item.owner}` : ""}${item.due ? ` · ${item.due}` : ""}`,
-    ),
-  ]
-    .filter(Boolean)
-    .join("\n");
 
-/** An item the model suggests: a row with the AI outline. Click to add it to the list. */
+/**
+ * An item the model suggests: a checklist row like any other, with its box
+ * outlined and its words in the suggestion colour. Click the words to add it;
+ * × (on hover) to dismiss it.
+ */
 function SuggestedItem({
   label,
   compact = false,
@@ -93,48 +88,11 @@ function SuggestedItem({
   onDismiss?: () => void;
 }) {
   return (
-    <div
-      className={cn(
-        "group/suggested relative flex items-center bg-white",
-        compact ? "my-0.5 gap-1.5 rounded-[8px] py-1 pr-1 pl-1.5" : "my-1 gap-2.5 rounded-[10px] py-2 pr-2 pl-2.5",
-      )}
-    >
-      <SuggestedRing />
-      <button
-        type="button"
-        aria-label={`Add suggested item: ${label}`}
-        title="Suggested: click to add"
-        {...fieldEvents}
-        onClick={(event) => {
-          stopFieldEvent(event);
-          onAccept();
-        }}
-        className={cn(
-          "flex min-w-0 flex-1 items-center text-left font-bureau text-typography-secondary hover:text-typography-primary",
-          compact ? "gap-1.5 text-[12px] font-light" : "gap-2.5 text-[14px]",
-        )}
-      >
-        <Plus className={cn("shrink-0", compact ? "size-3" : "size-4")} />
-        <span className="truncate">{label}</span>
-      </button>
-      {onDismiss && (
-        <button
-          type="button"
-          aria-label={`Dismiss suggested item: ${label}`}
-          {...fieldEvents}
-          onClick={(event) => {
-            stopFieldEvent(event);
-            onDismiss();
-          }}
-          className={cn(
-            "grid shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/suggested:opacity-100 hover:bg-gray-6 focus-visible:opacity-100",
-            compact ? "size-5" : "size-6",
-          )}
-        >
-          <X className={compact ? "size-3" : "size-3.5"} />
-        </button>
-      )}
-    </div>
+    <li data-shell-part="suggest" className={cn("group/suggested flex min-w-0 items-center", compact ? "gap-2 py-[3px]" : "gap-3 py-1.5")}>
+      <SuggestedBox className={compact ? "size-3.5" : "size-[18px]"} />
+      <SuggestedText text={label} onAccept={onAccept} className={cn("min-w-0 flex-1 truncate py-0.5 font-bureau", compact ? "text-[12px]" : "text-[14px]")} />
+      {onDismiss && <DismissSuggestion label={label} onDismiss={onDismiss} className={compact ? "size-5" : undefined} />}
+    </li>
   );
 }
 
@@ -149,7 +107,7 @@ function groupShapes(items: TrackerItem[]): boolean[][] {
 function Progress({ items, className }: { items: TrackerItem[]; className?: string }) {
   const done = items.filter((item) => item.done).length;
   return (
-    <div className={cn("h-1 w-full shrink-0 overflow-hidden rounded-full bg-gray-6", className)}>
+    <div className={cn("h-1 w-full shrink-0 overflow-hidden rounded-full bg-shell-fill", className)}>
       <div
         className="h-full rounded-full transition-[width] duration-300"
         style={{ width: items.length ? `${(done / items.length) * 100}%` : "0%", backgroundColor: CORAL }}
@@ -231,7 +189,7 @@ function ItemRow({
                 stopFieldEvent(event);
                 onRemove();
               }}
-              className="grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-gray-6 hover:text-typography-primary focus-visible:opacity-100"
+              className="grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-shell-fill hover:text-typography-primary focus-visible:opacity-100"
             >
               <X className="size-3.5" />
             </button>
@@ -259,8 +217,10 @@ function GroupHeading({ name, index, large }: { name: string; index: number; lar
 }
 
 /** Empty state: two placeholder groups, the first item ticked, so the shape reads at a glance. */
-function GhostRows({ large }: { large: boolean }) {
-  const groups = [ghostLabels("Item", 2), ghostLabels("Item", 3).slice(2)];
+/** Placeholder rows for an empty checklist; `filled` of them are taken by suggestions above, so they aren't drawn. */
+function GhostRows({ large, filled = 0 }: { large: boolean; filled?: number }) {
+  const left = ghostsAfter("Item", filled);
+  const groups = [left.filter((label) => Number(label.split(" ").pop()) <= 2), left.filter((label) => Number(label.split(" ").pop()) > 2)].filter((labels) => labels.length);
   return (
     <div className={cn("flex flex-col", large ? "gap-5" : "gap-2")}>
       {groups.map((labels, g) => (
@@ -314,17 +274,17 @@ export function TrackerShell({
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="tracker" title={data.title} />
         {/* Shapes, not words: groups of checklist rows under a coloured head, and progress. */}
-        <PreviewBody className="gap-1 pt-2.5">
+        <PreviewBody>
           {groupShapes(data.items).map((group, g) => (
             <div key={g} className="flex flex-col gap-1">
               <span className="flex items-center gap-1.5">
                 <span className={cn("size-1.5 shrink-0 rounded-full", accentOf(g).solid)} />
-                <Bar width="34%" className="h-1 bg-gray-3/35" />
+                <Bar width="34%" className="h-1 bg-shell-ink-soft" />
               </span>
               {group.map((done, i) => (
                 <span key={i} className="flex min-w-0 items-center gap-1.5 pl-3">
                   <Tick done={done} size="xs" />
-                  <Bar width={`${[66, 52, 60][i % 3]}%`} className={cn("h-1", done ? "bg-gray-3/15" : "bg-gray-3/25")} />
+                  <Bar width={`${[66, 52, 60][i % 3]}%`} className={cn("h-1", done ? "bg-shell-ink-faint" : "bg-shell-ink-faint")} />
                 </span>
               ))}
             </div>
@@ -352,6 +312,15 @@ export function TrackerShell({
     ...data.groups.map((group) => ({ group, items: data.items.filter((item) => item.group === group) })),
     ...(ungrouped.length || data.groups.length === 0 ? [{ items: ungrouped }] : []),
   ].filter((section) => large || section.items.length > 0);
+  // Each suggestion goes to its section: the group it names, else the one holding the item it follows, else the first.
+  const suggestionsBySection: PlacedSuggestion[][] = sections.map(() => []);
+  if (update) {
+    for (const placed of placedSuggestions(suggested?.items, data.items.map((item) => item.label)).slice(0, 4)) {
+      const byGroup = sections.findIndex((section) => placed.group && section.group?.toLowerCase() === placed.group.toLowerCase());
+      const byAnchor = sections.findIndex((section) => placed.after && section.items.some((item) => item.label.toLowerCase().startsWith(placed.after!.toLowerCase())));
+      suggestionsBySection[byGroup >= 0 ? byGroup : byAnchor >= 0 ? byAnchor : 0]?.push(placed);
+    }
+  }
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
@@ -369,76 +338,74 @@ export function TrackerShell({
           ) : undefined
         }
       />
-      {large && (
-        <ShellToolbar tools={tools} actions={actions}>
-          <ShellToolButton label="New item" disabled={!addItem} onPress={() => addItem?.(data.groups[0])}>
-            <Plus />
-          </ShellToolButton>
-          <ShellToolButton
-            label="New list"
-            disabled={!update}
-            onPress={() => {
-              let n = data.groups.length + 1;
-              while (data.groups.includes(`List ${n}`)) n += 1;
-              const group = `List ${n}`;
-              update?.({ groups: [...data.groups, group], items: [...data.items, { id: shellId("item"), label: "", done: false, group }] });
-            }}
-          >
-            <ListPlus />
-          </ShellToolButton>
-          <ShellToolDivider />
-          <ShellToolMenu
-            label="Sort by"
-            icon={<ArrowUpDown />}
-            disabled={!update || data.items.length < 2}
-            items={[
-              { id: "due", label: "Due date", icon: <CalendarClock />, onSelect: () => update?.({ items: sortItems(data.items, "due") }) },
-              { id: "owner", label: "Owner", icon: <User />, onSelect: () => update?.({ items: sortItems(data.items, "owner") }) },
-              { id: "title", label: "Title", icon: <ArrowDownAZ />, onSelect: () => update?.({ items: sortItems(data.items, "title") }) },
-              { id: "open", label: "Not done first", icon: <ListChecks />, onSelect: () => update?.({ items: sortItems(data.items, "open") }) },
-            ]}
-          />
-          <ShellToolButton
-            label={hideDone ? "Show completed" : "Hide completed"}
-            active={hideDone}
-            disabled={done === 0}
-            onPress={() => setHideDone((value) => !value)}
-          >
-            {hideDone ? <EyeOff /> : <Eye />}
-          </ShellToolButton>
-          <ShellToolDivider />
-          <ShellToolButton
-            label="Mark all as done"
-            disabled={!update || done === data.items.length}
-            onPress={() => update?.({ items: data.items.map((item) => ({ ...item, done: true })) })}
-          >
-            <CheckCheck />
-          </ShellToolButton>
-          <ShellToolButton
-            label="Clear completed"
-            disabled={!update || done === 0}
-            onPress={() => update?.({ items: data.items.filter((item) => !item.done) })}
-          >
-            <ListX />
-          </ShellToolButton>
-          <ShellToolButton label="Copy as a checklist" disabled={data.items.length === 0} onPress={() => copyText(checklistText(data))}>
-            <Copy />
-          </ShellToolButton>
-        </ShellToolbar>
-      )}
-      <ShellBody size={size} className={large ? "gap-5" : "gap-2"}>
+      {/* The same standard tools at medium plus and large. */}
+      <ShellToolbar tools={tools} actions={actions}>
+        <ShellToolButton label="New item" disabled={!addItem} onPress={() => addItem?.(data.groups[0])}>
+          <Plus />
+        </ShellToolButton>
+        <ShellToolButton
+          label="New list"
+          disabled={!update}
+          onPress={() => {
+            let n = data.groups.length + 1;
+            while (data.groups.includes(`List ${n}`)) n += 1;
+            const group = `List ${n}`;
+            update?.({ groups: [...data.groups, group], items: [...data.items, { id: shellId("item"), label: "", done: false, group }] });
+          }}
+        >
+          <ListPlus />
+        </ShellToolButton>
+        <ShellToolDivider />
+        <ShellToolMenu
+          label="Sort by"
+          icon={<ArrowUpDown />}
+          disabled={!update || data.items.length < 2}
+          items={[
+            { id: "due", label: "Due date", icon: <CalendarClock />, onSelect: () => update?.({ items: sortItems(data.items, "due") }) },
+            { id: "owner", label: "Owner", icon: <User />, onSelect: () => update?.({ items: sortItems(data.items, "owner") }) },
+            { id: "title", label: "Title", icon: <ArrowDownAZ />, onSelect: () => update?.({ items: sortItems(data.items, "title") }) },
+            { id: "open", label: "Not done first", icon: <ListChecks />, onSelect: () => update?.({ items: sortItems(data.items, "open") }) },
+          ]}
+        />
+        <ShellToolButton
+          label={hideDone ? "Show completed" : "Hide completed"}
+          active={hideDone}
+          disabled={done === 0}
+          onPress={() => setHideDone((value) => !value)}
+        >
+          {hideDone ? <EyeOff /> : <Eye />}
+        </ShellToolButton>
+        <ShellToolDivider />
+      </ShellToolbar>
+      <ShellBody size={size}>
         {large && data.items.length > 0 && <Progress items={data.items} />}
         {/* On the chat home: what the request leaves open, where the empty rows would be. */}
         {!large && suggestions?.brief}
-        {data.items.length === 0 && !(!large && (suggestions?.brief || suggested?.items?.length)) && <GhostRows large={large} />}
+        {/* No items: suggested items (below) take the placeholders' places; the rest stay placeholders after them. */}
         {data.items.length > 0 &&
-          sections.map((section) => {
+          sections.map((section, sectionIndex) => {
             const { group, items } = section;
+            const shown = visible(items);
+            // This section's suggestions, each right after the item it follows (or at the end of the section).
+            const where = suggestionsAfter(suggestionsBySection[sectionIndex] ?? [], shown.map((item) => item.label));
+            const suggestion = (placed: PlacedSuggestion, at: TrackerItem | undefined) => (
+              <SuggestedItem
+                key={placed.value}
+                label={placed.value}
+                compact={!large}
+                onAccept={() => {
+                  const next = { id: shellId("item"), label: placed.value, done: false, group };
+                  const index = at ? data.items.indexOf(at) + 1 : data.items.length;
+                  update?.({ items: [...data.items.slice(0, index), next, ...data.items.slice(index)] });
+                }}
+                onDismiss={onDismissSuggestion && (() => onDismissSuggestion("items", placed.value))}
+              />
+            );
             return (
             <section key={group ?? "ungrouped"} className="flex flex-col">
               {group && <GroupHeading name={group} index={data.groups.indexOf(group)} large={large} />}
-              <ul className={cn("flex flex-col", large && "divide-y divide-gray-3/10")}>
-                {visible(items).map((item) => (
+              <ul className={cn("flex flex-col", large && "divide-y divide-shell-line")}>
+                {shown.flatMap((item, i) => [
                   <ItemRow
                     key={item.id}
                     item={item}
@@ -446,37 +413,34 @@ export function TrackerShell({
                     large={large}
                     onChange={setItem}
                     onRemove={removeItem && (() => removeItem(item.id))}
-                  />
-                ))}
+                  />,
+                  ...where.after(i).map((placed) => suggestion(placed, item)),
+                ])}
+                {where.atEnd.map((placed) => suggestion(placed, shown.at(-1)))}
               </ul>
-              {/* Suggested items join the first list, outlined, until added or dismissed. */}
-              {large && update && section === sections[0] &&
-                unusedSuggestions(suggested?.items, data.items.map((item) => item.label)).map((label) => (
-                  <SuggestedItem
-                    key={label}
-                    label={label}
-                    onAccept={() => update({ items: [...data.items, { id: shellId("item"), label, done: false, group }] })}
-                    onDismiss={onDismissSuggestion && (() => onDismissSuggestion("items", label))}
-                  />
-                ))}
               {addItem && large && <AddItem large onAdd={() => addItem(group)} />}
             </section>
             );
           })}
-        {/* Medium plus: suggested first items, after the real ones, outlined, until added or dismissed. */}
-        {!large &&
-          update &&
-          unusedSuggestions(suggested?.items, data.items.map((item) => item.label))
-            .slice(0, 3)
-            .map((label) => (
-              <SuggestedItem
-                key={label}
-                label={label}
-                compact
-                onAccept={() => update({ items: [...data.items, { id: shellId("item"), label, done: false, group: data.groups?.[0] }] })}
-                onDismiss={onDismissSuggestion && (() => onDismissSuggestion("items", label))}
-              />
-            ))}
+        {/* No items yet (a request on the chat home): the suggested first items are the list. */}
+        {data.items.length === 0 && update && (suggested?.items?.length ?? 0) > 0 && (
+          <ul className="flex flex-col">
+            {placedSuggestions(suggested?.items, [])
+              .slice(0, 3)
+              .map((placed) => (
+                <SuggestedItem
+                  key={placed.value}
+                  label={placed.value}
+                  compact={!large}
+                  onAccept={() => update({ items: [...data.items, { id: shellId("item"), label: placed.value, done: false, group: data.groups?.[0] }] })}
+                  onDismiss={onDismissSuggestion && (() => onDismissSuggestion("items", placed.value))}
+                />
+              ))}
+          </ul>
+        )}
+        {data.items.length === 0 && !(!large && suggestions?.brief) && (
+          <GhostRows large={large} filled={update ? Math.min(3, placedSuggestions(suggested?.items, []).length) : 0} />
+        )}
         {addItem && (!large || data.items.length === 0) && <AddItem large={large} onAdd={() => addItem()} />}
         {large && update && (
           <AddChip

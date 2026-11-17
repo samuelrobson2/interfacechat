@@ -25,8 +25,8 @@ import {
 } from "../model/shell-adapters";
 import { MiniMoodboard } from "./mini-interfaces";
 
-const CARD = SHELL_DIMENSIONS.medium.width;
-const CARD_ACTIVE = SHELL_DIMENSIONS["medium-plus"].width;
+const CARD = SHELL_DIMENSIONS.medium;
+const CARD_ACTIVE = SHELL_DIMENSIONS["medium-plus"];
 const EASE = [0.23, 1, 0.32, 1] as const;
 const MORPH_SPRING = {
   type: "spring" as const,
@@ -150,8 +150,8 @@ function VisualShellCard({
       animate={{
         opacity: fading ? 0 : 1,
         scale: fading ? 0.96 : 1,
-        width: size,
-        height: size,
+        width: size.width,
+        height: size.height,
       }}
       transition={
         growsOpen

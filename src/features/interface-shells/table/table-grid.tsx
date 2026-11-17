@@ -2,14 +2,9 @@ import { ArrowDown, ArrowDownAZ, ArrowDownZA, ArrowLeftToLine, ArrowRightToLine,
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/shared/lib/css";
-import {
-  shellId,
-  type ShellStatus,
-  type TableColumn,
-  type TableShellData,
-} from "../model/shell-types";
+import { shellId, type ShellStatus, type TableColumn, type TableShellData, type Suggestion } from "../model/shell-types";
 import { Bar } from "../ui/shell-surface";
-import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
+import { DismissSuggestion, SuggestedText, unusedSuggestions } from "../ui/suggested-chip";
 import {
   COLUMN_TYPE_ICON,
   COLUMN_TYPE_LABEL,
@@ -101,7 +96,7 @@ export function TableGrid({
   onChange?: (data: TableShellData) => void;
   status?: ShellStatus;
   /** Column names the model suggests: drawn after the real columns, outlined, until added. */
-  suggestedColumns?: string[];
+  suggestedColumns?: Suggestion[];
   onDismissColumn?: (label: string) => void;
 }) {
   const editable = Boolean(onChange);
@@ -204,7 +199,11 @@ export function TableGrid({
   const placeholderRows = rows.length === 0 ? 3 : 0;
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    // The table starts on the body's padding: its lines and row numbers line up with the title and the first tool.
+    <div
+      data-shell-part="body"
+      className="mx-[var(--shell-body-inset-x,0px)] min-h-0 flex-1 gap-[var(--shell-body-gap,16px)] overflow-auto rounded-[var(--shell-body-radius,0px)] px-[var(--shell-body-padding-x,24px)]"
+    >
       <table
         className="border-separate border-spacing-0 font-bureau"
         style={{ width: totalWidth, minWidth: "100%" }}
@@ -221,7 +220,9 @@ export function TableGrid({
         </colgroup>
         <thead className="sticky top-0 z-10">
           <tr>
-            <th className="border-b border-gray-3/15 bg-background-primary" />
+            <th className="border-b border-shell-line bg-background-primary">
+              <span className="sr-only">Row</span>
+            </th>
             {columns.map((column) => {
               const Icon = COLUMN_TYPE_ICON[column.type];
               return (
@@ -257,10 +258,10 @@ export function TableGrid({
                     setMenu({ columnId: column.id, x: event.clientX, y: event.clientY });
                   }}
                   className={cn(
-                    "group/header relative border-b border-gray-3/15 bg-background-primary px-3 py-2.5 text-left align-middle",
+                    "group/header relative border-b border-shell-line bg-background-primary px-3 py-2.5 text-left align-middle",
                     editable && "cursor-grab active:cursor-grabbing",
                     dragging === column.id && "opacity-40",
-                    menu?.columnId === column.id && "bg-gray-6",
+                    menu?.columnId === column.id && "bg-shell-fill",
                   )}
                 >
                   {dropAt?.columnId === column.id && (
@@ -275,7 +276,7 @@ export function TableGrid({
                       disabled={!editable}
                       title={`${COLUMN_TYPE_LABEL[column.type]} column${editable ? " · click to change" : ""}`}
                       onClick={() => updateColumn(column.id, { type: NEXT_COLUMN_TYPE[column.type] })}
-                      className="flex size-5 shrink-0 items-center justify-center rounded-[5px] text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary disabled:hover:bg-transparent"
+                      className="flex size-5 shrink-0 items-center justify-center rounded-[5px] text-typography-secondary transition-colors hover:bg-shell-fill hover:text-typography-primary disabled:hover:bg-transparent"
                     >
                       <Icon className="size-3.5" />
                     </button>
@@ -301,7 +302,7 @@ export function TableGrid({
                         onClick={() => setRenaming(column.id)}
                         className={cn(
                           "min-w-0 flex-1 truncate text-left text-[12px] font-normal",
-                          column.label ? "text-typography-secondary" : "text-typography-secondary/60",
+                          column.label ? "text-typography-secondary" : "text-typography-secondary",
                         )}
                       >
                         {column.label || "Untitled"}
@@ -318,7 +319,7 @@ export function TableGrid({
                           title={next === 1 ? "Sort A → Z" : "Sort Z → A"}
                           onClick={() => sortBy(column.id, next)}
                           className={cn(
-                            "flex size-5 shrink-0 items-center justify-center rounded-[5px] transition-[opacity,colors] hover:bg-gray-6 hover:text-typography-primary focus-visible:opacity-100",
+                            "flex size-5 shrink-0 items-center justify-center rounded-[5px] transition-[opacity,colors] hover:bg-shell-fill hover:text-typography-primary focus-visible:opacity-100",
                             active ? "text-typography-primary opacity-100" : "text-typography-secondary opacity-0 group-hover/header:opacity-100",
                           )}
                         >
@@ -331,7 +332,7 @@ export function TableGrid({
                         type="button"
                         aria-label={`Remove ${column.label || "column"}`}
                         onClick={() => removeColumn(column.id)}
-                        className="flex size-5 shrink-0 items-center justify-center rounded-[5px] text-typography-secondary hover:bg-gray-6 hover:text-typography-primary"
+                        className="flex size-5 shrink-0 items-center justify-center rounded-[5px] text-typography-secondary hover:bg-shell-fill hover:text-typography-primary"
                       >
                         <X className="size-3" />
                       </button>
@@ -341,23 +342,22 @@ export function TableGrid({
               );
             })}
             {extra.map((label) => (
-              <th key={`suggested-${label}`} className="border-b border-gray-3/15 bg-background-primary px-2 py-2 text-left align-middle">
-                <SuggestedChip
-                  size="sm"
-                  label={label}
-                  onAccept={() => addColumn(columns.length, label)}
-                  onDismiss={onDismissColumn && (() => onDismissColumn(label))}
-                />
+              // A suggested column is a header like the others: its name in violet (click to add it), × to dismiss.
+              <th key={`suggested-${label}`} data-shell-part="suggest" className="group/suggested border-b border-shell-line bg-background-primary px-3 py-2.5 text-left align-middle">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <SuggestedText text={label} onAccept={() => addColumn(columns.length, label)} className="min-w-0 flex-1 truncate font-bureau text-[13px] font-normal" />
+                  {onDismissColumn && <DismissSuggestion label={label} onDismiss={() => onDismissColumn(label)} className="size-5" />}
+                </span>
               </th>
             ))}
             {editable && (
-              <th className="border-b border-gray-3/15 bg-background-primary px-1.5">
+              <th className="border-b border-shell-line bg-background-primary px-1.5">
                 <button
                   type="button"
                   aria-label="Add column"
                   title="Add column"
                   onClick={() => addColumn()}
-                  className="flex size-7 items-center justify-center rounded-[8px] text-typography-secondary transition-colors hover:bg-gray-6 hover:text-typography-primary"
+                  className="flex size-7 items-center justify-center rounded-[8px] text-typography-secondary transition-colors hover:bg-shell-fill hover:text-typography-primary"
                 >
                   <Plus className="size-4" />
                 </button>
@@ -368,7 +368,7 @@ export function TableGrid({
         <tbody>
           {rows.map((row, rowIndex) => (
             <tr key={row.id} className="group/row">
-              <td className="border-b border-gray-3/10 px-2 py-2.5 text-right align-top text-[12px] text-typography-secondary/70 tabular-nums">
+              <td className="border-b border-shell-line py-2.5 pr-2 text-left align-top text-[12px] text-typography-secondary tabular-nums">
                 {rowIndex + 1}
               </td>
               {columns.map((column) => {
@@ -381,8 +381,8 @@ export function TableGrid({
                     key={column.id}
                     onClick={() => editable && !isEditing && setEditing(address)}
                     className={cn(
-                      "border-b border-gray-3/10 px-3 py-2.5 align-top transition-colors",
-                      editable && "cursor-text group-hover/row:bg-gray-6/40",
+                      "border-b border-shell-line px-3 py-2.5 align-top transition-colors",
+                      editable && "cursor-text group-hover/row:bg-shell-fill/40",
                       isEditing && "bg-blue-1/50 shadow-[inset_0_0_0_1.5px_var(--color-blue-4)] group-hover/row:bg-blue-1/50",
                     )}
                   >
@@ -402,7 +402,7 @@ export function TableGrid({
                       value ? (
                         <Thumbnail url={value} className="h-[52px] w-[80px] rounded-[8px]" />
                       ) : (
-                        <span className="flex h-[52px] w-[80px] items-center justify-center rounded-[8px] border border-dashed border-gray-3/30 text-[11px] text-typography-secondary">
+                        <span className="flex h-[52px] w-[80px] items-center justify-center rounded-[8px] border border-dashed border-shell-line-strong text-[11px] text-typography-secondary">
                           {editable ? "Add image" : ""}
                         </span>
                       )
@@ -417,15 +417,18 @@ export function TableGrid({
                 );
               })}
               {extra.map((label) => (
-                <td key={`suggested-${label}`} aria-hidden className="border-b border-dashed border-gray-3/15 bg-gray-6/30" />
+                // Its cells shimmer: content to come, not content yet.
+                <td key={`suggested-${label}`} aria-hidden className="border-b border-shell-line px-3 py-3.5 align-top">
+                  <span className="shell-suggest-shimmer block h-2.5 w-3/4 rounded-full" />
+                </td>
               ))}
               {editable && (
-                <td className="border-b border-gray-3/10 px-1.5 py-2 align-top">
+                <td className="border-b border-shell-line px-1.5 py-2 align-top">
                   <button
                     type="button"
                     aria-label={`Delete row ${rowIndex + 1}`}
                     onClick={() => removeRow(row.id)}
-                    className="flex size-7 items-center justify-center rounded-[8px] text-typography-secondary hover:bg-gray-6 hover:text-typography-primary"
+                    className="flex size-7 items-center justify-center rounded-[8px] text-typography-secondary hover:bg-shell-fill hover:text-typography-primary"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -435,20 +438,20 @@ export function TableGrid({
           ))}
           {Array.from({ length: placeholderRows + (status === "loading" && rows.length > 0 ? 2 : 0) }, (_, i) => (
             <tr key={`placeholder-${i}`} className={status === "loading" ? "animate-pulse" : undefined}>
-              <td className="border-b border-gray-3/10 px-2 py-3.5" />
+              <td className="border-b border-shell-line px-2 py-3.5" />
               {columns.map((column, c) => (
-                <td key={column.id} className="border-b border-gray-3/10 px-3 py-3.5">
+                <td key={column.id} className="border-b border-shell-line px-3 py-3.5">
                   {column.type === "image" ? (
-                    <span className="block h-[52px] w-[80px] rounded-[8px] bg-gray-6" />
+                    <span className="block h-[52px] w-[80px] rounded-[8px] bg-shell-fill" />
                   ) : (
-                    <Bar width={40 + ((i * 17 + c * 23) % 45)} className="h-1.5 bg-gray-3/15" />
+                    <Bar width={40 + ((i * 17 + c * 23) % 45)} className="h-1.5 bg-shell-ink-faint" />
                   )}
                 </td>
               ))}
               {extra.map((label) => (
-                <td key={`suggested-${label}`} className="border-b border-gray-3/10" />
+                <td key={`suggested-${label}`} className="border-b border-shell-line" />
               ))}
-              {editable && <td className="border-b border-gray-3/10" />}
+              {editable && <td className="border-b border-shell-line" />}
             </tr>
           ))}
         </tbody>
@@ -506,7 +509,7 @@ export function ColumnMenu({
         onClose();
       }}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left font-bureau text-[13px] transition-colors hover:bg-gray-6 disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
+        "flex w-full items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left font-bureau text-[13px] transition-colors hover:bg-shell-fill disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
         options.danger ? "text-red-5 [&_svg]:text-red-5" : "text-typography-primary [&_svg]:text-typography-secondary",
       )}
     >
@@ -515,7 +518,7 @@ export function ColumnMenu({
       {options.checked !== undefined && <Check className={cn("!text-typography-primary", !options.checked && "invisible")} />}
     </button>
   );
-  const rule = <span aria-hidden className="mx-2 my-1 h-px bg-gray-3/20" />;
+  const rule = <span aria-hidden className="mx-2 my-1 h-px bg-shell-ink-faint" />;
   // Keep the menu on screen.
   const left = Math.min(menu.x, window.innerWidth - 232);
   const top = Math.min(menu.y, window.innerHeight - 380);
@@ -536,7 +539,7 @@ export function ColumnMenu({
         tabIndex={-1}
         ref={(node) => node?.focus()}
         onKeyDown={(event) => event.key === "Escape" && onClose()}
-        className="fixed z-50 flex w-56 flex-col rounded-[14px] border-[0.5px] border-gray-2 bg-gray-1 p-1.5 shadow-[0_4px_14px_rgba(26,23,24,0.14)] outline-none"
+        className="fixed z-50 flex w-56 flex-col rounded-[14px] border-[0.5px] border-shell-line-strong bg-gray-1 p-1.5 shadow-[0_4px_14px_rgba(26,23,24,0.14)] outline-none"
         style={{ left, top }}
       >
         {item("Sort A → Z", <ArrowDownAZ />, () => onSort(1), { disabled: !canSort || column.type === "image" })}

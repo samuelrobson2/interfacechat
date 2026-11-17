@@ -1,5 +1,5 @@
 import { ALL } from "./app-query";
-import type { ArticleShellData, DashboardShellData, Row } from "./app-types";
+import type { DashboardShellData, Row } from "./app-types";
 
 /* ── Dashboard: café sales ────────────────────────────────────────────── */
 
@@ -172,9 +172,12 @@ const COOLING_CODE = [
   "  mean.toFixed(1) + \"°C on average.</p>\";",
 ].join("\n");
 
-export const articleFixture: ArticleShellData = {
-  title: "Why some streets run 7°C hotter",
-  subtitle: "Tree cover, surface heat and what planting would change. Sample data.",
+/**
+ * The live pieces in the sample document (Urban heat islands): what was the
+ * Article fixture. The prose lives in the document's body, which places each
+ * block with a `::id` line.
+ */
+export const HEAT_PIECES: Pick<DashboardShellData, "datasets" | "variables" | "blocks"> = {
   datasets: [
     {
       id: "heat",
@@ -187,27 +190,15 @@ export const articleFixture: ArticleShellData = {
   variables: [{ kind: "slider", id: "trees", label: "Extra tree cover", min: 0, max: 30, step: 5, unit: " points", default: 10 }],
   blocks: [
     {
-      type: "text",
-      id: "intro",
-      markdown:
-        "On a July afternoon, the pavement in **Station Quarter** reaches 41°C. Two miles away, under the plane trees of Parkside, it is 30°C. The difference isn't the weather; it's shade.",
-    },
-    {
       type: "chart",
       id: "scatter",
       title: "Tree cover against afternoon surface temperature",
-      caption: "Eight neighbourhoods, July afternoons.",
+      caption: "Eight neighbourhoods, July afternoons. Sample data.",
       dataset: "heat",
       mark: "point",
       x: "treeCover",
       y: "surfaceTemp",
       height: 220,
-    },
-    {
-      type: "text",
-      id: "middle",
-      markdown:
-        "## What planting would change\n\nThe line is steep: every ten points of canopy is worth about a degree. Move the slider to add cover everywhere, and the code below works out each street's afternoon.",
     },
     { type: "control", id: "trees-control", variable: "trees" },
     {
@@ -230,16 +221,8 @@ export const articleFixture: ArticleShellData = {
       y: "cooling",
       height: 200,
     },
-    {
-      type: "text",
-      id: "close",
-      markdown:
-        "With {{trees}} more canopy, the hottest streets gain the most, because they start with the least. The cheapest degree in the city is a tree on a street that has none.",
-    },
   ],
 };
-
-export const emptyArticle: ArticleShellData = { title: "", subtitle: "", datasets: [], variables: [], blocks: [] };
 
 /* ── As library fixtures ──────────────────────────────────────────────── */
 
@@ -250,7 +233,7 @@ type Fixture<D> = {
 };
 
 /** The suggestion is the plan before the model fills it in: data and the first figures. */
-export const APP_FIXTURES: { dashboard: Fixture<DashboardShellData>; article: Fixture<ArticleShellData> } = {
+export const APP_FIXTURES: { dashboard: Fixture<DashboardShellData> } = {
   dashboard: {
     suggestionPrompt: "Build a dashboard of our café sales by site and month, with a forecast",
     history: { chatTitle: "Café sales dashboard", when: "2 days ago" },
@@ -260,15 +243,6 @@ export const APP_FIXTURES: { dashboard: Fixture<DashboardShellData>; article: Fi
       history: dashboardFixture,
     },
   },
-  article: {
-    suggestionPrompt: "Write an interactive article on why some streets run hotter, with a slider for tree cover",
-    history: { chatTitle: "Hot streets explainer", when: "Last week" },
-    states: {
-      empty: emptyArticle,
-      suggestion: { ...articleFixture, blocks: articleFixture.blocks.slice(0, 2) },
-      history: articleFixture,
-    },
-  },
 };
 
-export const APP_EMPTY = { dashboard: emptyDashboard, article: emptyArticle };
+export const APP_EMPTY = { dashboard: emptyDashboard };

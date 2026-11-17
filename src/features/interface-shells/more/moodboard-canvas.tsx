@@ -315,7 +315,7 @@ export function MoodboardCanvas({
         </>
       )}
       {selectedItem.kind === "colour" && (
-        <label title="Change the colour" className="relative grid size-7 cursor-pointer place-items-center rounded-[8px] hover:bg-gray-6" {...fieldEvents}>
+        <label title="Change the colour" className="relative grid size-7 cursor-pointer place-items-center rounded-[8px] hover:bg-shell-fill" {...fieldEvents}>
           <span className="size-4 rounded-full ring-1 ring-black/10" style={{ backgroundColor: selectedItem.colour }} />
           <input
             type="color"
@@ -408,13 +408,13 @@ export function MoodboardCanvas({
       {/* The prompt bar: ask the model for an image, a note, a drawing or a component. */}
       {editable && (
         <form
-          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-3/15 px-6 py-2.5"
+          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-shell-line px-6 py-2.5"
           onSubmit={(event) => {
             event.preventDefault();
             submit();
           }}
         >
-          <span role="radiogroup" aria-label="Make" className="inline-flex h-8 shrink-0 rounded-full bg-gray-6 p-0.5">
+          <span role="radiogroup" aria-label="Make" className="inline-flex h-8 shrink-0 rounded-full bg-shell-fill p-0.5">
             {MAKES.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -429,7 +429,7 @@ export function MoodboardCanvas({
                 }}
                 className={cn(
                   "flex items-center gap-1.5 rounded-full px-2.5 font-bureau text-[13px] transition-colors",
-                  make === id ? "bg-white text-typography-primary shadow-[0_1px_2px_rgba(26,23,24,0.12)]" : "text-typography-secondary hover:text-typography-primary",
+                  make === id ? "bg-shell-panel text-typography-primary shadow-[0_1px_2px_rgba(26,23,24,0.12)]" : "text-typography-secondary hover:text-typography-primary",
                 )}
               >
                 <Icon className="size-3.5" />
@@ -449,7 +449,7 @@ export function MoodboardCanvas({
                     stopFieldEvent(event);
                     setSelected(null);
                   }}
-                  className="grid size-4 place-items-center rounded-full hover:bg-white"
+                  className="grid size-4 place-items-center rounded-full hover:bg-shell-panel"
                 >
                   <X className="size-2.5" />
                 </button>
@@ -512,7 +512,7 @@ export function MoodboardCanvas({
               className={cn(
                 "absolute rounded-[12px] transition-shadow",
                 editable && "cursor-grab active:cursor-grabbing",
-                isSelected ? "ring-2 ring-blue-4 ring-offset-2" : "hover:ring-1 hover:ring-gray-3/40 hover:ring-offset-2",
+                isSelected ? "ring-2 ring-blue-4 ring-offset-2" : "hover:ring-1 hover:ring-shell-line-strong hover:ring-offset-2",
                 moving?.id === item.id && "shadow-[0_12px_32px_-8px_rgba(26,23,24,0.35)]",
                 isRevising && "animate-pulse",
               )}
@@ -526,11 +526,11 @@ export function MoodboardCanvas({
                       alt={item.text ?? ""}
                       draggable={false}
                       // Until it loads (or if it can't), it holds a portrait-shaped grey space.
-                      className="block min-h-24 w-full rounded-[12px] bg-gray-6 object-cover [&:not([data-loaded])]:aspect-[4/5]"
+                      className="block min-h-24 w-full rounded-[12px] bg-shell-fill object-cover [&:not([data-loaded])]:aspect-[4/5]"
                       onLoad={(event) => event.currentTarget.setAttribute("data-loaded", "")}
                     />
                   ) : (
-                    <span className="block aspect-square rounded-[12px] bg-gray-6" />
+                    <span className="block aspect-square rounded-[12px] bg-shell-fill" />
                   )}
                   {item.text && <figcaption className="truncate px-1 font-bureau text-[12px] text-typography-secondary">{item.text}</figcaption>}
                 </figure>
@@ -552,11 +552,11 @@ export function MoodboardCanvas({
                   />
                 </div>
               ) : item.kind === "drawing" ? (
-                <div className="overflow-hidden rounded-[12px] bg-white p-2 shadow-[0_2px_6px_rgba(26,23,24,0.08)]">
+                <div className="overflow-hidden rounded-[12px] bg-shell-panel p-2 shadow-[0_2px_6px_rgba(26,23,24,0.08)]">
                   {item.code && <img src={svgUrl(item.code)} alt={item.text ?? "Drawing"} draggable={false} className="block w-full" />}
                 </div>
               ) : item.kind === "component" ? (
-                <div className="rounded-[12px] bg-white p-3 shadow-[0_2px_6px_rgba(26,23,24,0.08)]" style={{ height: (heights[item.id] ?? 260) + 24 }}>
+                <div className="rounded-[12px] bg-shell-panel p-3 shadow-[0_2px_6px_rgba(26,23,24,0.08)]" style={{ height: (heights[item.id] ?? 260) + 24 }}>
                   {item.code && (
                     <ComponentFrame
                       code={item.code}
@@ -578,7 +578,7 @@ export function MoodboardCanvas({
           <div
             key={slot.id}
             className={cn(
-              "absolute flex animate-pulse items-center justify-center rounded-[12px] bg-gray-6",
+              "absolute flex animate-pulse items-center justify-center rounded-[12px] bg-shell-fill",
               slot.make === "image" ? "aspect-square" : slot.make === "note" ? "h-28" : slot.make === "drawing" ? "aspect-[4/3]" : "h-56",
             )}
             style={{ left: slot.x, top: slot.y, width: slot.w }}

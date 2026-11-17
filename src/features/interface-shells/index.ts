@@ -84,12 +84,13 @@ export {
   formatInstruction,
 } from "./model/chat-formats";
 // Dashboard and Article: apps built from data, variables and blocks, with runnable code.
-export { ArticleShell, DashboardShell, type AppShellProps } from "./apps/app-shells";
+export { DashboardShell, type AppShellProps } from "./apps/app-shells";
 export { LinkableDataContext, type LinkableData } from "./apps/app-data-menu";
-export { articleFixture, dashboardFixture, emptyArticle, emptyDashboard } from "./apps/app-fixtures";
+export { dashboardFixture, emptyDashboard, HEAT_PIECES } from "./apps/app-fixtures";
 export { ALL as APP_ALL, columnsOf, runQuery } from "./apps/app-query";
 export * from "./apps/app-types";
-export { appToCatalogue, catalogueToApp } from "./apps/app-catalogue";
+export { appToCatalogue, catalogueToApp, catalogueToPieces, piecesToCatalogue, type DocumentPieces } from "./apps/app-catalogue";
 export { appDetail, blockLabel } from "./apps/app-detail";
 export { BLANK_TOKEN, resolveBlanks } from "./model/markdown-blocks";
 export { fillParts, SUGGESTION_KINDS, SUGGESTION_PARTS, type PartGroup, type PartKind, type SuggestionPart } from "./model/suggestion-parts";
+export { ShellTooltips } from "./ui/shell-tooltips";

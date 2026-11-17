@@ -1,12 +1,12 @@
-import { ChevronDown, ChevronUp, ClipboardCopy, Copy, Eraser, FileUp, Highlighter, MessageCircle, MessageCircleQuestion, ScanText, Search, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, ChevronUp, FileUp, Highlighter, MessageCircle, MessageCircleQuestion, ScanText, Search, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { readFile } from "../model/reader-file";
 import { shellId, type ReaderShellData, type ShellProps } from "../model/shell-types";
-import { PdfIcon, PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle } from "../ui/shell-kit";
+import { PdfIcon, PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle, SHELL_BODY_PAD, SHELL_EDGE_X } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { Bar, barWidths, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
-import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolFile } from "../ui/shell-toolbar";
+import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolFile } from "../ui/shell-toolbar";
 
 /** Preview's zoom steps, as a share of the page's normal text size. */
 const ZOOMS = [0.8, 0.9, 1, 1.15, 1.3, 1.5];
@@ -75,8 +75,8 @@ function PageThumb({ data, className, lines = 14 }: { data: ReaderShellData; cla
   return (
     <div
       className={cn(
-        "relative flex flex-col gap-[3px] overflow-hidden rounded-[4px] bg-white px-[10%] py-[9%] shadow-[0_1px_4px_rgba(26,23,24,0.14)]",
-        empty && "items-center justify-center border border-dashed border-gray-3/40 shadow-none",
+        "relative flex flex-col gap-[3px] overflow-hidden rounded-[4px] bg-shell-panel px-[10%] py-[9%] shadow-[0_1px_4px_rgba(26,23,24,0.14)]",
+        empty && "items-center justify-center border border-dashed border-shell-line-strong shadow-none",
         className,
       )}
     >
@@ -87,12 +87,12 @@ function PageThumb({ data, className, lines = 14 }: { data: ReaderShellData; cla
         </>
       ) : (
         <>
-          <Bar width="55%" className="mb-1 h-1.5 bg-gray-3/45" />
+          <Bar width="55%" className="mb-1 h-1.5 bg-shell-ink-soft" />
           {rows.slice(0, lines).map((row, i) =>
             row.width === 0 ? (
               <span key={i} className="h-[3px]" />
             ) : (
-              <Bar key={i} width={row.width} className={cn("h-[3px]", row.match ? "bg-orange-5/70" : row.found ? "bg-blue-4/60" : "bg-gray-3/25")} />
+              <Bar key={i} width={row.width} className={cn("h-[3px]", row.match ? "bg-orange-5/70" : row.found ? "bg-blue-4/60" : "bg-shell-ink-faint")} />
             ),
           )}
           <PdfIcon className="absolute right-1 bottom-1 h-4 w-3.5" />
@@ -142,7 +142,9 @@ function FileDrop({
       setState("error");
     }
   };
+  // The file field sits beside the drop area, not inside it: a control inside a control confuses screen readers.
   return (
+    <>
     <div
       role="button"
       tabIndex={0}
@@ -175,13 +177,15 @@ function FileDrop({
     >
       {children}
       {(state === "reading" || state === "error") && (
-        <span className="absolute inset-0 grid place-items-center rounded-[inherit] bg-white/85 px-2 text-center font-bureau text-[11px] text-typography-secondary">
+        <span className="absolute inset-0 grid place-items-center rounded-[inherit] bg-shell-panel/85 px-2 text-center font-bureau text-[11px] text-typography-secondary">
           {state === "reading" ? "Reading…" : "Couldn't read that file. Try a PDF or text file."}
         </span>
       )}
+    </div>
       <input
         ref={input}
         type="file"
+        aria-label="Choose a PDF"
         accept="application/pdf,.pdf,.txt,.md,text/plain,text/markdown"
         className="sr-only"
         tabIndex={-1}
@@ -191,7 +195,7 @@ function FileDrop({
           event.target.value = "";
         }}
       />
-    </div>
+    </>
   );
 }
 
@@ -277,7 +281,10 @@ function AskBar({
   onStep,
   compact,
   readOnly,
+  inputRef,
 }: {
+  /** The toolbar's Find tool focuses this. */
+  inputRef?: React.Ref<HTMLInputElement>;
   value: string;
   onChange?: (value: string) => void;
   onAsk?: (question: string) => void;
@@ -289,11 +296,12 @@ function AskBar({
 }) {
   const question = isQuestion(value);
   const searching = value.trim().length >= 2 && !question;
-  const iconButton = "grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary hover:bg-gray-0 hover:text-typography-primary disabled:opacity-30";
+  const iconButton = "grid size-6 shrink-0 place-items-center rounded-full text-typography-secondary hover:bg-shell-panel hover:text-typography-primary disabled:opacity-30";
   return (
-    <div className={cn("flex min-w-0 items-center gap-1.5 rounded-full bg-gray-6", compact ? "h-8 pr-1 pl-2.5" : "h-10 pr-1.5 pl-3.5")}>
+    <div className={cn("flex min-w-0 items-center gap-1.5 rounded-full bg-shell-fill", compact ? "h-8 pr-1 pl-2.5" : "h-10 pr-1.5 pl-3.5")}>
       {question ? <MessageCircleQuestion className="size-4 shrink-0 text-typography-secondary" /> : <Search className="size-4 shrink-0 text-typography-secondary" />}
       <input
+        ref={inputRef}
         value={value}
         readOnly={readOnly || !onChange}
         placeholder={compact ? "Search or ask" : "Search, ask a question, or find something"}
@@ -367,6 +375,7 @@ export function ReaderShell({
   suggestions,
 }: ShellProps<ReaderShellData>) {
   const article = useRef<HTMLElement>(null);
+  const findField = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
   const [zoom, setZoom] = useState(2);
   const [opening, setOpening] = useState<"idle" | "reading" | "error">("idle");
@@ -393,11 +402,11 @@ export function ReaderShell({
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         <PreviewHead kind="reader" title={data.title || data.source} />
-        <PreviewBody className="items-center pt-0.5">
+        <PreviewBody className="items-center">
           {/* Medium shows shapes, not words: the page, a search bar over it, lines of text. */}
           <div className="flex w-full min-h-0 flex-1 flex-col gap-1.5">
-            <span className="flex h-3.5 shrink-0 items-center gap-1 rounded-full bg-gray-6 px-1.5">
-              <Search className="size-2 text-gray-3" />
+            <span className="flex h-3.5 shrink-0 items-center gap-1 rounded-full bg-shell-fill px-1.5">
+              <Search className="size-2 text-typography-secondary" />
               <Bar width="40%" className="h-1" />
             </span>
             <PageThumb
@@ -422,6 +431,82 @@ export function ReaderShell({
     onAsk(question);
   });
 
+  const hasFile = data.passages.length > 0;
+
+  /** What's selected in the page, if anything: the words a highlight or a question is about. */
+  const selectedText = () => {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() ?? "";
+    if (!text || !article.current || !selection?.anchorNode || !article.current.contains(selection.anchorNode)) return "";
+    return text;
+  };
+  const openFile = async (file: File) => {
+    if (!update) return;
+    setOpening("reading");
+    try {
+      const read = await readFile(file);
+      if (read.passages.length === 0) throw new Error("No text found");
+      update({ source: read.source, title: read.title, pages: read.pages, passages: read.passages, highlights: [], query: "" });
+      setOpening("idle");
+    } catch {
+      setOpening("error");
+    }
+  };
+
+  // Preview's and Acrobat's essentials: open, zoom, highlight, ask, copy.
+  // Zoom and the selection tools work on the large page, so the medium plus card leaves them out.
+  // Find: the toolbar's way into the bar that searches and asks, with whatever's typed there selected.
+  const find = () => {
+    findField.current?.focus();
+    findField.current?.select();
+  };
+  const standardTools = (
+    <>
+      <ShellToolButton label="Find in the document" disabled={!hasFile} onPress={find}>
+        <Search />
+      </ShellToolButton>
+      <ShellToolFile label={opening === "reading" ? "Opening…" : opening === "error" ? "Couldn't read that file. Open another" : "Open a file"} accept="application/pdf,.pdf,.txt,.md,text/plain,text/markdown" disabled={!update || opening === "reading"} onFiles={([file]) => file && void openFile(file)}>
+        <FileUp />
+      </ShellToolFile>
+      {large && (
+        <>
+          <ShellToolDivider />
+          <ShellToolButton label="Zoom out" disabled={!hasFile || zoom === 0} onPress={() => setZoom((z) => Math.max(0, z - 1))}>
+            <ZoomOut />
+          </ShellToolButton>
+          <span className="w-11 shrink-0 text-center font-bureau text-[12px] text-typography-secondary tabular-nums">{Math.round(ZOOMS[zoom]! * 100)}%</span>
+          <ShellToolButton label="Zoom in" disabled={!hasFile || zoom === ZOOMS.length - 1} onPress={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
+            <ZoomIn />
+          </ShellToolButton>
+          <ShellToolDivider />
+          <ShellToolButton
+            label="Highlight the selection"
+            disabled={!update || !hasFile}
+            onPress={() => {
+              const quote = selectedText();
+              if (quote && !data.highlights.some((h) => h.quote === quote))
+                update?.({ highlights: [...data.highlights, { id: shellId("hl"), quote, note: "Your highlight" }] });
+              window.getSelection()?.removeAllRanges();
+            }}
+          >
+            <Highlighter />
+          </ShellToolButton>
+          <ShellToolButton
+            label="Ask the chat about the selection"
+            disabled={!ask || !hasFile}
+            onPress={() => {
+              const quote = selectedText();
+              if (quote) ask?.(`What does this mean: "${quote.length > 400 ? `${quote.slice(0, 400)}…` : quote}"`);
+            }}
+          >
+            <MessageCircleQuestion />
+          </ShellToolButton>
+        </>
+      )}
+      {!large && <ShellToolDivider />}
+    </>
+  );
+
   if (!large) {
     // Minimal: the search bar, the page beneath it, and the file in the corner.
     return (
@@ -433,9 +518,13 @@ export function ReaderShell({
           onChange={update && ((title) => update({ title }))}
           onSubmit={onSubmit}
         />
-        <ShellBody size={size} className="gap-2.5">
+        <ShellToolbar tools={tools} actions={actions}>
+          {standardTools}
+        </ShellToolbar>
+        <ShellBody size={size}>
           <AskBar
             compact
+            inputRef={findField}
             value={data.query ?? ""}
             onChange={data.source ? setQuery : undefined}
             onAsk={ask}
@@ -459,83 +548,6 @@ export function ReaderShell({
     );
   }
 
-  const hasFile = data.passages.length > 0;
-
-  /** What's selected in the page, if anything: the words a highlight or a question is about. */
-  const selectedText = () => {
-    const selection = window.getSelection();
-    const text = selection?.toString().trim() ?? "";
-    if (!text || !article.current || !selection?.anchorNode || !article.current.contains(selection.anchorNode)) return "";
-    return text;
-  };
-  const openFile = async (file: File) => {
-    if (!update) return;
-    setOpening("reading");
-    try {
-      const read = await readFile(file);
-      if (read.passages.length === 0) throw new Error("No text found");
-      update({ source: read.source, title: read.title, pages: read.pages, passages: read.passages, highlights: [], query: "" });
-      setOpening("idle");
-    } catch {
-      setOpening("error");
-    }
-  };
-  const ownHighlights = data.highlights.filter((h) => data.passages.some((p) => p.includes(h.quote)));
-
-  // Preview's and Acrobat's essentials: open, zoom, highlight, ask, copy.
-  const toolbar = (
-    <ShellToolbar tools={tools} actions={actions}>
-      <ShellToolFile label={opening === "reading" ? "Opening…" : opening === "error" ? "Couldn't read that file. Open another" : "Open a file"} accept="application/pdf,.pdf,.txt,.md,text/plain,text/markdown" disabled={!update || opening === "reading"} onFiles={([file]) => file && void openFile(file)}>
-        <FileUp />
-      </ShellToolFile>
-      <ShellToolDivider />
-      <ShellToolButton label="Zoom out" disabled={!hasFile || zoom === 0} onPress={() => setZoom((z) => Math.max(0, z - 1))}>
-        <ZoomOut />
-      </ShellToolButton>
-      <span className="w-11 shrink-0 text-center font-bureau text-[12px] text-typography-secondary tabular-nums">{Math.round(ZOOMS[zoom]! * 100)}%</span>
-      <ShellToolButton label="Zoom in" disabled={!hasFile || zoom === ZOOMS.length - 1} onPress={() => setZoom((z) => Math.min(ZOOMS.length - 1, z + 1))}>
-        <ZoomIn />
-      </ShellToolButton>
-      <ShellToolDivider />
-      <ShellToolButton
-        label="Highlight the selection"
-        disabled={!update || !hasFile}
-        onPress={() => {
-          const quote = selectedText();
-          if (quote && !data.highlights.some((h) => h.quote === quote))
-            update?.({ highlights: [...data.highlights, { id: shellId("hl"), quote, note: "Your highlight" }] });
-          window.getSelection()?.removeAllRanges();
-        }}
-      >
-        <Highlighter />
-      </ShellToolButton>
-      <ShellToolButton
-        label="Ask the chat about the selection"
-        disabled={!ask || !hasFile}
-        onPress={() => {
-          const quote = selectedText();
-          if (quote) ask?.(`What does this mean: "${quote.length > 400 ? `${quote.slice(0, 400)}…` : quote}"`);
-        }}
-      >
-        <MessageCircleQuestion />
-      </ShellToolButton>
-      <ShellToolButton
-        label="Copy the highlights"
-        disabled={ownHighlights.length === 0}
-        onPress={() => copyText(ownHighlights.map((h) => `“${h.quote}”${h.note && h.note !== "Your highlight" ? ` (${h.note})` : ""}`).join("\n\n"))}
-      >
-        <ClipboardCopy />
-      </ShellToolButton>
-      <ShellToolButton label="Clear the highlights" disabled={!update || data.highlights.length === 0} onPress={() => update?.({ highlights: [] })}>
-        <Eraser />
-      </ShellToolButton>
-      <ShellToolDivider />
-      <ShellToolButton label="Copy the text" disabled={!hasFile} onPress={() => copyText(data.passages.join("\n\n"))}>
-        <Copy />
-      </ShellToolButton>
-    </ShellToolbar>
-  );
-
   return (
     <ShellSurface size={size} surface={surface} className={className}>
       <ShellTitle
@@ -545,15 +557,18 @@ export function ReaderShell({
         onChange={update && ((title) => update({ title }))}
         onSubmit={onSubmit}
         aside={
-          <FileDrop onFile={update} replacing={Boolean(data.source)} label={data.source ? "Replace the file" : "Add a PDF"} className="px-1.5 py-1 hover:bg-gray-6">
+          <FileDrop onFile={update} replacing={Boolean(data.source)} label={data.source ? "Replace the file" : "Add a PDF"} className="px-1.5 py-1 hover:bg-shell-fill">
             <FileLabel data={data} large />
           </FileDrop>
         }
       />
-      {toolbar}
+      <ShellToolbar tools={tools} actions={actions}>
+        {standardTools}
+      </ShellToolbar>
       {hasFile && (
-        <div className="flex flex-col gap-2 px-6 pt-3">
+        <div className={cn("flex flex-col gap-2 pt-3", SHELL_EDGE_X)}>
           <AskBar
+            inputRef={findField}
             value={data.query ?? ""}
             onChange={setQuery}
             onAsk={ask}
@@ -574,7 +589,7 @@ export function ReaderShell({
                     stopFieldEvent(event);
                     ask?.(starter);
                   }}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-dashed border-gray-3/40 px-2.5 font-bureau text-[12px] text-typography-secondary transition-colors hover:border-gray-3 hover:text-typography-primary disabled:pointer-events-none"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-dashed border-shell-line-strong px-2.5 font-bureau text-[12px] text-typography-secondary transition-colors hover:border-shell-line-strong hover:text-typography-primary disabled:pointer-events-none"
                 >
                   <MessageCircleQuestion className="size-3" />
                   {starter}
@@ -590,12 +605,14 @@ export function ReaderShell({
           )}
         </div>
       )}
-      <div className="flex min-h-0 flex-1 px-6 pt-3 pb-6">
-        <div className="flex min-w-0 flex-1 flex-col rounded-[12px] bg-gray-6 p-3">
+      <div data-shell-part="body" className={cn("flex min-h-0 flex-1", SHELL_BODY_PAD)}>
+        <div className="flex min-w-0 flex-1 flex-col rounded-[12px] bg-shell-fill p-3">
           <article
+            tabIndex={0}
+            aria-label="The document"
             ref={article}
             {...fieldEvents}
-            className="no-scrollbar relative mx-auto flex w-full max-w-[620px] min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-white px-8 py-7 shadow-[0_1px_4px_rgba(26,23,24,0.12)]"
+            className="no-scrollbar relative mx-auto flex w-full max-w-[620px] min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-shell-panel px-8 py-7 shadow-[0_1px_4px_rgba(26,23,24,0.12)] outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50"
           >
             {hasFile ? (
               data.passages.map((passage, i) => (
@@ -613,7 +630,7 @@ export function ReaderShell({
               <FileDrop
                 onFile={update}
                 label="Add a PDF"
-                className="m-auto flex w-72 flex-col items-center gap-3 rounded-[12px] border border-dashed border-gray-3/40 px-6 py-8"
+                className="m-auto flex w-72 flex-col items-center gap-3 rounded-[12px] border border-dashed border-shell-line-strong px-6 py-8"
               >
                 <PdfIcon className="h-10 w-8 opacity-60" />
                 <span className="font-bureau text-[13px] text-typography-primary">Add a PDF to</span>

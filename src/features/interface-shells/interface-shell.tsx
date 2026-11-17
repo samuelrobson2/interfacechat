@@ -73,7 +73,6 @@ function ShellBySize(props: InterfaceShellProps) {
     case "guide":
       return <GuideShell {...props} />;
     case "dashboard":
-    case "article":
       return <AppShellBySize {...(props as unknown as ShellProps<AppShellData>)} kind={props.kind} />;
     case "generator":
       return <GeneratorShell {...props} />;

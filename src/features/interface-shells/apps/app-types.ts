@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Dashboard and Article are built from the same parts: named datasets, the
+ * Dashboard, and a Document's live pieces, are built from the same parts: named datasets, the
  * variables people steer with controls, and blocks that read both. The model
  * writes this spec, never code that runs in the app; the only code that runs
  * is a code block's, inside a sandbox (see app-sandbox.tsx).
@@ -197,10 +197,7 @@ const appBase = {
 export const dashboardSchema = z.object({ ...appBase, description: z.string().optional() });
 export type DashboardShellData = z.infer<typeof dashboardSchema>;
 
-/** A piece to read top to bottom, with live charts, controls and code between the prose. */
-export const articleSchema = z.object({ ...appBase, subtitle: z.string().optional() });
-export type ArticleShellData = z.infer<typeof articleSchema>;
-
-export type AppShellData = DashboardShellData | ArticleShellData;
-export const APP_KINDS = ["dashboard", "article"] as const;
+/** The data and blocks behind a dashboard, or behind a document's live pieces (`documentApp`). */
+export type AppShellData = DashboardShellData;
+export const APP_KINDS = ["dashboard"] as const;
 export type AppKind = (typeof APP_KINDS)[number];

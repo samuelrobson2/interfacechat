@@ -4,12 +4,10 @@ import type { GeneratedTool } from "./tool-spec";
 
 /**
  * Where each interface's suggestions go when a tool doesn't say: inside a row
- * the interface already has, beside what it acts on. Document's Length slider
- * sits by its word count; Generator's "Improve the prompt" in its prompt box.
+ * the interface already has, beside what it acts on. Generator's "Improve the prompt" in its prompt box.
  * Anything not listed sits in the toolbar.
  */
 const PLACES: Partial<Record<ToolbarKind, Record<string, SuggestionPlace>>> = {
-  document: { length: "footer", "target-length": "footer" },
   schedule: { start: "days", days: "days", pace: "days", buffers: "days" },
   generator: { "improve-prompt": "prompt", describe: "prompt" },
 };

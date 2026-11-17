@@ -1,3 +1,5 @@
+import { BarChart3 } from "lucide-react";
+import { embedLabel } from "../document/document-embeds";
 import { Search } from "lucide-react";
 import { cn } from "@/shared/lib/css";
 import { numberedIndices, parseBlocks, plainText, serializeBlocks } from "../model/markdown-blocks";
@@ -41,6 +43,15 @@ export function DocumentInline({ data, onChange }: Editable<DocumentShellData>) 
   return (
     <div className={cn("flex max-h-[216px] flex-col gap-1.5 overflow-hidden", visible.length > 4 && FADE)}>
       {shown.map(({ block, index }) => {
+        // A live piece reads as a small label in a reply: the chart itself is in the document.
+        if (block.type === "embed") {
+          return (
+            <p key={index} className="flex items-center gap-1.5 font-bureau text-[12px] text-typography-secondary">
+              <BarChart3 className="size-3.5 shrink-0" aria-hidden />
+              {embedLabel(data.blocks?.find((piece) => piece.id === block.text))}
+            </p>
+          );
+        }
         const text = <InlineText value={block.text} display={plainText(block.text)} onChange={edit(index)} />;
         if (block.type === "heading1" || block.type === "heading2") {
           return (
@@ -61,7 +72,7 @@ export function DocumentInline({ data, onChange }: Editable<DocumentShellData>) 
         }
         if (block.type === "quote") {
           return (
-            <p key={index} className={cn(INLINE_TEXT, "line-clamp-2 border-l-2 border-gray-3/30 pl-3 font-light")}>
+            <p key={index} className={cn(INLINE_TEXT, "line-clamp-2 border-l-2 border-shell-line-strong pl-3 font-light")}>
               {text}
             </p>
           );
@@ -169,7 +180,7 @@ export function TableInline({ data, onChange }: Editable<TableShellData>) {
             {columns.map((column) => (
               <th
                 key={column.id}
-                className={cn(INLINE_META, "truncate border-b border-gray-3/25 pr-3 pb-1.5 text-left font-normal")}
+                className={cn(INLINE_META, "truncate border-b border-shell-line pr-3 pb-1.5 text-left font-normal")}
               >
                 <InlineText value={column.label} onChange={setLabel(column.id)} placeholder="Untitled" className="block truncate" />
               </th>
@@ -183,9 +194,9 @@ export function TableInline({ data, onChange }: Editable<TableShellData>) {
                   {columns.map((column) => {
                     const value = row.cells[column.id] ?? "";
                     return (
-                      <td key={column.id} className="border-b border-gray-3/10 py-1.5 pr-3 align-middle">
+                      <td key={column.id} className="border-b border-shell-line py-1.5 pr-3 align-middle">
                         {column.type === "image" && value ? (
-                          <img src={value} alt="" className="h-7 w-10 rounded-[6px] bg-gray-6 object-cover" />
+                          <img src={value} alt="" className="h-7 w-10 rounded-[6px] bg-shell-fill object-cover" />
                         ) : column.type === "tag" && value ? (
                           <InlineChip>
                             <InlineText value={value} onChange={setCell(row.id, column.id)} />
@@ -205,8 +216,8 @@ export function TableInline({ data, onChange }: Editable<TableShellData>) {
             : [0, 1, 2].map((index) => (
                 <tr key={index} aria-hidden>
                   {columns.map((column) => (
-                    <td key={column.id} className="border-b border-gray-3/10 py-2.5 pr-3">
-                      <span className="block h-2 rounded-full bg-gray-6" style={{ width: `${[70, 52, 84][index]}%` }} />
+                    <td key={column.id} className="border-b border-shell-line py-2.5 pr-3">
+                      <span className="block h-2 rounded-full bg-shell-fill" style={{ width: `${[70, 52, 84][index]}%` }} />
                     </td>
                   ))}
                 </tr>
@@ -266,7 +277,7 @@ export function CalendarInline({ data, onChange }: Editable<CalendarShellData>) 
       {shown.map((event) => {
         const day = dayOf(event.date);
         return (
-          <div key={event.id} className="flex min-w-0 items-center gap-3 border-b border-gray-3/10 py-1.5 last:border-b-0">
+          <div key={event.id} className="flex min-w-0 items-center gap-3 border-b border-shell-line py-1.5 last:border-b-0">
             <span className="flex w-8 shrink-0 flex-col items-center leading-none">
               <span className="font-bureau text-[10px] tracking-wide text-typography-secondary uppercase">
                 {day.toLocaleDateString("en-GB", { weekday: "short" })}

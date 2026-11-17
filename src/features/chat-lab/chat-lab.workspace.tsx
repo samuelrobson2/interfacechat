@@ -97,9 +97,10 @@ function StarterView({
     kind: VisualInterfaceKind | null,
     field: StarterField | null,
     modes?: ChatModes,
+    brief?: string,
   ) => void;
-  /** Open any other library interface beside the new thread, with its card's data. */
-  onStartShell: (text: string, value: KindData) => void;
+  /** Open any other library interface beside the new thread, with its card's data and the choices picked on it. */
+  onStartShell: (text: string, value: KindData, brief?: string) => void;
   /** Send into a past chat that matched, instead of starting a new one. */
   onContinue: (sessionId: string, text: string) => void;
   onReopen: (sessionId: string) => void;
@@ -128,12 +129,12 @@ function StarterView({
         const { format, persona } = next.interface.data as ChatShellData;
         onStart(next.text, null, null, { format, persona });
       }
-      else if (isFillableKind(kind)) onStart(next.text, kind, next.interface as StarterField);
-      else onStartShell(next.text, next.interface);
+      else if (isFillableKind(kind)) onStart(next.text, kind, next.interface as StarterField, undefined, next.brief);
+      else onStartShell(next.text, next.interface, next.brief);
     } else onStart(next.text, null, null);
   };
 
-  const focused = Boolean(field.card && field.card.leader.phase !== "hinted");
+  const focused = Boolean(field.card);
 
   return (
     // Absolute + no opacity fade — layoutId children stay put while they morph.
@@ -416,6 +417,7 @@ export function ChatLabWorkspace() {
     kind: VisualInterfaceKind | null = matchVisualInterface(text),
     field: StarterField | null = null,
     modes?: ChatModes,
+    brief?: string,
   ) => {
     if (isStarting) return;
     setIsStarting(true);
@@ -435,6 +437,7 @@ export function ChatLabWorkspace() {
       fromChatCard: Boolean(modes),
       replyFormat: modes?.format,
       persona: modes?.persona,
+      brief,
       artefact:
         opensInterface && shell
           ? {
@@ -450,11 +453,12 @@ export function ChatLabWorkspace() {
   };
 
   /** Any library interface beyond the first three: open it docked, holding its card's data. */
-  const startShell = async (text: string, value: KindData) => {
+  const startShell = async (text: string, value: KindData, brief?: string) => {
     if (isStarting) return;
     setIsStarting(true);
     await new Promise((resolve) => setTimeout(resolve, HANDOFF_MS));
     const id = createSession(text, {
+      brief,
       artefact: { kind: "shell", title: titleOf(value) || extractCustomization(text), shell: value as ArtefactShell },
     });
     void generateChatLabTitle(id, text);
@@ -486,8 +490,8 @@ export function ChatLabWorkspace() {
               key="starter"
               expandingKind={expandingKind}
               isStarting={isStarting}
-              onStart={(text, kind, field, modes) => void startChat(text, kind, field, modes)}
-              onStartShell={(text, value) => void startShell(text, value)}
+              onStart={(text, kind, field, modes, brief) => void startChat(text, kind, field, modes, brief)}
+              onStartShell={(text, value, brief) => void startShell(text, value, brief)}
               onContinue={continueChat}
               onReopen={reopenChat}
             />

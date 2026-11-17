@@ -99,6 +99,8 @@ export const ROUTES = {
   INTERFACE_LIBRARY: "/interface-library",
   // Every interface in every size and state, with no other text, for Figma.
   INTERFACE_STATES: "/interface-states",
+  // The interface design system: tokens per size and part, edited against the real interfaces.
+  DESIGN_SYSTEM: "/design-system",
   // A test bed for the flexible workspace before it goes into chat.
   WORKBENCH: "/workbench",
   // Where a generated toolbar sits on the large Document, Table and Checklist.

@@ -1,13 +1,10 @@
 import {
-  AtSign,
   Clock,
   Database,
-  ExternalLink,
   File,
   FileText,
-  FilterX,
   Layers,
-  Link2,
+  ListFilterPlus,
   Globe,
   ImageIcon,
   Newspaper,
@@ -17,16 +14,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { Popover, PopoverAnchor, PopoverContent } from "@/shared/ui/kit/popover";
 import { cn } from "@/shared/lib/css";
-import { CONTENT_PANEL, PreviewBody, PreviewHead, SHELL_TITLE_LARGE } from "../ui/shell-kit";
-import { copyText, ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolMenu, ShellToolPopover } from "../ui/shell-toolbar";
+import { CONTENT_PANEL, PreviewBody, PreviewHead, SHELL_BODY_BOX, SHELL_BODY_PAD, SHELL_EDGE_X, SHELL_TITLE_GLYPH, SHELL_TITLE_ROW } from "../ui/shell-kit";
+import { ShellToolbar, ShellToolField, ShellToolMenu, ShellToolPopover } from "../ui/shell-toolbar";
 import { resultDomain } from "../model/search-results";
 import type { SearchShellData, ShellProps } from "../model/shell-types";
 import { SearchAppIcon, ShellGlyph } from "../ui/shell-icons";
 import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
 import { useShellMark } from "../ui/shell-mark";
-import { ActionPill, AddChip, Kbd, ShellField, SoftChip } from "../ui/shell-fields";
+import { ActionPill, Kbd, ShellField, SoftChip } from "../ui/shell-fields";
 import {
   AutoTextarea,
   Bar,
@@ -88,19 +84,6 @@ const lower = (value: string) => value.toLowerCase();
 const isTypeChip = (chip: string) => SEARCH_TYPES.some((type) => lower(type.label) === lower(chip));
 const isTimeChip = (chip: string) => TIME_RANGES.some((range) => lower(range.label) === lower(chip));
 
-/** The same search on Google, with its sites and time range. */
-function googleUrl(data: SearchShellData) {
-  const sites = (data.sources ?? []).map((site) => `site:${site}`).join(" OR ");
-  const q = [data.query.trim(), sites && `(${sites})`].filter(Boolean).join(" ");
-  const time = TIME_RANGES.find((range) => data.filters.some((chip) => lower(chip) === lower(range.label)));
-  const type = data.filters.find(isTypeChip);
-  const tbm = type && ({ news: "nws", images: "isch", videos: "vid" } as Record<string, string>)[lower(type)];
-  const params = new URLSearchParams({ q });
-  if (time) params.set("tbs", time.tbs);
-  if (tbm) params.set("tbm", tbm);
-  if (type && lower(type) === "papers") return `https://scholar.google.com/scholar?${new URLSearchParams({ q })}`;
-  return `https://www.google.com/search?${params}`;
-}
 
 type SearchShellProps = ShellProps<SearchShellData> & {
   /** Run (or re-run) the search; falls back to onSubmit. */
@@ -126,7 +109,7 @@ function Favicon({ url, size }: { url?: string; size: number }) {
   if (!domain || failed) {
     return (
       <span
-        className="flex shrink-0 items-center justify-center rounded-full bg-gray-6 text-typography-secondary"
+        className="flex shrink-0 items-center justify-center rounded-full bg-shell-fill text-typography-secondary"
         style={{ width: size, height: size }}
       >
         <Globe style={{ width: size * 0.62, height: size * 0.62 }} />
@@ -140,7 +123,7 @@ function Favicon({ url, size }: { url?: string; size: number }) {
       width={size}
       height={size}
       onError={() => setFailed(true)}
-      className="shrink-0 rounded-full bg-white object-contain"
+      className="shrink-0 rounded-full bg-shell-panel object-contain"
     />
   );
 }
@@ -161,13 +144,11 @@ function QueryField({
   onSubmit: () => void;
 }) {
   const mark = useShellMark(large ? "large" : "medium-plus");
-  const textClass = cn(
-    "font-bureau font-normal text-typography-primary",
-    large ? SHELL_TITLE_LARGE : "text-[14px] leading-[1.35]",
-  );
+  // The query is the title: the title's type and glyph from the tokens.
+  const textClass = "font-bureau text-typography-primary";
   return (
-    <div className="flex min-w-0 flex-1 items-start gap-2">
-      {mark && <ShellGlyph kind="search" className={large ? "mt-0.5 size-6" : "mt-px size-4"} />}
+    <div className="shell-title-type flex min-w-0 flex-1 items-start gap-[var(--shell-title-gap)]">
+      {mark && <ShellGlyph kind="search" className={cn(SHELL_TITLE_GLYPH, large ? "mt-0.5" : "mt-px")} />}
       {editable ? (
         <AutoTextarea
           value={value}
@@ -198,7 +179,7 @@ function QueryField({
       {loading && (
         <span
           className={cn(
-            "shrink-0 animate-spin rounded-full border-[1.5px] border-gray-3/30 border-t-blue-5",
+            "shrink-0 animate-spin rounded-full border-[1.5px] border-shell-line-strong border-t-blue-5",
             large ? "mt-[5px] size-4" : "mt-[3px] size-3.5",
           )}
         />
@@ -209,51 +190,27 @@ function QueryField({
 
 const looksLikeDomain = (value: string) => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value.trim());
 
-/** Applied filters, plus a free-text field that offers a few suggestions. */
+/**
+ * Applied filters: they show what shapes the search, and come off with their
+ * ×. They're added from the toolbar ("Add a filter", Type, Time, a site).
+ */
 function FilterBar({
   data,
   size,
   editable,
   onToggle,
   onSources,
+  children,
 }: {
   data: SearchShellData;
   size: "sm" | "md";
   editable: boolean;
   onToggle: (chip: string) => void;
   onSources: (sources: string[]) => void;
+  /** Suggested filters, after the real ones in the same row. */
+  children?: React.ReactNode;
 }) {
   const sources = data.sources ?? [];
-  const [draft, setDraft] = useState("");
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const taken = new Set(
-    [...data.filters, ...sources].map((item) => item.toLowerCase()),
-  );
-  const query = draft.trim().toLowerCase();
-  const matches = FILTER_SUGGESTIONS.filter(
-    (item) => !taken.has(item.toLowerCase()) && (!query || item.toLowerCase().includes(query)),
-  );
-  const custom =
-    query && !taken.has(query) && !matches.some((item) => item.toLowerCase() === query)
-      ? draft.trim()
-      : null;
-  const options = custom ? [custom, ...matches] : matches;
-
-  const add = (value: string) => {
-    const text = value.trim();
-    if (!text || taken.has(text.toLowerCase())) return;
-    if (looksLikeDomain(text)) {
-      const domain = cleanDomain(text);
-      if (domain && !sources.includes(domain)) onSources([...sources, domain]);
-    } else {
-      onToggle(text);
-    }
-    setDraft("");
-    setActive(0);
-    setOpen(false);
-  };
-
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {data.filters.map((chip) => (
@@ -278,86 +235,12 @@ function FilterBar({
           {size === "sm" ? shortDomain(domain) : domain}
         </SoftChip>
       ))}
-      {data.filters.length === 0 && sources.length === 0 && !editable && (
+      {data.filters.length === 0 && sources.length === 0 && (
         <SoftChip icon={Globe} size={size}>
           All sources
         </SoftChip>
       )}
-      {editable && (
-        <Popover open={open && options.length > 0}>
-          <PopoverAnchor asChild>
-            <input
-              value={draft}
-              placeholder="Add a filter"
-              aria-label="Add a filter"
-              aria-autocomplete="list"
-              aria-expanded={open && options.length > 0}
-              {...fieldEvents}
-              onFocus={() => setOpen(true)}
-              onBlur={() => setOpen(false)}
-              onChange={(event) => {
-                setDraft(event.target.value);
-                setActive(0);
-                setOpen(true);
-              }}
-              onKeyDown={(event) => {
-                stopFieldEvent(event);
-                if (event.key === "ArrowDown") {
-                  event.preventDefault();
-                  setActive((current) => Math.min(current + 1, options.length - 1));
-                } else if (event.key === "ArrowUp") {
-                  event.preventDefault();
-                  setActive((current) => Math.max(current - 1, 0));
-                } else if (event.key === "Enter") {
-                  event.preventDefault();
-                  const pick = options[active] ?? draft;
-                  if (pick) add(pick);
-                } else if (event.key === "Escape") {
-                  setOpen(false);
-                }
-              }}
-              className={cn(
-                "min-w-[7rem] flex-1 bg-transparent font-bureau font-light text-typography-primary outline-none placeholder:text-typography-secondary",
-                size === "sm" ? "h-6 text-[11px]" : "h-7 text-[13px]",
-              )}
-            />
-          </PopoverAnchor>
-          <PopoverContent
-            align="start"
-            sideOffset={6}
-            className="w-52 p-1"
-            onOpenAutoFocus={(event) => event.preventDefault()}
-            onCloseAutoFocus={(event) => event.preventDefault()}
-          >
-            {options.map((option, index) => {
-              const Icon = filterIcon(option);
-              const isCustom = option === custom;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActive(index)}
-                  onClick={() => add(option)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left font-bureau text-[13px] text-typography-primary",
-                    index === active && "bg-gray-6",
-                  )}
-                >
-                  {looksLikeDomain(option) ? (
-                    <Favicon url={`https://${cleanDomain(option)}`} size={14} />
-                  ) : (
-                    <Icon className="size-3.5 text-typography-secondary" />
-                  )}
-                  <span className="min-w-0 flex-1 truncate">
-                    {isCustom ? `Add “${option}”` : option}
-                  </span>
-                </button>
-              );
-            })}
-          </PopoverContent>
-        </Popover>
-      )}
+      {children}
     </div>
   );
 }
@@ -367,14 +250,14 @@ function SearchPreview({ data }: { data: SearchShellData }) {
   return (
     <>
       <PreviewHead kind="search" title={data.query} />
-      <PreviewBody className="gap-1.5">
-        <span className="flex h-4 shrink-0 items-center gap-1 rounded-full bg-gray-6 px-1.5">
-          <SearchIcon className="size-2.5 text-gray-3" />
+      <PreviewBody>
+        <span className="flex h-4 shrink-0 items-center gap-1 rounded-full bg-shell-fill px-1.5">
+          <SearchIcon className="size-2.5 text-typography-secondary" />
           <Bar width="45%" className="h-1" />
         </span>
         <span className="flex shrink-0 gap-1">
           {[34, 26].map((width) => (
-            <span key={width} className="h-3 rounded-full bg-gray-6" style={{ width }} />
+            <span key={width} className="h-3 rounded-full bg-shell-fill" style={{ width }} />
           ))}
         </span>
         <ResultShapes className="mt-auto" />
@@ -389,7 +272,7 @@ function ResultShapes({ className, rows = 3 }: { className?: string; rows?: numb
     <div aria-hidden className={cn("flex flex-col gap-1.5", className)}>
       {[86, 64, 74, 58].slice(0, rows).map((width, i) => (
         <div key={i} className="flex items-center gap-2">
-          <span className="size-1.5 shrink-0 rounded-full bg-gray-3/35" />
+          <span className="size-1.5 shrink-0 rounded-full bg-shell-ink-soft" />
           <Bar width={`${width}%`} className="h-1.5" />
         </div>
       ))}
@@ -402,7 +285,7 @@ type StepStatus = "done" | "running" | "queued";
 function StepMark({ status, large }: { status: StepStatus; large: boolean }) {
   const size = large ? "size-4" : "size-3.5";
   if (status === "running")
-    return <span className={cn("shrink-0 animate-spin rounded-full border-[1.5px] border-gray-3/30 border-t-orange-5", size)} />;
+    return <span className={cn("shrink-0 animate-spin rounded-full border-[1.5px] border-shell-line-strong border-t-orange-5", size)} />;
   if (status === "done")
     return (
       <span className={cn("grid shrink-0 place-items-center rounded-full bg-orange-5 text-white", size)}>
@@ -411,7 +294,7 @@ function StepMark({ status, large }: { status: StepStatus; large: boolean }) {
         </svg>
       </span>
     );
-  return <span className={cn("shrink-0 rounded-full border border-dashed border-gray-3/60", size)} />;
+  return <span className={cn("shrink-0 rounded-full border border-dashed border-shell-line-strong", size)} />;
 }
 
 /**
@@ -464,7 +347,7 @@ function Steps({
                     {...fieldEvents}
                     onKeyDown={stopFieldEvent}
                     onChange={(event) => onQueries(data.queries.map((q, j) => (j === step.i - 1 ? event.target.value : q)))}
-                    className={cn("min-w-0 flex-1 rounded-[6px] bg-transparent font-bureau text-typography-primary outline-none focus:bg-gray-6", large ? "text-[14px]" : "text-[12px]")}
+                    className={cn("min-w-0 flex-1 rounded-[6px] bg-transparent font-bureau text-typography-primary outline-none focus:bg-shell-fill", large ? "text-[14px]" : "text-[12px]")}
                   />
                 )}
                 {editable && step.i > 0 && large && (
@@ -476,7 +359,7 @@ function Steps({
                       stopFieldEvent(event);
                       onQueries(data.queries.filter((_, j) => j !== step.i - 1));
                     }}
-                    className="grid size-5 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-gray-6 focus-visible:opacity-100"
+                    className="grid size-5 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-shell-fill focus-visible:opacity-100"
                   >
                     ×
                   </button>
@@ -484,11 +367,6 @@ function Steps({
               </li>
             ))}
       </ol>
-      {editable && large && (
-        <AddChip size="md" placeholder="Another search" onSubmitValue={(value) => onQueries([...data.queries, value])}>
-          Add a search
-        </AddChip>
-      )}
     </div>
   );
 }
@@ -573,15 +451,6 @@ export function SearchShell({
       onSubmit={() => run(data)}
     />
   );
-  const filters = (
-    <FilterBar
-      data={data}
-      size={large ? "md" : "sm"}
-      editable={editable}
-      onToggle={toggleFilter}
-      onSources={(next) => update({ sources: next })}
-    />
-  );
   const action = (
     <ActionPill
       label={loading ? "Searching…" : data.results.length ? "Search again" : "Search"}
@@ -592,44 +461,115 @@ export function SearchShell({
     />
   );
 
+  // The standard tools, the same at medium plus and large.
+  const addFilter = (value: string) => {
+    const text = value.trim();
+    const taken = [...data.filters, ...(data.sources ?? [])].map(lower);
+    if (!text || taken.includes(lower(text))) return;
+    if (looksLikeDomain(text)) {
+      const domain = cleanDomain(text);
+      if (domain) update({ sources: [...(data.sources ?? []), domain] });
+    } else toggleFilter(text);
+  };
+  const standardTools = (
+    <>
+      <ShellToolPopover label="Add a filter" icon={<ListFilterPlus />} disabled={!editable}>
+        {(close) => (
+          <ShellToolField
+            label="Filter"
+            placeholder="e.g. Open now, or a site"
+            apply="Add"
+            suggestions={FILTER_SUGGESTIONS.filter((item) => !isTypeChip(item) && !data.filters.some((chip) => sameChip(chip, item)))}
+            onApply={(value) => {
+              addFilter(value);
+              close();
+            }}
+          />
+        )}
+      </ShellToolPopover>
+      <ShellToolMenu
+        label="Type"
+        icon={<Layers />}
+        text={data.filters.find(isTypeChip) ?? "All results"}
+        active={data.filters.some(isTypeChip)}
+        disabled={!editable}
+        items={[
+          { id: "all", label: "All results", icon: <Globe />, checked: !data.filters.some(isTypeChip), onSelect: () => update({ filters: data.filters.filter((chip) => !isTypeChip(chip)) }) },
+          ...SEARCH_TYPES.map(({ label, icon: Icon }) => ({
+            id: label,
+            label,
+            icon: <Icon />,
+            checked: data.filters.some((chip) => lower(chip) === lower(label)),
+            onSelect: () => update({ filters: [...data.filters.filter((chip) => !isTypeChip(chip)), label] }),
+          })),
+        ]}
+      />
+      <ShellToolMenu
+        label="Time"
+        icon={<Clock />}
+        text={data.filters.find(isTimeChip) ?? "Any time"}
+        active={data.filters.some(isTimeChip)}
+        disabled={!editable}
+        items={[
+          { id: "any", label: "Any time", checked: !data.filters.some(isTimeChip), onSelect: () => update({ filters: data.filters.filter((chip) => !isTimeChip(chip)) }) },
+          ...TIME_RANGES.map(({ label }) => ({
+            id: label,
+            label,
+            checked: data.filters.some((chip) => lower(chip) === lower(label)),
+            onSelect: () => update({ filters: [...data.filters.filter((chip) => !isTimeChip(chip)), label] }),
+          })),
+        ]}
+      />
+    </>
+  );
+
   if (!large) {
     return (
       <ShellSurface size={size} surface={surface} className={className}>
         {/* Like every card: the query is the title on the grey, the work sits in the panel. */}
-        <div className="px-4 pt-3.5">
+        <div data-shell-part="title" className={SHELL_TITLE_ROW}>
           <ShellField index={0}>{query}</ShellField>
         </div>
-        <div className={cn("mx-2.5 mt-2.5 flex min-h-0 flex-1 flex-col gap-3 p-3", CONTENT_PANEL)}>
-          <ShellField index={1}>
-            {filters}
-            {/* Suggested filters, outlined, among the real ones: one click adds it. */}
-            {editable && unusedSuggestions(suggested?.filters, data.filters).length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {unusedSuggestions(suggested?.filters, data.filters)
-                  .slice(0, 4)
-                  .map((chip) => (
-                    <SuggestedChip
-                      key={chip}
-                      label={chip}
-                      size="sm"
-                      onAccept={() => toggleFilter(chip)}
-                      onDismiss={onDismissSuggestion && (() => onDismissSuggestion("filters", chip))}
-                    />
-                  ))}
-              </div>
-            )}
-          </ShellField>
-          <ShellField index={2}>
-            {data.results.length > 0 ? (
-              <Reading data={data} large={false} />
-            ) : (
-              // On the chat home: what the search leaves open, where the empty results would be.
-              (suggestions?.brief ?? <ResultShapes rows={4} />)
-            )}
-          </ShellField>
-        </div>
-        <div className="flex shrink-0 items-center justify-end px-2.5 pt-2 pb-2.5">
-          {action}
+        <ShellToolbar tools={tools} actions={actions}>{standardTools}</ShellToolbar>
+        {/* The panel holds the work and its action, like every card: the results scroll, Search stays at its foot. */}
+        <div data-shell-part="body" className={cn("flex min-h-0 flex-1 flex-col", SHELL_BODY_BOX, CONTENT_PANEL)}>
+          <div
+            tabIndex={0}
+            className="no-scrollbar flex min-h-0 flex-1 flex-col gap-[var(--shell-body-gap)] overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-blue-4/50"
+          >
+            <ShellField index={1}>
+              {/* Suggested filters, outlined, in the same row as the real ones: one click adds it. */}
+              <FilterBar
+                data={data}
+                size="sm"
+                editable={editable}
+                onToggle={toggleFilter}
+                onSources={(next) => update({ sources: next })}
+              >
+                {editable &&
+                  unusedSuggestions(suggested?.filters, data.filters)
+                    .slice(0, 4)
+                    .map((chip) => (
+                      <SuggestedChip
+                        key={chip}
+                        label={chip}
+                        size="sm"
+                        onAccept={() => toggleFilter(chip)}
+                        onDismiss={onDismissSuggestion && (() => onDismissSuggestion("filters", chip))}
+                      />
+                    ))}
+              </FilterBar>
+            </ShellField>
+            <ShellField index={2}>
+              {data.results.length > 0 ? (
+                <Reading data={data} large={false} />
+              ) : (
+                // On the chat home: what the search leaves open, where the empty results would be.
+                (suggestions?.brief ?? <ResultShapes rows={4} />)
+              )}
+            </ShellField>
+          </div>
+          <div className="flex shrink-0 items-center justify-end">{action}</div>
         </div>
       </ShellSurface>
     );
@@ -637,108 +577,33 @@ export function SearchShell({
 
   return (
     <ShellSurface size={size} surface={surface} className={className}>
-      <div className="flex shrink-0 items-start gap-2 px-6 pt-3">
-        <div className="flex min-w-0 flex-1 rounded-[16px] bg-gray-6 px-4 py-3">{query}</div>
+      <div className={cn("flex shrink-0 items-start gap-2 pt-3", SHELL_EDGE_X)}>
+        {/* The query in an outlined box, not a filled one: the page stays light. */}
+        <div className="flex min-w-0 flex-1 rounded-[16px] border border-shell-line-strong px-4 py-3">{query}</div>
       </div>
       <ShellToolbar tools={tools} actions={actions} className="mt-3 border-t">
-        <ShellToolMenu
-          label="Type"
-          icon={<Layers />}
-          text={data.filters.find(isTypeChip) ?? "All results"}
-          active={data.filters.some(isTypeChip)}
-          disabled={!editable}
-          items={[
-            { id: "all", label: "All results", icon: <Globe />, checked: !data.filters.some(isTypeChip), onSelect: () => update({ filters: data.filters.filter((chip) => !isTypeChip(chip)) }) },
-            ...SEARCH_TYPES.map(({ label, icon: Icon }) => ({
-              id: label,
-              label,
-              icon: <Icon />,
-              checked: data.filters.some((chip) => lower(chip) === lower(label)),
-              onSelect: () => update({ filters: [...data.filters.filter((chip) => !isTypeChip(chip)), label] }),
-            })),
-          ]}
-        />
-        <ShellToolMenu
-          label="Time"
-          icon={<Clock />}
-          text={data.filters.find(isTimeChip) ?? "Any time"}
-          active={data.filters.some(isTimeChip)}
-          disabled={!editable}
-          items={[
-            { id: "any", label: "Any time", checked: !data.filters.some(isTimeChip), onSelect: () => update({ filters: data.filters.filter((chip) => !isTimeChip(chip)) }) },
-            ...TIME_RANGES.map(({ label }) => ({
-              id: label,
-              label,
-              checked: data.filters.some((chip) => lower(chip) === lower(label)),
-              onSelect: () => update({ filters: [...data.filters.filter((chip) => !isTimeChip(chip)), label] }),
-            })),
-          ]}
-        />
-        <ShellToolPopover label="Search within a site" icon={<AtSign />} disabled={!editable}>
-          {(close) => (
-            <ShellToolField
-              label="Site"
-              placeholder="e.g. nature.com"
-              apply="Add"
-              onApply={(value) => {
-                const site = value.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
-                if (!(data.sources ?? []).includes(site)) update({ sources: [...(data.sources ?? []), site] });
-                close();
-              }}
-            />
-          )}
-        </ShellToolPopover>
-        <ShellToolButton
-          label="Clear filters"
-          disabled={!editable || (data.filters.length === 0 && !data.sources?.length)}
-          onPress={() => onChange?.({ ...data, filters: [], sources: [] })}
-        >
-          <FilterX />
-        </ShellToolButton>
-        <ShellToolDivider />
-        <ShellToolButton
-          label="Copy the links"
-          disabled={!data.results.some((result) => result.url)}
-          onPress={() =>
-            copyText(data.results.flatMap((result) => (result.url ? [`${result.title}: ${result.url}`] : [])).join("\n"))
-          }
-        >
-          <Link2 />
-        </ShellToolButton>
-        <ShellToolButton
-          label="Open the top result"
-          disabled={!data.results.find((result) => result.url)}
-          onPress={() => window.open(data.results.find((result) => result.url)?.url, "_blank", "noopener")}
-        >
-          <ExternalLink />
-        </ShellToolButton>
-        <ShellToolButton
-          label="Open in Google"
-          disabled={!data.query.trim()}
-          onPress={() => window.open(googleUrl(data), "_blank", "noopener")}
-        >
-          <Globe />
-        </ShellToolButton>
+        {standardTools}
       </ShellToolbar>
       {/* Suggested filters sit among the real ones, outlined, until added or dismissed. */}
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 px-6 pt-4">
-        {filters}
-        {unusedSuggestions(suggested?.filters, data.filters).map((chip) => (
-          <SuggestedChip
-            key={chip}
-            label={chip}
-            onAccept={editable ? () => toggleFilter(chip) : undefined}
-            onDismiss={onDismissSuggestion && (() => onDismissSuggestion("filters", chip))}
-          />
-        ))}
+      <div className={cn("shrink-0 pt-4", SHELL_EDGE_X)}>
+        <FilterBar data={data} size="md" editable={editable} onToggle={toggleFilter} onSources={(next) => update({ sources: next })}>
+          {unusedSuggestions(suggested?.filters, data.filters).map((chip) => (
+            <SuggestedChip
+              key={chip}
+              label={chip}
+              onAccept={editable ? () => toggleFilter(chip) : undefined}
+              onDismiss={onDismissSuggestion && (() => onDismissSuggestion("filters", chip))}
+            />
+          ))}
+        </FilterBar>
       </div>
-      <div className="no-scrollbar grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto px-6 pt-5 pb-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div data-shell-part="body" className={cn("no-scrollbar grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]", SHELL_BODY_PAD)}>
         <Steps data={data} large loading={loading} editable={editable} onQueries={(queries) => update({ queries })} />
         <div className="flex min-w-0 flex-col gap-5">
           <Reading data={data} large />
         </div>
       </div>
-      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-t border-gray-3/15 px-6">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-t border-shell-line px-6">
         <span className="flex items-center gap-1.5 font-bureau text-[12px] text-typography-secondary">
           <Kbd>↵</Kbd>
           {data.results.length ? "to search again" : "to search"}

@@ -29,13 +29,13 @@ export function InlineHead({
   titlePlaceholder?: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <ShellGlyph kind={kind} className="size-4 shrink-0" />
+    <div className="flex min-w-0 items-center gap-[var(--shell-title-gap,8px)]">
+      <ShellGlyph kind={kind} className="size-[var(--shell-title-glyph,16px)] shrink-0" />
       <InlineText
         value={title}
         onChange={onTitleChange}
         placeholder={titlePlaceholder}
-        className="min-w-0 truncate font-bureau text-[15px] leading-[1.3] text-typography-primary"
+        className="shell-title-type min-w-0 truncate font-bureau text-typography-primary"
       />
       {detail && <span className={cn(INLINE_META, "shrink-0")}>{detail}</span>}
       {aside && <span className="ml-auto flex shrink-0 items-center">{aside}</span>}
@@ -47,7 +47,7 @@ export function InlineHead({
 export function InlineChip({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
     <span
-      className={cn("inline-flex max-w-full items-center truncate rounded-full bg-gray-6 px-2 py-0.5 font-bureau text-[12px] text-typography-primary", className)}
+      className={cn("inline-flex max-w-full items-center truncate rounded-full bg-shell-fill px-2 py-0.5 font-bureau text-[12px] text-typography-primary", className)}
       style={style}
     >
       {children}
@@ -65,7 +65,7 @@ export function InlineMore({ count, noun }: { count: number; noun?: string }) {
 export function InlineProgress({ done, total }: { done: number; total: number }) {
   const share = total ? done / total : 0;
   return (
-    <span aria-hidden className="block h-1 w-full overflow-hidden rounded-full bg-gray-6">
+    <span aria-hidden className="block h-1 w-full overflow-hidden rounded-full bg-shell-fill">
       <span className="block h-full rounded-full bg-green-5 transition-[width]" style={{ width: `${share * 100}%` }} />
     </span>
   );
@@ -98,7 +98,7 @@ export function InlineGhostLines({ count = 3 }: { count?: number }) {
   return (
     <div aria-hidden className="flex flex-col gap-2 py-1">
       {Array.from({ length: count }, (_, i) => (
-        <span key={i} className="h-2 rounded-full bg-gray-6" style={{ width: `${[92, 78, 64, 84][i % 4]}%` }} />
+        <span key={i} className="h-2 rounded-full bg-shell-fill" style={{ width: `${[92, 78, 64, 84][i % 4]}%` }} />
       ))}
     </div>
   );

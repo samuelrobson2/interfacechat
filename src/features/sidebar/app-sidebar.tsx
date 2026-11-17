@@ -18,8 +18,7 @@ import {
   LayoutTemplate,
   PanelsTopLeft,
   Sparkles,
-  Wrench,
-} from "lucide-react";
+  Wrench, Ruler } from "lucide-react";
 import { useState } from "react";
 import { useMatch } from "react-router-dom";
 
@@ -48,6 +47,14 @@ const interfaceStatesItem: MenuItem = {
   url: ROUTES.INTERFACE_STATES,
   matchPaths: [{ path: ROUTES.INTERFACE_STATES, end: true }],
   icon: <Grid3x3 className="size-5" />,
+};
+
+// The interface design system: tokens per size and part, edited against the real interfaces.
+const designSystemItem: MenuItem = {
+  title: "Design System",
+  url: ROUTES.DESIGN_SYSTEM,
+  matchPaths: [{ path: ROUTES.DESIGN_SYSTEM, end: true }],
+  icon: <Ruler className="size-5" />,
 };
 
 // The flexible workspace, tried out here before it goes into chat.
@@ -103,6 +110,7 @@ const pharosItems: MenuItem[] = [
   },
   interfaceLibraryItem,
   interfaceStatesItem,
+  designSystemItem,
   workbenchItem,
   generativeToolsItem,
   ...(isChatVisualizeEnabled()

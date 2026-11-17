@@ -1,14 +1,7 @@
-import { ArrowDownWideNarrow, CalendarMinus, CalendarPlus, ChevronsLeft, ChevronsRight, Copy, Download, FoldHorizontal, Plus, UnfoldHorizontal, X } from "lucide-react";
+import { CalendarMinus, CalendarPlus, Plus, X } from "lucide-react";
 import { useRef } from "react";
 import { cn } from "@/shared/lib/css";
-import {
-  shellId,
-  type ScheduleShellData,
-  type ScheduleTask,
-  type ScheduleTaskType,
-  type ShellProps,
-  type ShellSize,
-} from "../model/shell-types";
+import { shellId, type ScheduleShellData, type ScheduleTask, type ScheduleTaskType, type ShellProps, type ShellSize, type Suggestion } from "../model/shell-types";
 import {
   ChipList,
   FieldPill,
@@ -17,54 +10,14 @@ import {
   ShellBody,
   ShellDetail,
   ShellTitle,
-  Stepper,
 } from "../ui/shell-kit";
-import { ghostLabels } from "../ui/shell-accents";
+import { ghostLabels, ghostsAfter } from "../ui/shell-accents";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { SuggestedChip, unusedSuggestions } from "../ui/suggested-chip";
+import { DismissSuggestion, SuggestedBox, SuggestedChip, SuggestedText, placedSuggestions, suggestionsAfter, unusedSuggestions } from "../ui/suggested-chip";
 import { fieldEvents, ShellSurface, stopFieldEvent, Bar } from "../ui/shell-surface";
-import { copyText, downloadText, fileNameOf, ShellToolbar, ShellToolButton, ShellToolDivider } from "../ui/shell-toolbar";
+import { ShellToolbar, ShellToolButton } from "../ui/shell-toolbar";
 
 const TYPES: ScheduleTaskType[] = ["setup", "shoot", "travel", "break"];
-
-const clockText = (hour: number) => `${String(Math.floor(hour)).padStart(2, "0")}:${String(Math.round((hour % 1) * 60)).padStart(2, "0")}`;
-
-/** In order: by day, then start. */
-const byStart = (tasks: ScheduleTask[]) => [...tasks].sort((a, b) => a.day - b.day || a.start - b.start);
-
-/** Move every task by `delta` hours, keeping each inside the working day. */
-function shiftTasks(data: ScheduleShellData, delta: number): ScheduleTask[] {
-  const [open, close] = data.hours;
-  return data.tasks.map((task) => {
-    const length = task.end - task.start;
-    const start = Math.min(close - length, Math.max(open, task.start + delta));
-    return { ...task, start, end: start + length };
-  });
-}
-
-/** The plan as rows a spreadsheet or project tool can import. */
-function scheduleCsv(data: ScheduleShellData) {
-  const cell = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
-  return [
-    "Day,Start,End,Task,Type",
-    ...byStart(data.tasks).map((task) =>
-      [dayLabel(data, task.day), clockText(task.start), clockText(task.end), cell(task.label), TYPE_STYLE[task.type].label].join(","),
-    ),
-  ].join("\n");
-}
-
-const scheduleText = (data: ScheduleShellData) =>
-  [
-    data.title,
-    ...Array.from({ length: data.dayCount }, (_, day) => [
-      `\n${dayLabel(data, day)}`,
-      ...byStart(data.tasks)
-        .filter((task) => task.day === day)
-        .map((task) => `${clockText(task.start)}–${clockText(task.end)}  ${task.label}`),
-    ]).flat(),
-  ]
-    .filter(Boolean)
-    .join("\n");
 
 /** Each task type's bar colour and name. Inline reuses them. */
 export const TYPE_STYLE: Record<ScheduleTaskType, { bar: string; label: string }> = {
@@ -72,7 +25,7 @@ export const TYPE_STYLE: Record<ScheduleTaskType, { bar: string; label: string }
   shoot: { bar: "bg-[#1fa5a0] text-white", label: "Shooting" },
   travel: { bar: "bg-orange-5/80 text-white", label: "Travel" },
   break: {
-    bar: "bg-gray-3/20 text-typography-secondary [background-image:repeating-linear-gradient(135deg,transparent_0_4px,rgba(26,23,24,0.08)_4px_8px)]",
+    bar: "bg-shell-ink-faint text-typography-secondary [background-image:repeating-linear-gradient(135deg,transparent_0_4px,rgba(26,23,24,0.08)_4px_8px)]",
     label: "Break",
   },
 };
@@ -119,12 +72,24 @@ function span(task: Pick<ScheduleTask, "day" | "start" | "end">, data: ScheduleS
   return { left: `${Math.min(left, 100 - width)}%`, width: `${width}%` };
 }
 
+/** Where suggested lines would go: an hour each, after the last task of the last busy day. */
+function suggestedSlots(data: ScheduleShellData, labels: string[]) {
+  const days = Math.max(1, data.dayCount);
+  const lastDay = Math.min(days - 1, Math.max(0, ...data.tasks.map((task) => task.day)));
+  let start = Math.max(data.hours[0], ...data.tasks.filter((task) => task.day === lastDay).map((task) => task.end));
+  return labels.map((label) => {
+    const slot = { label, day: lastDay, start, end: Math.min(data.hours[1], start + 1) };
+    start = slot.end;
+    return slot;
+  });
+}
+
 /** Day columns behind the bars, so the stagger reads against days. */
 function DayGrid({ data, labels }: { data: ScheduleShellData; labels: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex">
       {Array.from({ length: Math.max(1, data.dayCount) }, (_, i) => (
-        <div key={i} className={cn("relative flex-1", i > 0 && "border-l border-dashed border-gray-3/25")}>
+        <div key={i} className={cn("relative flex-1", i > 0 && "border-l border-dashed border-shell-line")}>
           {labels && (
             <span className="absolute -top-4 left-1 font-bureau text-[9px] text-typography-secondary">
               {dayLabel(data, i, true)}
@@ -152,12 +117,12 @@ function GanttPreview({ data }: { data: ScheduleShellData }) {
             <span className="flex w-9 shrink-0 items-center">
               <Bar width={`${[80, 62, 72, 56, 68][i % 5]}%`} className="h-1" />
             </span>
-            <div className="relative h-full flex-1 rounded-[3px] bg-gray-6/80">
+            <div className="relative h-full flex-1 rounded-[3px] bg-shell-fill/80">
               {task ? (
                 <span className={cn("absolute inset-y-[2px] rounded-[2px]", TYPE_STYLE[task.type].bar)} style={span(task, data, view, 10)} />
               ) : (
                 <span
-                  className="absolute inset-y-[2px] rounded-[2px] border border-dashed border-gray-3/40"
+                  className="absolute inset-y-[2px] rounded-[2px] border border-dashed border-shell-line-strong"
                   style={{ left: `${i * 26}%`, width: "30%" }}
                 />
               )}
@@ -176,10 +141,15 @@ function Gantt({
   data,
   size,
   onTasks,
+  suggestedTasks = [],
+  onDismissTask,
 }: {
   data: ScheduleShellData;
   size: ShellSize;
   onTasks?: (tasks: ScheduleTask[]) => void;
+  /** Lines the model suggests, drawn as lines: the words in violet, the bar shimmering where it would go. */
+  suggestedTasks?: Suggestion[];
+  onDismissTask?: (label: string) => void;
 }) {
   const large = size === "large";
   const track = useRef<HTMLDivElement>(null);
@@ -239,6 +209,27 @@ function Gantt({
   const labelWidth = large ? "w-[190px]" : "w-[78px]";
   const ticks = large ? Array.from({ length: Math.floor(perDay / 3) + 1 }, (_, i) => from + i * 3) : [];
 
+  // Suggested lines: each after the task it names (by its words), or after the last; drawn as lines,
+  // the words in violet and the bar shimmering where it would go.
+  const linesWhere = suggestionsAfter(placedSuggestions(suggestedTasks, data.tasks.map((task) => task.label)).slice(0, 2), tasks.map((task) => task.label));
+  const suggestedLine = (slot: { label: string; day: number; start: number; end: number }) => (
+    <div key={slot.label} data-shell-part="suggest" className="group/suggested flex min-w-0 items-center gap-2">
+      <div className={cn("flex shrink-0 items-center gap-1", labelWidth, large && "sticky left-0 z-10 bg-background-primary")}>
+        {large && <SuggestedBox className="size-3" />}
+        <SuggestedText
+          text={slot.label}
+          onAccept={onTasks && (() => onTasks([...data.tasks, { id: shellId("task"), label: slot.label, day: slot.day, start: slot.start, end: slot.end, type: "shoot" }]))}
+          className={cn("min-w-0 flex-1 truncate font-bureau", large ? "text-[13px]" : "h-6 text-[11px] leading-6")}
+        />
+        {large && onDismissTask && <DismissSuggestion label={slot.label} onDismiss={() => onDismissTask(slot.label)} className="size-5" />}
+      </div>
+      <div className={cn("relative min-w-0 flex-1 rounded-[5px] bg-shell-fill/70", large ? "h-7" : "h-4")}>
+        {large && <DayGrid data={data} labels={false} />}
+        <span aria-hidden className="shell-suggest-shimmer absolute inset-y-0.5 rounded-[4px]" style={span(slot, data, view, large ? 0 : 4)} />
+      </div>
+    </div>
+  );
+
   return (
     <div className={cn("flex min-w-0 flex-col", large && "no-scrollbar overflow-x-auto")}>
       <div className="flex flex-col" style={large ? { minWidth: 190 + days * 300 } : undefined}>
@@ -263,7 +254,7 @@ function Gantt({
         <span className={cn("shrink-0", labelWidth)} />
         <div className="flex min-w-0 flex-1">
           {Array.from({ length: days }, (_, i) => (
-            <div key={i} className={cn("relative flex-1", i > 0 && "border-l border-gray-3/25")}>
+            <div key={i} className={cn("relative flex-1", i > 0 && "border-l border-shell-line")}>
               <span className={cn("block truncate px-1 font-bureau text-typography-primary", large ? "text-[12px]" : "text-[9px]")}>
                 {dayLabel(data, i, !large)}
               </span>
@@ -285,10 +276,14 @@ function Gantt({
         </div>
       </div>
 
-      <div className={cn("flex flex-col", large ? "gap-1" : "gap-[3px]")}>
-        {(tasks.length ? tasks : ghostLabels("Task")).map((row, i) => {
+      <div className={cn("flex flex-col", large ? "gap-1" : "gap-0")}>
+        {/* No tasks yet: suggested lines fill the placeholder rows; what's left stays a placeholder. */}
+        {!tasks.length && suggestedSlots(data, linesWhere.atEnd.map((placed) => placed.value)).map(suggestedLine)}
+        {(tasks.length ? tasks : ghostsAfter("Task", linesWhere.atEnd.length)).flatMap((row, i) => {
           const task = typeof row === "string" ? null : row;
-          return (
+          // A suggested line that follows this task comes right after it, in the hour after it ends.
+          const following = task ? linesWhere.after(tasks.indexOf(task)).map((placed) => suggestedLine({ label: placed.value, day: task.day, start: task.end, end: Math.min(data.hours[1], task.end + 1) })) : [];
+          return [(
             <div key={task?.id ?? (row as string)} className="group flex min-w-0 items-center gap-2">
               <div className={cn("flex shrink-0 items-center gap-1", labelWidth, large && "sticky left-0 z-10 bg-background-primary")}>
                 {task && large && (
@@ -316,11 +311,12 @@ function Gantt({
                     onChange={(event) => update({ ...task, label: event.target.value })}
                     className={cn(
                       "min-w-0 flex-1 truncate bg-transparent font-bureau text-typography-primary outline-none placeholder:text-typography-secondary",
-                      large ? "text-[13px]" : "text-[10px]",
+                      // At least 24px tall to hit (WCAG 2.5.8), and no text under 11px.
+                      large ? "text-[13px]" : "h-6 text-[11px]",
                     )}
                   />
                 ) : (
-                  <span className={cn("font-bureau font-light text-typography-secondary", large ? "text-[13px]" : "text-[10px]")}>
+                  <span className={cn("font-bureau font-light text-typography-secondary", large ? "text-[13px]" : "flex h-6 items-center text-[11px]")}>
                     {row as string}
                   </span>
                 )}
@@ -333,7 +329,7 @@ function Gantt({
                       stopFieldEvent(event);
                       onTasks(data.tasks.filter((other) => other.id !== task.id));
                     }}
-                    className="grid size-5 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-gray-6"
+                    className="grid size-5 shrink-0 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-shell-fill"
                   >
                     <X className="size-3" />
                   </button>
@@ -341,7 +337,7 @@ function Gantt({
               </div>
               <div
                 ref={i === 0 ? track : undefined}
-                className={cn("relative min-w-0 flex-1 rounded-[5px] bg-gray-6/70", large ? "h-7" : "h-4")}
+                className={cn("relative min-w-0 flex-1 rounded-[5px] bg-shell-fill/70", large ? "h-7" : "h-4")}
               >
                 {large && <DayGrid data={data} labels={false} />}
                 {task ? (
@@ -367,14 +363,16 @@ function Gantt({
                   </span>
                 ) : (
                   <span
-                    className="absolute inset-y-0.5 rounded-[4px] border border-dashed border-gray-3/40"
+                    className="absolute inset-y-0.5 rounded-[4px] border border-dashed border-shell-line-strong"
                     style={{ left: `${i * 26}%`, width: "30%" }}
                   />
                 )}
               </div>
             </div>
-          );
+          ), ...following];
         })}
+        {/* Suggested lines that follow no task: after the last, one after another. */}
+        {tasks.length > 0 && suggestedSlots(data, linesWhere.atEnd.map((placed) => placed.value)).map(suggestedLine)}
       </div>
 
       </div>
@@ -449,13 +447,15 @@ function TimelineFields({
   );
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Stepper
-        value={data.dayCount}
-        unit={["day", "days"]}
-        label="Days"
-        size={size}
-        onChange={update && ((dayCount) => update({ dayCount }))}
-      />
+      {/* Shows how many days; they're added and taken away in the toolbar. */}
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center rounded-full bg-shell-fill font-bureau text-typography-primary tabular-nums",
+          size === "large" ? "h-8 px-3 text-[13px]" : "h-6 px-2 text-[11px]",
+        )}
+      >
+        {data.dayCount} {data.dayCount === 1 ? "day" : "days"}
+      </span>
       <FieldPill label="Starts" size={size}>
         <span className="relative">
           <span className={cn("font-bureau", text, data.start ? "text-typography-primary" : "font-light text-typography-secondary")}>
@@ -526,90 +526,36 @@ export function ScheduleShell({
         onChange={update && ((title) => update({ title }))}
         onSubmit={onSubmit}
       />
-      {large && (
-        <ShellToolbar tools={tools} actions={actions}>
-          <ShellToolButton
-            label="New task"
-            disabled={!update}
-            onPress={() => {
-              const start = Math.min(data.hours[1] - 1, data.hours[0] + 1);
-              update?.({
-                tasks: [
-                  ...data.tasks,
-                  { id: shellId("task"), label: "New task", day: 0, start, end: start + 1, type: "setup" },
-                ],
-              });
-            }}
-          >
-            <Plus />
-          </ShellToolButton>
-          <ShellToolButton label="Add a day" disabled={!update} onPress={() => update?.({ dayCount: data.dayCount + 1 })}>
-            <CalendarPlus />
-          </ShellToolButton>
-          <ShellToolButton
-            label="Remove the last day"
-            disabled={!update || data.dayCount <= 1}
-            onPress={() =>
-              update?.({ dayCount: data.dayCount - 1, tasks: data.tasks.filter((task) => task.day < data.dayCount - 1) })
-            }
-          >
-            <CalendarMinus />
-          </ShellToolButton>
-          <ShellToolDivider />
-          <ShellToolButton
-            label="Longer days"
-            disabled={!update || (data.hours[0] <= 0 && data.hours[1] >= 24)}
-            onPress={() => update?.({ hours: [Math.max(0, data.hours[0] - 1), Math.min(24, data.hours[1] + 1)] })}
-          >
-            <UnfoldHorizontal />
-          </ShellToolButton>
-          <ShellToolButton
-            label="Shorter days"
-            disabled={
-              !update ||
-              data.hours[1] - data.hours[0] <= 2 ||
-              // Never cut into a task.
-              data.tasks.some((task) => task.start < data.hours[0] + 1 || task.end > data.hours[1] - 1)
-            }
-            onPress={() => update?.({ hours: [data.hours[0] + 1, data.hours[1] - 1] })}
-          >
-            <FoldHorizontal />
-          </ShellToolButton>
-          <ShellToolDivider />
-          <ShellToolButton
-            label="Move everything 30 min earlier"
-            disabled={!update || data.tasks.length === 0 || data.tasks.every((task) => task.start <= data.hours[0])}
-            onPress={() => update?.({ tasks: shiftTasks(data, -0.5) })}
-          >
-            <ChevronsLeft />
-          </ShellToolButton>
-          <ShellToolButton
-            label="Move everything 30 min later"
-            disabled={!update || data.tasks.length === 0 || data.tasks.every((task) => task.end >= data.hours[1])}
-            onPress={() => update?.({ tasks: shiftTasks(data, 0.5) })}
-          >
-            <ChevronsRight />
-          </ShellToolButton>
-          <ShellToolButton
-            label="Sort tasks by start time"
-            disabled={!update || data.tasks.length < 2}
-            onPress={() => update?.({ tasks: byStart(data.tasks) })}
-          >
-            <ArrowDownWideNarrow />
-          </ShellToolButton>
-          <ShellToolDivider />
-          <ShellToolButton label="Copy as text" disabled={data.tasks.length === 0} onPress={() => copyText(scheduleText(data))}>
-            <Copy />
-          </ShellToolButton>
-          <ShellToolButton
-            label="Download (.csv)"
-            disabled={data.tasks.length === 0}
-            onPress={() => downloadText(`${fileNameOf(data.title, "schedule")}.csv`, scheduleCsv(data), "text/csv")}
-          >
-            <Download />
-          </ShellToolButton>
-        </ShellToolbar>
-      )}
+      {/* The same standard tools at medium plus and large. */}
+      <ShellToolbar tools={tools} actions={actions}>
+        <ShellToolButton
+          label="New task"
+          disabled={!update}
+          onPress={() => {
+            const start = Math.min(data.hours[1] - 1, data.hours[0] + 1);
+            update?.({
+              tasks: [
+                ...data.tasks,
+                { id: shellId("task"), label: "New task", day: 0, start, end: start + 1, type: "setup" },
+              ],
+            });
+          }}
+        >
+          <Plus />
+        </ShellToolButton>
+        <ShellToolButton label="Add a day" disabled={!update} onPress={() => update?.({ dayCount: data.dayCount + 1 })}>
+          <CalendarPlus />
+        </ShellToolButton>
+        <ShellToolButton
+          label="Remove the last day"
+          disabled={!update || data.dayCount <= 1}
+          onPress={() =>
+            update?.({ dayCount: data.dayCount - 1, tasks: data.tasks.filter((task) => task.day < data.dayCount - 1) })
+          }
+        >
+          <CalendarMinus />
+        </ShellToolButton>
+      </ShellToolbar>
       <ShellBody size={size}>
         {large && suggestions?.days ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -655,7 +601,13 @@ export function ScheduleShell({
             ))}
           </div>
         )}
-        <Gantt data={data} size={size} onTasks={onTasks} />
+        <Gantt
+          data={data}
+          size={size}
+          onTasks={onTasks}
+          suggestedTasks={suggested?.tasks}
+          onDismissTask={onDismissSuggestion && ((label) => onDismissSuggestion("tasks", label))}
+        />
       </ShellBody>
       {!large && (
         <ShellDetail>

@@ -129,6 +129,7 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.16",
+    "axe-core": "4.10.2",
     "babel-plugin-react-compiler": "19.1.0-rc.3",
     "eslint": "^9.39.2",
     "eslint-import-resolver-typescript": "^4.4.4",

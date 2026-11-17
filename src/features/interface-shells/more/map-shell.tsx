@@ -112,7 +112,7 @@ function Pin({
       className={cn(
         "grid place-items-center rounded-full border-2 border-white shadow-[0_1px_3px_rgba(26,23,24,0.3)]",
         dot,
-        place.shortlisted ? "text-white" : "bg-white text-typography-secondary",
+        place.shortlisted ? "text-white" : "bg-shell-panel text-typography-secondary",
       )}
       style={place.shortlisted ? { backgroundColor: YELLOW } : undefined}
     >
@@ -121,7 +121,7 @@ function Pin({
   );
   const style = { left: `${place.x * 100}%`, top: `${place.y * 100}%` };
   const label = size === "large" && (
-    <span className="pointer-events-none absolute top-full left-1/2 mt-0.5 -translate-x-1/2 rounded-full bg-white/90 px-1.5 font-bureau text-[10px] whitespace-nowrap text-typography-primary shadow-[0_1px_2px_rgba(26,23,24,0.12)]">
+    <span className="pointer-events-none absolute top-full left-1/2 mt-0.5 -translate-x-1/2 rounded-full bg-shell-panel/90 px-1.5 font-bureau text-[10px] whitespace-nowrap text-typography-primary shadow-[0_1px_2px_rgba(26,23,24,0.12)]">
       {place.name}
     </span>
   );
@@ -195,12 +195,12 @@ export function MapCanvas({
           >
             <span
               className={cn(
-                "rounded-full border-2 border-dashed border-gray-3/60 bg-white/70",
+                "rounded-full border-2 border-dashed border-shell-line-strong bg-shell-panel/70",
                 size === "medium" ? "size-2" : "size-4",
               )}
             />
             {size !== "medium" && (
-              <span className="mt-0.5 rounded-full bg-white/80 px-1.5 font-bureau text-[10px] font-light whitespace-nowrap text-typography-secondary">
+              <span className="mt-0.5 rounded-full bg-shell-panel/80 px-1.5 font-bureau text-[10px] font-light whitespace-nowrap text-typography-secondary">
                 {label}
               </span>
             )}
@@ -262,7 +262,7 @@ export function MapShell({
   const near = (
     <label
       className={cn(
-        "flex min-w-0 items-center gap-1.5 rounded-full bg-gray-6 pr-3 pl-2 font-bureau text-typography-primary",
+        "flex min-w-0 items-center gap-1.5 rounded-full bg-shell-fill pr-3 pl-2 font-bureau text-typography-primary",
         large ? "h-8 text-[13px]" : "h-6 text-[11px]",
       )}
     >
@@ -401,7 +401,7 @@ export function MapShell({
                   }}
                   className={cn(
                     "rounded-full px-2.5 py-1 font-bureau text-[12px] tabular-nums transition-colors",
-                    onlyShortlist === tab.value ? "bg-gray-6 text-typography-primary" : "text-typography-secondary hover:text-typography-primary",
+                    onlyShortlist === tab.value ? "bg-shell-fill text-typography-primary" : "text-typography-secondary hover:text-typography-primary",
                   )}
                 >
                   {tab.label}
@@ -427,7 +427,7 @@ export function MapShell({
                       stopFieldEvent(event);
                       toggle?.(place.id);
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left hover:bg-gray-6"
+                    className="flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left hover:bg-shell-fill"
                   >
                     <Star
                       className="size-4 shrink-0"
@@ -450,7 +450,7 @@ export function MapShell({
                         stopFieldEvent(event);
                         remove(place.id);
                       }}
-                      className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-white hover:text-typography-primary focus-visible:opacity-100"
+                      className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-typography-secondary opacity-0 group-hover:opacity-100 hover:bg-shell-panel hover:text-typography-primary focus-visible:opacity-100"
                     >
                       <X className="size-3.5" />
                     </button>
