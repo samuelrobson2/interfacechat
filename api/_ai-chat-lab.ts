@@ -60,6 +60,10 @@ type ArtefactContext = {
   snapshot?: string;
 };
 
+/** A plain request to make something: "Make the menu", "Now give me the recipe", "Can you draft a brief". */
+const MAKE_REQUEST =
+  /^\s*(?:(?:ok(?:ay)?|now|then|and|great|thanks)[,!.]?\s+)*(?:(?:please|can you|could you|would you)\s+)?(?:make|create|build|write|draft|give me|put together|generate|draw up|plan out|set up)\b/i;
+
 /** Another interface open beside the chat (not the one used last, not a tracked one): the model sees it too. */
 type OpenContext = { id: string; kind: InterfaceKind | "shell"; label: string; title: string; value?: string; snapshot?: string };
 
@@ -398,7 +402,9 @@ export async function POST(req: Request) {
     artefact ? artefactSystemAddon(artefact) : null,
     !artefact && candidates.length > 0
       ? candidatesSystemAddon(candidates)
-      : null,
+      : artefact && candidates.some((candidate) => candidate.layer !== "format")
+        ? `To make something new rather than change what's open (a recipe while the menu is open), these fit the request:${candidatesSystemAddon(candidates.filter((candidate) => candidate.layer !== "format"))}`
+        : null,
     roleRules,
   ]
     .filter(Boolean)
@@ -423,7 +429,8 @@ export async function POST(req: Request) {
   const fillKinds: CatalogueKind[] = [
     ...new Set([
       ...inView.map((entry) => entry.kind),
-      ...(artefact ? [] : CATALOGUE_KINDS.filter((kind) => candidates.some((candidate) => candidate.layer !== "format" && candidate.opensAs === kind))),
+      // The kinds this request could make: offered whatever's open, so a new one can be made beside it.
+      ...CATALOGUE_KINDS.filter((kind) => candidates.some((candidate) => candidate.layer !== "format" && candidate.opensAs === kind)),
     ]),
   ];
   const fillTools: ToolSet = Object.fromEntries(
@@ -491,6 +498,20 @@ export async function POST(req: Request) {
     `${model} · ${messages.length} message(s)${artefact ? ` · ${artefact.kind}` : ""}${candidates.length ? ` · ${candidates.length} candidates` : ""}`,
   );
 
+  // An explicit request to make something always makes it: when the latest
+  // message asks to make a thing (and nothing of that kind is in view to
+  // change), the first step opens an interface. The rules shape how it's
+  // written; whether it's made isn't left to the model.
+  const lastAsk = [...messages].reverse().find((message) => message.role === "user");
+  const askText = (lastAsk?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
+  const offered = candidates.filter((candidate) => candidate.layer !== "format");
+  const mustMake =
+    !!openInterfaceSchema &&
+    MAKE_REQUEST.test(askText) &&
+    offered.length > 0 &&
+    !inView.some((entry) => entry.kind === offered[0]!.opensAs) &&
+    !(artefact && artefact.kind === offered[0]!.opensAs);
+
   const result = streamText({
     model: openai.responses(model),
     tools: {
@@ -499,7 +520,7 @@ export async function POST(req: Request) {
       ...fillTools,
       ...updateTool,
       ...trackedTools(tracked),
-      ...(!artefact && openInterfaceSchema
+      ...(openInterfaceSchema
         ? {
             open_interface: tool({
               description:
@@ -518,6 +539,7 @@ export async function POST(req: Request) {
           }
         : {}),
     },
+    prepareStep: ({ stepNumber }) => (mustMake && stepNumber === 0 ? { toolChoice: { type: "tool" as const, toolName: "open_interface" } } : {}),
     stopWhen: stepCountIs(
       // Keeping tracked interfaces current takes a step or two of its own.
       (tracked.length ? 2 : 0) +

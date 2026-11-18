@@ -41,11 +41,21 @@ export type RoleSpec<D = unknown> = {
 
 export const BASE_RULES = [
   "Never ask for something an interface in play already answers.",
+  "When asked to make or change something, do it with sensible choices and say in a line what you chose; they'll change what they don't like. Ask first only when it truly can't go ahead without them.",
 ];
+
+/**
+ * Which interface makes which thing, from each one's own description: the
+ * model picks by what the thing is (something to read, steps to follow, a
+ * timed plan), never by the words of the request.
+ */
+export const CHOOSING_RULE = `Pick the interface by what the thing is, not the words used to ask: ${CATALOGUE_KINDS.map((kind) => `${CATALOGUE[kind].label} for ${CATALOGUE[kind].makes}`).join("; ")}. One thing per interface: a menu and each of its recipes are separate.`;
 
 export const ROLE_RULES: Record<InterfaceRole, string[]> = {
   make: [
     "Interfaces you make are what the person asked for. Write them from what the tracked interfaces say (the goal, the facts, the decisions), so nothing they've told you is lost or asked again.",
+    CHOOSING_RULE,
+    "Decide as you make it: where there's a choice (which main, which dessert), pick one that fits what the notes say instead of listing alternatives, and never ask them to choose between options you wrote yourself.",
   ],
   track: [
     "Tracked interfaces hold this thread's working state. Keep them current as you go, in the same turn as anything else you do; don't wait to be asked and don't mention that you're doing it unless it matters.",
@@ -58,17 +68,20 @@ export const ROLE_RULES: Record<InterfaceRole, string[]> = {
 
 const linesOf = (body: string) => body.split("\n").map((line) => line.trim()).filter(Boolean);
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+/** Labels for what passes (a question once answered, a next step once done): a rewrite may drop these. */
+const TRANSIENT = new Set(["open", "next", "todo", "to do", "question"]);
 /** A note's label ("when" in "When: Saturday"), if it has one. */
 const labelOf = (line: string) => line.match(/^\s*([^:]{1,24}):\s/)?.[1]?.trim().toLowerCase() ?? null;
 
 const notesTrack: RoleSpec<NotesShellData> = {
   rules: [
-    "Notes is the scratchpad for the goal: one note a line, plain words, 'Label: value' where there's a label (When: Saturday at 7pm; Guests: 8, one vegetarian).",
-    "A line can take a style from how it starts, as in Apple Notes: '## ' a heading, '- ' a bullet, '1. ' numbered, '[ ] ' a to-do ('[x] ' done), with **bold** inside a line. Use them only where they help (a short list under a heading); facts stay as plain 'Label: value' lines.",
-    "Keep what's still open as 'Open: …' lines, a few at most, and replace one with the answer once it's settled.",
-    "Don't copy into Notes what another interface holds (the progress tracker's stages, a recipe's steps): each thing lives in one place.",
+    "Notes is the thread's working memory: one note a line, plain words, 'Label: value' where there's a label (When: Saturday at 7pm; Guests: 8, one vegetarian).",
+    "It reads top to bottom in this order: the goal; the facts; the decisions (Menu: …); what's next, as a short checklist ('[ ] Make the shopping list', '[x]' once it's done); then what's still open ('Open: …', a few at most). Status lives here: there's no separate tracker unless they ask for one.",
+    "Keep it short and in that order as it grows: when lines are out of order, repeated, or no longer matter (an answered question, a step that's done and no longer useful), rewrite it with notes_rewrite. Facts are never dropped, only merged or made more exact.",
+    "A line can take a style from how it starts, as in Apple Notes: '## ' a heading, '- ' a bullet, '1. ' numbered, '[ ] ' a to-do ('[x] ' done), with **bold** inside a line. Facts stay as plain 'Label: value' lines.",
+    "Don't copy into Notes what another interface holds (a recipe's steps, a schedule's times): each thing lives in one place; the notes say only what it settles.",
     "Never add a line that repeats a fact already there under another label (Where and Location are the same fact); change that line instead if it's now more exact.",
-    "Notes holds facts, decisions and what's still open, never the things you make. When they ask for something (a menu, a recipe, a schedule, a shot list, a list to shop from), make it as its own interface (open it and fill it), then note only what it settles (Menu: mushroom risotto, then tart).",
+    "Notes holds facts, decisions, what's next and what's open, never the things you make. When they ask for something, make it as its own interface (open it and fill it), then note what it settles and tick it off in what's next.",
     "While the goal is still being worked out, don't make anything unasked: ask about what's open, a couple of things at a time, and offer what you could make from the notes next (a menu, a shopping list, a schedule, a shot list), by name.",
   ],
   contents: (data) => `Notes "${data.title}":\n${data.body.trim() || "(empty)"}`,
@@ -96,6 +109,25 @@ const notesTrack: RoleSpec<NotesShellData> = {
         }
         if (!added && !changed) return { ok: true, data, summary: "Already in the notes." };
         return { ok: true, data: { ...data, body: lines.join("\n") }, summary: [added && `Added ${added}`, changed && `updated ${changed}`].filter(Boolean).join(", ") + " line(s)." };
+      },
+    },
+    {
+      name: "notes_rewrite",
+      description:
+        "Rewrite the whole Notes to keep them in order and short: reorder lines, merge repeats, drop answered 'Open:' lines and next-steps that no longer matter. Every fact must still be there (merged or made more exact is fine).",
+      input: z.object({ body: z.string().describe("The whole notes, one note per line, in order: goal, facts, decisions, next, open") }),
+      apply: (data, input: { body: string }) => {
+        const before = linesOf(data.body);
+        const after = linesOf(input.body);
+        // A fact is a labelled line other than what's open; its label must survive (its value may become more exact).
+        const kept = new Set(after.map(labelOf).filter(Boolean));
+        const lost = before.filter((line) => {
+          const label = labelOf(line);
+          return label && !TRANSIENT.has(label) && !kept.has(label) && !after.some((next) => next.toLowerCase().includes(line.slice(line.indexOf(":") + 1).trim().toLowerCase()));
+        });
+        if (lost.length) return { ok: false, error: `That would lose these facts: ${lost.join("; ")}. Keep them (merged or more exact is fine), or change one with notes_change if it's wrong.` };
+        if (!after.length) return { ok: false, error: "The notes can't be empty." };
+        return { ok: true, data: { ...data, body: after.join("\n") }, summary: `Rewrote the notes: ${before.length} lines to ${after.length}.` };
       },
     },
     {
@@ -193,12 +225,12 @@ export function applyRoleTool(name: string, data: unknown, input: unknown) {
 export const PROGRESS_START = {
   name: "progress_start",
   description:
-    "Start a progress tracker for the goal in the Notes, with its stages in order, when it has several (settle the guests, plan the menu, shop, prep). Only once; then keep it current with progress_add and progress_check.",
+    "Start a separate progress tracker for the goal, with its stages in order. Only when the person asks to track progress in its own place; otherwise status lives in the Notes' next-steps checklist.",
   input: z.object({
     title: z.string().describe("Short: the goal, as in Dinner party"),
     stages: z.array(z.string()).min(2).max(8).describe("Short stage names in the imperative"),
   }),
-  rules: ["If the goal has several stages, start a progress tracker for it once (progress_start), early, and keep it current."],
+  rules: ["Track status in the Notes. Start a separate progress tracker (progress_start) only if the person asks for one."],
 };
 
 export type InPlay = { kind: ShellKind; role: InterfaceRole; label: string };

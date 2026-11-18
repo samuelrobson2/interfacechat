@@ -43,3 +43,37 @@ describe("the model's notes tools", () => {
     expect(result.ok && result.data).toMatchObject({ body: "Goal: dinner party\nWhen: Saturday at 7pm\nOpen: how many guests?\nGuests: 8\nOpen: any allergies?" });
   });
 });
+
+describe("organising the notes", () => {
+  const data = {
+    title: "Dinner",
+    body: "Goal: dinner party\nOpen: how many guests?\nWhen: Saturday at 7pm\nGuests: 8, one vegetarian\n[x] Choose the menu\nMenu: lasagne, salad, pavlova\n[ ] Make the shopping list",
+  };
+
+  it("lets the model reorder and prune: answered questions and done steps can go", async () => {
+    const { applyRoleTool } = await import("../interface-roles");
+    const body = "Goal: dinner party\nWhen: Saturday at 7pm\nGuests: 8, one vegetarian\nMenu: lasagne, salad, pavlova\n[ ] Make the shopping list";
+    const result = applyRoleTool("notes_rewrite", data, { body });
+    expect(result.ok && (result.data as { body: string }).body).toBe(body);
+  });
+
+  it("refuses a rewrite that loses a fact, and says which", async () => {
+    const { applyRoleTool } = await import("../interface-roles");
+    const result = applyRoleTool("notes_rewrite", data, { body: "Goal: dinner party\nMenu: lasagne, salad, pavlova" });
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(/When: Saturday at 7pm; Guests: 8, one vegetarian/);
+  });
+
+  it("allows a fact to become more exact under its own label", async () => {
+    const { applyRoleTool } = await import("../interface-roles");
+    const result = applyRoleTool("notes_rewrite", data, { body: "Goal: dinner party\nWhen: Saturday 28 Nov, 7pm\nGuests: 8 (Sam is vegetarian)\nMenu: lasagne, salad, pavlova" });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("choosing an interface", () => {
+  it("is a general rule built from every interface's own description", async () => {
+    const { CHOOSING_RULE } = await import("../interface-roles");
+    for (const label of ["Document", "Guide", "Schedule", "Table", "Tracker", "Generator"]) expect(CHOOSING_RULE).toContain(`${label} for`);
+  });
+});

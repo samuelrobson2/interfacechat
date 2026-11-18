@@ -333,14 +333,14 @@ const RECENT_TURNS = 4;
 
 /**
  * Whether an interface is in use, and so in the model's context: not closed,
- * and either in a window that's showing or in one of the last few replies.
- * Minimized ones are put away; closed ones are out until opened again.
+ * and either in a window (showing or minimized) or in one of the last few
+ * replies. Closing is the only thing that takes one out, until it's opened again.
  */
 function inUse(sessionId: string, artefactId: string) {
   const session = useChatLabStore.getState().sessions[sessionId];
   const artefact = session?.artefacts[artefactId];
   if (!session || !artefact || session.closed?.includes(artefactId)) return false;
-  if (session.layout?.entries[artefactId]) return isWindowOpen(session.layout, artefactId);
+  if (session.layout?.entries[artefactId]) return true;
   const recent = session.messages.filter((message) => message.role === "user").slice(-RECENT_TURNS).map((message) => message.id);
   // Made this turn (not yet bound to a message) or in one of the last few.
   return !artefact.sourceUserMessageId || recent.includes(artefact.sourceUserMessageId) || artefact.id === session.activeArtefactId;
@@ -410,6 +410,29 @@ function syncTracked(id: string, userMessageId: string, replies: ChatLabMessage[
   }
 }
 
+/**
+ * Status is the system's to keep, not the model's to remember: once a turn
+ * finishes, everything it made is ticked off in the thread's Notes, as
+ * "[x] Dinner party menu (Document)", unless the notes already say so.
+ */
+function noteWhatWasMade(id: string, messages: ChatLabMessage[]) {
+  const { userMessageId } = currentTurn(messages);
+  const session = useChatLabStore.getState().sessions[id];
+  const notes = trackedArtefacts(id).find((artefact) => artefact.shell?.kind === "notes");
+  if (!userMessageId || !session || !notes?.shell) return;
+  const made = Object.values(session.artefacts).filter((artefact) => artefact.sourceUserMessageId === userMessageId && roleOf(artefact) === "make");
+  const lines = made.map((artefact) => {
+    const label = artefact.shell ? SHELL_META[artefact.shell.kind].label : SHELL_META[artefact.kind === "shell" ? "document" : artefact.kind].label;
+    return `[x] ${artefact.title} (${label})`;
+  });
+  const body = (notes.shell.data as { body: string }).body;
+  const missing = lines.filter((line) => !body.toLowerCase().includes(line.slice(4, line.lastIndexOf(" (")).toLowerCase()));
+  if (!missing.length) return;
+  const result = applyRoleTool("notes_add", notes.shell.data, { lines: missing });
+  if (!result.ok) return;
+  useChatLabStore.getState().updateArtefact(id, { shell: { kind: "notes", data: result.data } as typeof notes.shell }, notes.id);
+}
+
 /** Pull this turn's tool calls into the interface it's working on. */
 function syncArtefact(id: string, messages: ChatLabMessage[]) {
   syncOpenInterface(id, messages);
@@ -476,7 +499,9 @@ function artefactContextForRequest(sessionId: string, messages: ChatLabMessage[]
   if (lastUser && users.length > 1) {
     const asked = matchVisualInterface(getMessageText(lastUser));
     const showing = active.libraryKind ?? active.shell?.kind ?? active.kind;
-    const sameKind = resolveImplementableKind(asked ?? "document") === active.kind || (asked && opensAsOf(asked) === artefactCatalogueKind(active));
+    // What it would open as, against what's open: a recipe asked for while a menu (a document) is open is a different kind.
+    const opens = asked ? opensAsOf(asked) : null;
+    const sameKind = opens === (artefactCatalogueKind(active) ?? active.shell?.kind ?? active.kind);
     if (asked && asked !== showing && !sameKind) return undefined;
   }
 
@@ -524,7 +549,7 @@ const IN_VIEW = 6;
  * Every other interface in use, so the model sees them all, not just the one
  * used last: each with its id and what it holds now (its latest version
  * only), whether it's in a window or in a recent reply. Windows come first,
- * then the newest. Closed and minimized ones are left out; tracked ones go on
+ * then the newest. Closed ones are left out; tracked ones go on
  * their own (trackedForRequest).
  */
 function openForRequest(sessionId: string, focusedId: string | undefined) {
@@ -554,8 +579,7 @@ function interfaceCandidatesForRequest(
   sessionId: string,
   messages: ChatLabMessage[],
 ) {
-  // When an artefact is already in play for this turn, skip retrieval.
-  if (artefactContextForRequest(sessionId, messages)) return undefined;
+  // Retrieved whatever is open, so a new interface can be made beside it (a recipe while the menu is open).
   const lastUser = [...messages].reverse().find((message) => message.role === "user");
   if (!lastUser) return undefined;
   // A thread started from a Chat card: its first reply takes the format chosen
@@ -630,6 +654,7 @@ export function getChatLabChat(id: string) {
     onFinish: ({ messages, isAbort }) => {
       useChatLabStore.getState().saveMessages(id, messages);
       syncArtefact(id, messages);
+      if (!isAbort) noteWhatWasMade(id, messages);
       const activity = useChatLabActivity.getState();
       // Chat is minimized: the reply shows above the input for a moment.
       if (!isAbort && activity.viewingId === id && isChatMinimized(id)) {

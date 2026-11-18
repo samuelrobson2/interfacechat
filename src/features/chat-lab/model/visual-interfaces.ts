@@ -66,11 +66,11 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
   {
     id: "document",
     label: "Document",
-    description: "Long-form writing: papers, essays, reports, memos",
+    description: "Writing to read or share: papers, essays, reports, memos, briefs, and plans laid out as text, such as a menu or a run of show",
     seed: "Write a paper on ",
     ambient: true,
     match:
-      /\b(write|draft|compose)\b.*\b(paper|document|essay|report|memo)\b|\b(a |an |the )?(paper|document|essay|report|memo)\b.*\b(on|about|regarding)\b/i,
+      /\b(write|draft|compose)\b.*\b(paper|document|essay|report|memo)\b|\b(a |an |the )?(paper|document|essay|report|memo)\b.*\b(on|about|regarding)\b|\b(menu|brief|run of show|plan for the (day|evening|night))\b/i,
   },
   {
     id: "moodboard",
@@ -238,7 +238,7 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
     label: "Guide",
     description: "A recipe or how-to to follow step by step",
     seed: "Give me a recipe for ",
-    match: /\b(recipes?|ingredients|menu|cook|bake|step[- ]by[- ]step|how do i|instructions for)\b/i,
+    match: /\b(recipes?|ingredients|cook|bake|step[- ]by[- ]step|how do i|instructions for)\b/i,
   },
   {
     id: "social",

@@ -12,6 +12,7 @@
     "kit:release": "pnpm --prefix src/shared/ui/kit run release",
     "api": "npx openapi-typescript ./src/shared/api/schema/main.yaml -o ./src/shared/api/schema/generated.ts",
     "test": "vitest",
+    "journeys": "node scripts/journeys/run.cjs",
     "test:watch": "vitest watch",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",

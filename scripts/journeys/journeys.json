@@ -1,0 +1,138 @@
+{
+  "$comment": "User journeys, replayed through the real app and model by run.cjs. Each turn says what it should produce, as general outcomes (an interface of a kind made, a tool called, a line in the notes), not exact wording. Add a journey for every new situation the rules should cover.",
+  "journeys": [
+    {
+      "name": "Dinner party (underspecified)",
+      "start": "Help me organize food for a dinner party next week",
+      "expect": {
+        "tracked": [
+          "Notes"
+        ],
+        "notCalled": [
+          "progress_start"
+        ],
+        "notes": [
+          "^Goal:",
+          "^When: next week"
+        ]
+      },
+      "turns": [
+        {
+          "say": "8 of us, one vegetarian, relaxed. Saturday at 7pm.",
+          "expect": {
+            "calledAny": [
+              "notes_add",
+              "notes_change",
+              "notes_rewrite"
+            ],
+            "notes": [
+              "^When: Saturday",
+              "8"
+            ],
+            "notNotes": [
+              "^When: next week"
+            ]
+          }
+        },
+        {
+          "say": "Make the menu",
+          "expect": {
+            "made": [
+              "document"
+            ],
+            "notes": [
+              "menu"
+            ]
+          }
+        },
+        {
+          "say": "Give me the recipe for the vegetarian main",
+          "expect": {
+            "made": [
+              "guide"
+            ],
+            "inContext": [
+              "Document"
+            ],
+            "notes": [
+              "\\(Guide\\)"
+            ]
+          }
+        },
+        {
+          "do": "minimize document",
+          "say": "Add a dessert to the menu",
+          "expect": {
+            "calledAny": [
+              "update_interface",
+              "fill_document"
+            ],
+            "inContext": [
+              "Document"
+            ]
+          }
+        },
+        {
+          "do": "close guide",
+          "say": "What's left to do?",
+          "expect": {
+            "notInContext": [
+              "Guide"
+            ],
+            "inContext": [
+              "Document"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Marketing shoot (specified)",
+      "start": "Help me plan a half-day marketing shoot for our skincare brand next Thursday. We’re shooting 3 product shots and 2 lifestyle scenes with one model. Location is a rented loft in the mission",
+      "expect": {
+        "tracked": [
+          "Notes"
+        ],
+        "notCalled": [
+          "progress_start"
+        ],
+        "notes": [
+          "^When: .*Thursday",
+          "^Length: half day",
+          "^Includes: 3 product shots",
+          "^Where: a rented loft"
+        ]
+      },
+      "turns": [
+        {
+          "say": "Make the schedule for the day",
+          "expect": {
+            "madeOrHas": [
+              "schedule"
+            ]
+          }
+        },
+        {
+          "say": "Now make a shot list",
+          "expect": {
+            "made": [
+              "table"
+            ],
+            "inContext": [
+              "Schedule"
+            ]
+          }
+        },
+        {
+          "say": "Move the lifestyle scenes to start at 10:30",
+          "expect": {
+            "calledAny": [
+              "update_interface",
+              "fill_schedule"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

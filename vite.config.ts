@@ -112,7 +112,10 @@ async function handleApi(
     res.statusCode = response.status;
     response.headers.forEach((value, key) => res.setHeader(key, value));
     if (response.body) {
-      Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]).pipe(res);
+      // A stream that fails midway (the model's connection reset) ends this response, not the dev server.
+      const stream = Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]);
+      stream.on("error", () => res.destroy());
+      stream.pipe(res);
     } else {
       res.end(await response.text());
     }

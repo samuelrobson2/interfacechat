@@ -215,6 +215,8 @@ export type CatalogueEntry<K extends CatalogueKind = CatalogueKind> = {
   /** The tool that fills it. */
   tool: `fill_${K}`;
   description: string;
+  /** What it's for, in a few words, so the model picks by what the thing is: "something to read or share". */
+  makes: string;
   /** How to write it well, as lines of the system prompt. */
   guidance: string[];
   schema: (typeof SCHEMAS)[K];
@@ -224,6 +226,7 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   document: {
     kind: "document",
     label: "Document",
+    makes: "something to read or share (a paper, a memo, a brief, a menu, a plan written out)",
     tool: "fill_document",
     description:
       "A piece of writing the user creates and edits: a paper, report, memo or email. It can carry live stats, charts, tables, controls and code between the paragraphs: a data story or an explorable explanation.",
@@ -241,6 +244,7 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   table: {
     kind: "table",
     label: "Table",
+    makes: "rows to compare or work through (options side by side, a shot list)",
     tool: "fill_table",
     description: "Columns and rows of text, tags or pictures: a shot list or a comparison.",
     guidance: [
@@ -253,6 +257,7 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   tracker: {
     kind: "tracker",
     label: "Tracker",
+    makes: "tasks to get done, with owners and dates",
     tool: "fill_tracker",
     description: "The steps to get something done, with owners, due dates and what's finished.",
     guidance: [
@@ -265,6 +270,7 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   dashboard: {
     kind: "dashboard",
     label: "Dashboard",
+    makes: "numbers and charts over data",
     tool: "fill_dashboard",
     description:
       "Figures, charts and tables over data, with filters and code that runs: a sales or KPI dashboard, or an app over a spreadsheet.",
@@ -280,6 +286,7 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   guide: {
     kind: "guide",
     label: "Guide",
+    makes: "steps to follow yourself (a recipe, a how-to), one per recipe or job",
     tool: "fill_guide",
     description: "A recipe or how-to to follow: what's needed, then the steps in order, with timers where there's waiting.",
     guidance: [
@@ -292,6 +299,7 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   schedule: {
     kind: "schedule",
     label: "Schedule",
+    makes: "a plan in time (hours and days)",
     tool: "fill_schedule",
     description: "A plan of tasks across hours and days, drawn as a Gantt: a shoot day, an event, a trip.",
     guidance: [
@@ -304,6 +312,7 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   generator: {
     kind: "generator",
     label: "Generator",
+    makes: "words or pictures to choose from (taglines, names, images)",
     tool: "fill_generator",
     description: "Makes words or pictures from a prompt: taglines, names, captions, images, with tone, style and length to steer it.",
     guidance: [

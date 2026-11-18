@@ -3,8 +3,8 @@ import type { ModelMessage } from "ai";
 /**
  * Interfaces reach the model in one place only: the current contents of the
  * ones in use, sent at the end of the prompt each turn (the one used last, the
- * others in a window or a recent reply, and the tracked ones). Closed and
- * minimized interfaces aren't sent at all, and no interface is ever sent twice.
+ * others in a window, minimized or in a recent reply, and the tracked ones).
+ * Closed interfaces aren't sent at all, and no interface is ever sent twice.
  *
  * So the history keeps no versions. Every write the model made (fill_*,
  * write_interface, update_interface) keeps its call, so the model still knows
