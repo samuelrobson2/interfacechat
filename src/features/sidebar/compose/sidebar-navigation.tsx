@@ -43,7 +43,7 @@ export interface MenuItem {
 }
 
 // A collapsible grouping: a header row (icon + label + chevron) that toggles
-// the visibility of its nested items. Used for the "Archive" section.
+// the visibility of its nested items. Used for the "Tools" and "Developer" sections.
 export interface SidebarSection {
   title: string;
   icon: React.ReactNode;
@@ -90,13 +90,16 @@ function SidebarSectionGroup({
   section: SidebarSection;
   isItemActive: (item: MenuItem) => boolean;
 }) {
-  const [open, setOpen] = useState(section.defaultOpen ?? true);
+  // On one of its pages, it starts open so that page shows; closed, its header shows it's there.
+  const hasActive = section.items.some(isItemActive);
+  const [open, setOpen] = useState((section.defaultOpen ?? true) || hasActive);
 
   return (
     <div className="flex w-full flex-col gap-1.5">
       <SidebarItem
         className="size-9 group-data-[expanded=true]/sidebar:size-auto"
         asChild
+        isActive={!open && hasActive}
       >
         <button type="button" onClick={() => setOpen((prev) => !prev)}>
           {section.icon}

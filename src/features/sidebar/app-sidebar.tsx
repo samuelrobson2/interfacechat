@@ -18,7 +18,7 @@ import {
   LayoutTemplate,
   PanelsTopLeft,
   Sparkles,
-  Wrench, Ruler } from "lucide-react";
+  Wrench, Ruler, Code2 } from "lucide-react";
 import { useState } from "react";
 import { useMatch } from "react-router-dom";
 
@@ -26,6 +26,7 @@ import {
   SidebarNavigation,
   type MenuItem,
   type SidebarEntry,
+  type SidebarSection,
 } from "./compose/sidebar-navigation";
 import { SidebarUserMenu } from "./compose/sidebar-user-menu";
 import { cn } from "@/shared/lib/css";
@@ -73,7 +74,15 @@ const generativeToolsItem: MenuItem = {
   icon: <Sparkles className="size-5" />,
 };
 
-const pharosItems: MenuItem[] = [
+// Tools — the interface pages, grouped so the menu stays short. Opens itself on one of its pages.
+const toolsSection: SidebarSection = {
+  title: "Tools",
+  icon: <Wrench className="size-5" />,
+  items: [interfaceLibraryItem, interfaceStatesItem, designSystemItem, workbenchItem, generativeToolsItem],
+  defaultOpen: false,
+};
+
+const pharosItems: SidebarEntry[] = [
   {
     title: "Build",
     url: homeTabPath(HOME_TABS.BUILD),
@@ -108,11 +117,7 @@ const pharosItems: MenuItem[] = [
     matchPaths: [{ path: ROUTES.CHAT_LAB, end: true }],
     icon: <ChatIcon />,
   },
-  interfaceLibraryItem,
-  interfaceStatesItem,
-  designSystemItem,
-  workbenchItem,
-  generativeToolsItem,
+  toolsSection,
   ...(isChatVisualizeEnabled()
     ? [
         {
@@ -158,11 +163,11 @@ const commonUiExamplesItem: MenuItem = {
   icon: <LayoutTemplate className="size-5" />,
 };
 
-// Bubble 3 — Tools, its own bubble holding a collapsible section.
+// Bubble 3 — Developer, its own bubble holding a collapsible section.
 const toolsItems: SidebarEntry[] = [
   {
-    title: "Tools",
-    icon: <Wrench className="size-5" />,
+    title: "Developer",
+    icon: <Code2 className="size-5" />,
     items: [uiKitItem, commonUiExamplesItem],
     // Collapsed by default — expand to reveal developer tools.
     defaultOpen: false,
