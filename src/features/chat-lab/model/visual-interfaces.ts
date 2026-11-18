@@ -158,9 +158,9 @@ export const VISUAL_INTERFACES: VisualInterface[] = [
   {
     id: "checklist",
     label: "Checklist",
-    description: "Todo list or prioritized task checklist",
+    description: "A list to tick off: to-dos, a shopping or grocery list, ingredients to buy, things to pack",
     seed: "Make a checklist for ",
-    match: /\b(checklist|todo|to-?do|task list|prioriti[sz]e)\b/i,
+    match: /\b(checklist|todo|to-?do|task list|prioriti[sz]e|shopping list|grocery list|packing list|ingredients? list|list of (?:ingredients|things|what)|what to (?:buy|pack|bring)|(?:make|give me|write) (?:a|the|me a) list)\b/i,
   },
   {
     id: "outline",
@@ -455,23 +455,58 @@ export function retrieveInterfaces(
   const picked = scored.slice(0, limit).map((entry) => entry.item);
   if (picked.length === 0) return [];
 
-  return picked.map((item) => {
-    const profile = libraryProfile(item.id);
-    const libraryKind = libraryKindOf(item.id);
-    const format = CHAT_FORMAT_OF[item.id];
-    return {
-      id: item.id,
-      label: item.label,
-      description: format
-        ? formatCandidateText(format)
-        : profile && libraryKind
-          ? libraryCandidateText(libraryKind, profile) + chartTypeNote(item.id)
-          : item.description,
-      opensAs: opensAsOf(item.id),
-      // A chat format lays out the reply; it never opens.
-      layer: format ? "format" : "interface",
-    };
-  });
+  return picked.map(toCandidate);
+}
+
+/** One item as the model reads it. */
+function toCandidate(item: VisualInterface): InterfaceCandidate {
+  const profile = libraryProfile(item.id);
+  const libraryKind = libraryKindOf(item.id);
+  const format = CHAT_FORMAT_OF[item.id];
+  return {
+    id: item.id,
+    label: item.label,
+    description: format
+      ? formatCandidateText(format)
+      : profile && libraryKind
+        ? libraryCandidateText(libraryKind, profile) + chartTypeNote(item.id)
+        : item.description,
+    opensAs: opensAsOf(item.id),
+    // A chat format lays out the reply; it never opens.
+    layer: format ? "format" : "interface",
+  };
+}
+
+/**
+ * What an item means, for matching by meaning: its name, what it's for, and
+ * the requests it opens for. Its parts (the schema) are left out: they're
+ * noise for meaning.
+ */
+function meaningOf(item: VisualInterface) {
+  const profile = libraryProfile(item.id);
+  const examples = profile?.queries.filter((q) => q.trim()).slice(0, 5) ?? [];
+  return [`${item.label}: ${item.description}.`, profile?.description.trim(), examples.length ? `For requests like: ${examples.join("; ")}.` : ""].filter(Boolean).join(" ");
+}
+
+export type RetrievalInput = {
+  query: string;
+  /** Every item, as the model would read it, and what it means for matching. */
+  catalogue: (InterfaceCandidate & { meaning: string })[];
+  /** The keyword scores, best first; only items with some evidence. */
+  keyword: { id: string; score: number }[];
+};
+
+/**
+ * Hybrid retrieval, the app's half: the keyword ranking and the whole
+ * catalogue, for the chat API to merge with a ranking by meaning (embeddings,
+ * which need its key). See api/_interface-retrieval.ts.
+ */
+export function retrievalInput(draft: string): RetrievalInput {
+  return {
+    query: draft.trim(),
+    catalogue: VISUAL_INTERFACES.map((item) => ({ ...toCandidate(item), meaning: meaningOf(item) })),
+    keyword: rankInterfaces(draft).map((entry) => ({ id: entry.item.id, score: entry.score })),
+  };
 }
 
 /**

@@ -39,6 +39,9 @@ export {
 } from "./model/shell-catalogue";
 export { CHART_TYPE_META, chartTypeFor } from "./model/chart";
 export * from "./model/shell-types";
+export { SHELL_ACCENT } from "./model/shell-meta";
+export { answerText, askableFields, askInputSchema, normalizeQuestions, QUESTION_FIELDS, trailingYesNo, writeAnswer, type AnswerValue, type Question } from "./model/questions";
+export { AskedFieldsContext, QuestionGroup, useAskedField } from "./ui/question-card";
 export { applyRoleTool, PROGRESS_START, ROLE_SPECS, ROLE_TOOL_OWNER, roleSpec, rulesFor } from "./model/interface-roles";
 export { generatorModeFor } from "./model/generator";
 export {

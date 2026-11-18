@@ -18,14 +18,16 @@ The workbench is the flexible workspace chat will become: the conversation is th
 - **Opening from the strip.** Clicking an app icon opens it as a medium at the bottom of the supporting column: the right, or the left when Chat's sidebar is on the right. Chat's icon puts Chat back where it was.
 - **Moving.** Drag an interface by its header, or an app icon out of the strip. A blue outline shows where it will land, and anything the drop would minimize fades. Dropping on the top bar minimizes it.
 - **The divider** between two large interfaces sets how they share the main area. Double-click it to even it out.
-- **Stacked or side by side.** Two large interfaces sit side by side, or one above the other. Choose in either one's layout menu, or drag one to the top or bottom of the main area to stack and to the left or right to put them side by side. Stacked, each keeps the full width, so two fit beside Chat's sidebar on a narrower screen.
+- **Stacked or side by side.** Stacking only happens on the right, and only for medium or large: two mediums one above the other in the right column, or two large interfaces one above the other beside Chat's sidebar. It never spans the full page, either way: with nothing large open and Chat minimized, a column of two stacked mediums grows to half the page at most, not the full width; without Chat's sidebar on the left, two large interfaces sit side by side, and choosing Stacked brings Chat in as the sidebar. Stacked, the two large are half the height each, and Chat and the stack share the width half and half; the bar between Chat and the stack sets that (double-click to even it). Choose in either one's layout menu, or drag: drop an interface on the top or bottom half of a large one to stack with it (Chat moves into its sidebar if it was the page or minimized), or on its left or right half to put them side by side, sharing the width evenly. A drop onto a large interface wins over the side columns, except in a thin band at the page's edge, so it never ends up a medium with the other stretched to two thirds.
+- **Resizing.** A bar sits on each boundary you can move, with a small pill that darkens on hover: between two large side by side, beside the stack, and beside Chat's sidebar (Chat's width, `chatWidth`). Drag to resize; double-click to reset.
+- **Layout rules.** The grid icon in the top bar opens the arrangements the workbench allows, each drawn, with a switch: two medium stacked on the right, two medium stacked on the left, a medium alone filling its column, extended medium, two large side by side, two large stacked. A switch changes the workbench at once (size menus, drops, drawing) and is kept in the browser; Reset puts the defaults back (`model/workbench-rules.ts`, `ui/layout-rules-menu.tsx`). With side by side off, two large always stack; with stacking off, Stacked isn't offered.
 - **⌘Z** undoes a layout change and **⇧⌘Z** redoes it, unless a field has focus.
 
 ## Regions and sizes
 
 | Presentation | Where | Takes |
 | --- | --- | --- |
-| Medium | A side column, stacked from the top | Half the column |
+| Medium | A side column, stacked from the top (two only in the right column) | Half the column, even alone: it sits at the top with nothing stretched into the rest |
 | Extended medium | A side column | The whole column |
 | Large | The main area, left or right slot when split | Its slot |
 | Chat sidebar | A side column (Chat only) | The whole column, narrower than a supporting column |
@@ -39,7 +41,7 @@ Standard interfaces offer minimize, medium, extended medium and large. Chat offe
 - An interface alone in a side column takes the whole column, whatever its size.
 - An interface drawn this big shows its full layout, not its card. Drops still use the regions' usual edges, so you can always drag something back into the middle.
 
-**Capacity.** A side column holds two mediums, or one extended medium, or the chat sidebar. The main area holds two large interfaces, and only while each is at least 440px wide. When a change needs room, the least recently used interface in the way is minimized. For width, that is a large interface or a whole side column, whichever was used least recently. The interface being placed is never the one minimized.
+**Capacity.** The right column holds two mediums, or one extended medium, or the chat sidebar; the left column holds one interface (stacking is on the right only). The main area holds two large interfaces, and only while each is at least 440px wide. When a change needs room, the least recently used interface in the way is minimized, but never Chat while anything else can go: a third large coming in while Chat is the page moves Chat into its sidebar, and for width, other interfaces make room before Chat does. For width, that is a large interface or a whole side column, whichever was used least recently. The interface being placed is never the one minimized.
 
 ## State and rendering
 

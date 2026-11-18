@@ -60,7 +60,7 @@ export const ROLE_RULES: Record<InterfaceRole, string[]> = {
   track: [
     "Tracked interfaces hold this thread's working state. Keep them current as you go, in the same turn as anything else you do; don't wait to be asked and don't mention that you're doing it unless it matters.",
     "Record what the person tells you (a fact, a number, a decision, a preference) as soon as they say it.",
-    "Don't remove or reword what the person wrote. Change a line only when it's now wrong (a date that moved, a question now answered).",
+    "Keep every fact the person gave you: a line can be merged, moved or made more exact, and changed when it's now wrong (a date that moved, a question now answered), but what they told you is never lost.",
   ],
 };
 

@@ -5,10 +5,13 @@ import { SHELL_META, ShellAppIcon, type ShellKind } from "@/features/interface-s
 import { cn } from "@/shared/lib/css";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/kit/popover";
 import { Text } from "@/shared/ui/kit/text";
-import { dropChange, layoutGeometry, type Rect } from "../model/workbench-geometry";
+import { CHAT_SHARE, dropChange, layoutGeometry, type Rect } from "../model/workbench-geometry";
 import { WorkbenchHostContext, type WorkbenchHost, type WorkbenchInstance } from "../model/workbench-host";
 import {
+  CHAT_WIDTH_RANGE,
   DIVIDER_RANGE,
+  inRegion,
+  isStacked,
   type InstanceId,
   type LayoutChange,
   type LayoutEntry,
@@ -28,6 +31,8 @@ import { usePointerDrag, type DragPoint } from "./use-pointer-drag";
 import { WorkbenchFrame, type LayoutControls } from "./workbench-frame";
 import { MenuCard, MenuRow } from "./workbench-menus";
 import { DragGhost, DropPreview, MainDivider, StripIcon } from "./workspace-parts";
+import { LayoutRulesMenu } from "./layout-rules-menu";
+import { useLayoutRules } from "../model/workbench-rules";
 
 type DragState = { id: InstanceId; point: DragPoint | null };
 
@@ -131,9 +136,13 @@ export function WorkbenchSurface({
   className,
 }: WorkbenchSurfaceProps) {
   const reducedMotion = useReducedMotion() ?? false;
+  // The layout rules feed the geometry and the menus: a switched rule redraws the workbench.
+  useLayoutRules((state) => state.rules);
   const [workspaceRef, size] = useElementSize<HTMLDivElement>();
   const [toolsRef, toolsSize] = useElementSize<HTMLDivElement>();
   const [liveDivider, setLiveDivider] = useState<number | null>(null);
+  // Chat's width while its bar is being dragged.
+  const [liveChatWidth, setLiveChatWidth] = useState<number | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const chatOpen = layout.entries[chatId]?.presentation !== "minimized";
   // Interfaces on screen at load don't fade in; ones opened later do.
@@ -152,7 +161,11 @@ export function WorkbenchSurface({
     reserveBottom: chatOpen ? 0 : COMPOSER_ROOM,
   };
   const geometryOf = (next: WorkspaceLayout) => layoutGeometry(next, size ?? { width: 0, height: 0 }, geometryOptions);
-  const shownLayout = liveDivider === null ? layout : { ...layout, divider: liveDivider };
+  const shownLayout = {
+    ...layout,
+    ...(liveDivider === null ? {} : { divider: liveDivider }),
+    ...(liveChatWidth === null ? {} : { chatWidth: liveChatWidth }),
+  };
   const geometry = size ? geometryOf(shownLayout) : null;
 
   const dropTarget = drag?.point && geometry ? dropChange(layout, geometry, drag.id, drag.point) : null;
@@ -192,10 +205,22 @@ export function WorkbenchSurface({
     if (!geometry) return layout.divider;
     const { main } = geometry;
     const local = toLocal(point);
-    const ratio = layout.stacked
-      ? (local.y - main.y - 6) / (main.height - 12)
+    // Stacked, the bar sits beside Chat and shares the width between Chat and the stack.
+    const { content } = geometry;
+    const ratio = isStacked(layout)
+      ? (local.x - content.x - 6) / (main.x + main.width - content.x - 12)
       : (local.x - main.x - 6) / (main.width - 12);
     return Math.min(DIVIDER_RANGE[1], Math.max(DIVIDER_RANGE[0], ratio));
+  };
+
+  /** Chat's width from the bar beside it: the share of the page from Chat's edge to the pointer. */
+  const chatWidthAt = (point: DragPoint) => {
+    if (!geometry) return CHAT_SHARE;
+    const { content } = geometry;
+    const local = toLocal(point);
+    const chatOnRight = inRegion(layout, "right").some((entry) => entry.presentation === "sidebar");
+    const width = chatOnRight ? content.x + content.width - local.x - 6 : local.x - content.x - 6;
+    return Math.min(CHAT_WIDTH_RANGE[1], Math.max(CHAT_WIDTH_RANGE[0], width / (content.width || 1)));
   };
 
   const byId = new Map(instances.map((instance) => [instance.id, instance]));
@@ -215,7 +240,8 @@ export function WorkbenchSurface({
           </div>
 
           {/* The strip of minimized interfaces runs up to this. */}
-          <div ref={toolsRef} className="absolute top-0 right-0 z-30 flex h-14 items-center">
+          <div ref={toolsRef} className="absolute top-0 right-0 z-30 flex h-14 items-center gap-1">
+            <LayoutRulesMenu />
             <AddInterfaceMenu onAdd={onAdd} />
           </div>
 
@@ -263,7 +289,7 @@ export function WorkbenchSurface({
                     motion={{
                       rect: geometry.frames[instance.id],
                       icon: geometry.icons[instance.id],
-                      instant: liveDivider !== null,
+                      instant: liveDivider !== null || liveChatWidth !== null,
                       reducedMotion,
                       appear: !initialIds.has(instance.id),
                       fading: fading.has(instance.id),
@@ -304,6 +330,21 @@ export function WorkbenchSurface({
                   }}
                   onCancel={() => setLiveDivider(null)}
                   onReset={() => transact({ type: "divider", ratio: 0.5 })}
+                />
+              )}
+
+              {geometry.chatDividerX !== undefined && (
+                <MainDivider
+                  x={geometry.chatDividerX}
+                  main={geometry.main}
+                  label="Resize Chat"
+                  onMove={(point) => setLiveChatWidth(chatWidthAt(point))}
+                  onEnd={(point) => {
+                    setLiveChatWidth(null);
+                    transact({ type: "chatWidth", ratio: chatWidthAt(point) });
+                  }}
+                  onCancel={() => setLiveChatWidth(null)}
+                  onReset={() => transact({ type: "chatWidth", ratio: CHAT_SHARE })}
                 />
               )}
 

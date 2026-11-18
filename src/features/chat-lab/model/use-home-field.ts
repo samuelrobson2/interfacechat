@@ -14,8 +14,9 @@ import { useInterfaceName } from "./interface-name";
 import { joinList, parsePrompt, reframePrompt } from "./prompt-fields";
 
 /** A picked choice as a line of notes: "Guests: 6 to 8", from the choice's own words. */
-function pickedLine(choice: PromptChoice & { picked?: string[] }) {
-  const picked = choice.picked ?? [];
+function pickedLine(choice: PromptChoice & { picked?: string[] }, orGuess = false) {
+  // Left alone, a choice goes with its guess: "whatever they ignore, you go with".
+  const picked = choice.picked?.length ? choice.picked : orGuess ? choice.guess : [];
   if (!picked.length) return null;
   const labels = joinList(picked);
   if (choice.lead) return `${choice.lead.charAt(0).toUpperCase()}${choice.lead.slice(1)} ${labels}`;
@@ -24,11 +25,15 @@ function pickedLine(choice: PromptChoice & { picked?: string[] }) {
   return line.charAt(0).toUpperCase() + line.slice(1);
 }
 
-/** The card's notes, with a line for each choice picked that isn't in them yet. */
-function withPickedLines(card: HomeCard, shown: (PromptChoice & { picked?: string[] })[]): HomeCard {
+/**
+ * The card's notes, with a line for each choice picked that isn't in them yet;
+ * and, when sending (`orGuess`), each choice left alone at its guess too, so
+ * nothing on the card is asked again.
+ */
+function withPickedLines(card: HomeCard, shown: (PromptChoice & { picked?: string[] })[], orGuess = false): HomeCard {
   const data = card.interface.data as { title: string; body: string };
   const have = new Set(data.body.split("\n").map((line) => line.trim().toLowerCase()));
-  const lines = shown.map(pickedLine).filter((line): line is string => Boolean(line) && !have.has(line!.toLowerCase()));
+  const lines = shown.map((choice) => pickedLine(choice, orGuess)).filter((line): line is string => Boolean(line) && !have.has(line!.toLowerCase()));
   if (!lines.length) return card;
   return { ...card, interface: { kind: "notes", data: { ...data, body: [data.body.replace(/\s+$/, ""), ...lines].filter(Boolean).join("\n") } } as KindData };
 }
@@ -191,7 +196,7 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
   const choiceKind = card?.editable ? card.interface.kind : null;
   const choices = usePromptChoices(choiceKind, choiceKind ? SHELL_META[choiceKind].label : "", draft, partsOf(card?.interface));
   // Notes holds what's been settled: a choice picked on its card becomes a line in it.
-  const shownCard = card && card.interface.kind === "notes" ? withPickedLines(card, choices.shown) : card;
+  const shownCard = card && card.interface.kind === "notes" ? withPickedLines(card, choices.picked) : card;
 
   const choose = (tileId: string, nextDraft: string) => {
     setDismissed(false);
@@ -226,6 +231,8 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     },
     /** What the open card's request leaves open: at most three, each with options and a guess. */
     choices: choices.shown,
+    /** The choices answered so far: shown small on the card as their answers, and open to change. */
+    answered: choices.picked,
     choicesThinking: choices.thinking,
     /** Values for the card's own parts, shown in place: columns, filters, items; and the first steps as they arrive. */
     suggested: name.steps.length
@@ -235,6 +242,11 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     /** Pick or unpick a choice. The prompt stays as they wrote it; the picks go with the interface. */
     pickChoice(key: string, labels: string[], own?: string) {
       choices.pick(key, labels, own);
+      if (card) choose(card.leader.tileId, draft);
+    },
+    /** Answer a choice "No preference". */
+    skipChoice(key: string) {
+      choices.skip(key);
       if (card) choose(card.leader.tileId, draft);
     },
     /** Grow a hinted card and lock it, as Tab does. */
@@ -268,8 +280,17 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
       if (card.leader.sessionId) {
         return { type: "continue", text, sessionId: card.leader.sessionId };
       }
-      // The interface goes with their words as typed, and the choices they picked as context.
-      return { type: "interface", text, interface: card.interface, ...(choices.brief ? { brief: choices.brief } : {}) };
+      // The interface goes as they see it on the card (picked choices written into it), with their words as typed and the choices as context.
+      // Every choice on the card goes with it: picked, or left at its guess. Both are settled, so neither is asked again.
+      const sent = card.interface.kind === "notes" ? withPickedLines(card, choices.shown, true) : card;
+      const settled = choices.shown
+        .map((choice) => {
+          const answer = choice.picked?.length ? choice.picked : choice.guess;
+          return answer.length ? `${choice.ask.replace(/\?$/, "")}: ${joinList(answer)}${choice.picked?.length ? "" : " (their suggestion, left as is)"}` : null;
+        })
+        .filter(Boolean)
+        .join("; ");
+      return { type: "interface", text, interface: sent.interface, ...(settled ? { brief: settled } : {}) };
     },
   };
 }

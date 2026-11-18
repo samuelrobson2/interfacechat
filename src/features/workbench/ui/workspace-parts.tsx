@@ -131,7 +131,10 @@ export function MainDivider({
   onEnd,
   onCancel,
   onReset,
+  label = "Resize large interfaces",
 }: {
+  /** What it resizes, for screen readers and its tooltip. */
+  label?: string;
   /** Between two side by side. */
   x?: number;
   /** Between two stacked. */
@@ -148,7 +151,8 @@ export function MainDivider({
     <div
       role="separator"
       aria-orientation={rows ? "horizontal" : "vertical"}
-      aria-label="Resize large interfaces"
+      aria-label={label}
+      title={`${label}. Double-click to reset`}
       className={cn(
         "group absolute z-10 flex touch-none items-center justify-center",
         rows ? "h-3 -translate-y-1/2 cursor-row-resize" : "w-3 -translate-x-1/2 cursor-col-resize",

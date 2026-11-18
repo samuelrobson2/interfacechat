@@ -1,11 +1,12 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ShellKind, ShellSuggestions, SuggestedGroup, SuggestedValues } from "@/features/interface-shells";
+import { SHELL_META, type ShellKind, type ShellSuggestions, type SuggestedGroup, type SuggestedValues } from "@/features/interface-shells";
 import { cn } from "@/shared/lib/css";
 import { TOOLBAR_KINDS, type GeneratedTool, type ToolbarDataByKind, type ToolbarKind } from "../model/generate-tools";
 import { GENERATIVE_SOURCES, useGenerativeSource, type GenerativeSource } from "../model/generative-source";
 import { suggestValues } from "../model/suggest-values";
+import { useContextSuggestions } from "../model/context-suggestions";
 import { blankFollowUp, blanksStillOpen, rewriteDocument, runTool } from "../model/toolbar-api";
 import { describeUse, type ToolSpec, type ToolValue } from "../model/tool-spec";
 import { useGeneratedTools } from "../model/use-generated-tools";
@@ -46,6 +47,8 @@ export function useInterfaceGenerative<D>({
   root,
   enabled = true,
   settleMs,
+  context,
+  suggest,
 }: {
   kind: ShellKind;
   size: Size;
@@ -58,6 +61,10 @@ export function useInterfaceGenerative<D>({
   enabled?: boolean;
   /** Wait this long after the last change before asking the model (the chat home, where it changes with every keystroke). */
   settleMs?: number;
+  /** The thread around the interface (its Notes, the latest messages), so suggestions fit what's been said. */
+  context?: string;
+  /** Suggestions in place, apart from generated tools; on wherever tools are, unless set (a tracked interface: suggestions, no tools). */
+  suggest?: boolean;
 }) {
   const source = useGenerativeSource((state) => state.source);
   const fits = size === "medium-plus" || size === "large";
@@ -80,6 +87,10 @@ export function useInterfaceGenerative<D>({
   const { tools, placed, status, from, error, regenerate, markUsed, restore, dismiss: dismissTool } = generated;
 
   const [dismissed, setDismissed] = useState<Partial<Record<SuggestedGroup, string[]>>>({});
+  // Suggestions in place, from the model, read off the interface and the thread: for every interface with something to offer.
+  const suggestOn = (suggest ?? enabled) && fits && source === "model";
+  const fromThread = useContextSuggestions({ kind, label: SHELL_META[kind].label, data, context, on: suggestOn, dismissed });
+  const dismissSuggestion = (group: SuggestedGroup, value: string) => setDismissed((d) => ({ ...d, [group]: [...(d[group] ?? []), value] }));
   const [note, setNote] = useState<Note | null>(null);
   const [previous, setPrevious] = useState<D | null>(null);
   // The action the last run used up, so Undo can bring it back.
@@ -197,7 +208,16 @@ export function useInterfaceGenerative<D>({
     spent.current = null;
   }, [previous, restore]);
 
-  if (!on) return { props: { onChange }, note: null, status: null, from: null, error: null, regenerate: null };
+  // No tools here (not a toolbar interface, or tools off for it): suggestions alone, when there are any.
+  if (!on)
+    return {
+      props: fromThread ? { onChange, suggested: fromThread, onDismissSuggestion: dismissSuggestion } : { onChange },
+      note: null,
+      status: null,
+      from: null,
+      error: null,
+      regenerate: null,
+    };
 
   const onRun = run as unknown as (tool: GeneratedTool<unknown>, value: ToolValue) => void;
   const toolbar = (
@@ -238,14 +258,15 @@ export function useInterfaceGenerative<D>({
         : [],
     ),
   ) as ShellSuggestions;
-  const suggested: SuggestedValues | undefined = status === "ready" ? suggestValues(toolbarKind, data as unknown as Data, dismissed) : undefined;
+  // From the thread when the model has answered; the hand-written rules only when tools come from the rules.
+  const suggested: SuggestedValues | undefined = fromThread ?? (source === "rules" && status === "ready" ? suggestValues(toolbarKind, data as unknown as Data, dismissed) : undefined);
 
   return {
     props: {
       tools: toolbar,
       suggestions,
       suggested,
-      onDismissSuggestion: (group: SuggestedGroup, value: string) => setDismissed((d) => ({ ...d, [group]: [...(d[group] ?? []), value] })),
+      onDismissSuggestion: dismissSuggestion,
       onChange: onEdit,
     },
     /** What a run is doing or did, with Undo: the host draws it over the interface's foot. */

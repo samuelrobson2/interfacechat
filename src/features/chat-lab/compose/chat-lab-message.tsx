@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CopyIcon } from "@/shared/assets/icons/general/Copy";
 import { cn } from "@/shared/lib/css";
+import { textVariants } from "@/shared/ui/kit/text";
 import { toast } from "@/shared/ui/kit/sonner-toast";
 import {
   ChatAiAvatar,
@@ -24,6 +25,9 @@ import { reasoningText } from "../model/agent-activity";
 import { useChatLabSession } from "../model/chat-lab-session";
 import { getMessageText, type ChatLabArtefact, type ChatLabMessage } from "../model/chat-lab-store";
 import { ChatLabArtefactInline } from "./chat-lab-artefact";
+import { QuestionGroup, trailingYesNo, type Question } from "@/features/interface-shells";
+import { applyAnswers } from "../model/chat-lab-runtime";
+import { useChatLabStore } from "../model/chat-lab-store";
 import { AgentIsland } from "./agent-island";
 
 function sourcesFromMessage(message: ChatLabMessage): ChatSource[] {
@@ -76,22 +80,73 @@ function AgentThought({
 }) {
   const [open, setOpen] = useState(false);
 
+  // The reply's own type, in grey; its first line sits level with the orb's middle.
   return (
     <div className={className}>
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer text-[13px] text-typography-secondary"
+        className={cn(textVariants({ variant: "label" }), "flex h-[18px] cursor-pointer items-center text-typography-secondary hover:text-typography-primary")}
       >
         {open ? "Hide thought" : "Thought"}
       </button>
       {open && (
-        <p className="mt-1 whitespace-pre-wrap text-[13px] leading-[1.4] text-typography-secondary">
+        <p className={cn(textVariants({ variant: "label" }), "mt-1 whitespace-pre-wrap text-typography-secondary")}>
           {text}
         </p>
       )}
     </div>
+  );
+}
+
+/** The questions a reply asked with the ask tool, by its call, once the server has checked them. */
+function questionsOf(message: ChatLabMessage) {
+  return (message.parts as { type?: string; toolCallId?: string; state?: string; output?: unknown }[]).flatMap((part) => {
+    if (part.type !== "tool-ask" || part.state !== "output-available" || !part.toolCallId) return [];
+    const output = part.output as { ok?: boolean; questions?: Question[] } | undefined;
+    return output?.ok && output.questions?.length ? [{ key: part.toolCallId, questions: output.questions }] : [];
+  });
+}
+
+/**
+ * A reply's questions as tiny interfaces. Answering writes into the interfaces
+ * they're for and sends one message. A plain reply that ends in a yes-or-no
+ * question gets Yes · No · Something else even when the model didn't ask with the tool.
+ */
+function ReplyQuestions({ message, text, live, shown }: { message: ChatLabMessage; text: string; live: boolean; shown: string[] }) {
+  const { sessionId, sendText, isGenerating } = useChatLabSession();
+  const answers = useChatLabStore((state) => state.sessions[sessionId]?.answers);
+  const artefacts = useChatLabStore((state) => state.sessions[sessionId]?.artefacts);
+  const asked = questionsOf(message);
+  const yesNo = !asked.length && live ? trailingYesNo(text) : null;
+  const groups = yesNo ? [{ key: `${message.id}:yes-no`, questions: [{ for: "chat", label: "Answer", ask: yesNo, control: "confirm" } as Question] }] : asked;
+  if (!groups.length) return null;
+  const kindOf = (id: string) => artefacts?.[id]?.shell?.kind ?? null;
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group.key} className="order-2 md:order-0">
+          <QuestionGroup
+            questions={group.questions}
+            kindOf={kindOf}
+            titleOf={(id) => artefacts?.[id]?.title}
+            // The interface they're all for is already in the reply, just above: its name once.
+            headerless={group.questions.every((question) => question.for === group.questions[0]!.for && shown.includes(question.for))}
+            answered={answers?.[group.key]}
+            disabled={!live || isGenerating}
+            onAnswer={(values) => {
+              const said = applyAnswers(sessionId, group.key, group.questions, values);
+              void sendText(said);
+            }}
+            onSkip={() => {
+              useChatLabStore.getState().setAnswers(sessionId, group.key, []);
+              void sendText("Skip: go with your best guess.");
+            }}
+          />
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -156,6 +211,8 @@ export function ChatLabMessageItem({
             <ChatLabArtefactInline sessionId={sessionId} artefact={artefact} />
           </div>
         ))}
+        {/* Under the interfaces they fill, so a shared one is named once. */}
+        <ReplyQuestions message={message} text={text} live={isLatestAssistantMessage} shown={inline?.map((artefact) => artefact.id) ?? []} />
       </ChatAssistantFrame>
 
       {isLatestAssistantMessage && !isGenerating && (

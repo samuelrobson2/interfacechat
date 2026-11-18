@@ -31,7 +31,7 @@ import {
 import type { NotesShellData, ShellProps } from "../model/shell-types";
 import { PreviewBody, PreviewHead, ShellBody, ShellDetail, ShellTitle } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { DismissSuggestion, SuggestedText, placedSuggestions } from "../ui/suggested-chip";
+import { DismissSuggestion, SuggestedBox, SuggestedText, placedSuggestions } from "../ui/suggested-chip";
 import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolMenu } from "../ui/shell-toolbar";
 import { Bar, fieldEvents, isSubmitShortcut, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 
@@ -400,12 +400,21 @@ export function NotesShell({
             </div>
           );
         })}
-        {offered.map((placed) => (
-          <div key={placed.value} className="group/suggested flex items-start gap-1">
-            <SuggestedText text={placed.value} onAccept={() => addLine(placed.value)} className={cn(typeOf("body", large), "min-w-0 flex-1 font-bureau")} />
-            {onDismissSuggestion && <DismissSuggestion label={placed.value} onDismiss={() => onDismissSuggestion("text", placed.value)} />}
-          </div>
-        ))}
+        {offered.map((placed) => {
+          // A suggested line drawn in its own style: a to-do with an empty tick, a bullet with its dot; its words in the gradient.
+          const line = parseLine(placed.value);
+          return (
+            <div key={placed.value} className="group/suggested flex items-start gap-1">
+              {line.style === "check" ? (
+                <SuggestedBox shape="round" className={cn("shrink-0", large ? "mt-[3px] size-[18px]" : "mt-[1px] size-4")} />
+              ) : isList(line.style) ? (
+                <span aria-hidden className={cn(large ? "w-6" : "w-5", "shrink-0 text-center text-gradient-suggest")}>{line.style === "dash" ? "–" : "•"}</span>
+              ) : null}
+              <SuggestedText text={line.text} onAccept={() => addLine(placed.value)} className={cn(typeOf(line.style, large), "min-w-0 flex-1 font-bureau")} />
+              {onDismissSuggestion && <DismissSuggestion label={line.text} onDismiss={() => onDismissSuggestion("text", placed.value)} />}
+            </div>
+          );
+        })}
         {/* On the chat home: what the goal leaves open, as choices with a guess. */}
         {!large && suggestions?.brief}
       </ShellBody>

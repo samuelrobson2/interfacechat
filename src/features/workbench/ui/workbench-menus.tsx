@@ -3,6 +3,7 @@ import { cn } from "@/shared/lib/css";
 import { Text } from "@/shared/ui/kit/text";
 import type { WorkspaceGeometry } from "../model/workbench-geometry";
 import {
+  isStacked,
   PRESENTATION_LABEL,
   presentationsFor,
   type InstanceId,
@@ -12,6 +13,7 @@ import {
   type Side,
   type WorkspaceLayout,
 } from "../model/workbench-layout";
+import { layoutRules } from "../model/workbench-rules";
 import { LayoutGlyph } from "./layout-glyph";
 
 /** The popover card the chat toolbar's menus use. */
@@ -115,6 +117,9 @@ export function LayoutMenu({
   const side = sideOf();
   const mainCount = Object.values(layout.entries).filter((item) => item.region === "main").length;
   const mainSide: Side | null = entry.region === "main" && mainCount > 1 ? (entry.order === 0 ? "left" : "right") : null;
+  // The arrangements two large interfaces can take under the layout rules: side by side, stacked, or both.
+  const rules = layoutRules();
+  const arrangements = ([false, true] as const).filter((stacked) => (stacked ? rules.largeStacked : rules.largeSideBySide));
   const currentSide = side ?? mainSide;
 
   const evictionNote = (evicted: InstanceId[]) =>
@@ -147,7 +152,7 @@ export function LayoutMenu({
               const change: LayoutChange = { type: "side", id: entry.id, side: target };
               const result = preview(change);
               const selected = currentSide === target;
-              const stackedMain = !!mainSide && !!layout.stacked;
+              const stackedMain = !!mainSide && isStacked(layout);
               return (
                 <button
                   key={target}
@@ -173,11 +178,12 @@ export function LayoutMenu({
           </div>
         </>
       )}
-      {mainSide && (
+      {mainSide && arrangements.length > 1 && (
         <div role="menu" aria-label="Arrangement" className="flex gap-1 px-1 pt-1 pb-0.5">
-          {([false, true] as const).map((stacked) => {
+          {/* Only the arrangements the layout rules allow; one alone needs no choice. */}
+          {arrangements.map((stacked) => {
             const change: LayoutChange = { type: "arrange", stacked };
-            const selected = !!layout.stacked === stacked;
+            const selected = isStacked(layout) === stacked;
             const result = selected ? { layout, evicted: [] } : preview(change);
             return (
               <button

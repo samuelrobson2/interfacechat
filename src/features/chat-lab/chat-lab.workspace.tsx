@@ -393,6 +393,10 @@ function SessionViewInner({ sessionId }: { sessionId: string }) {
  * Single-page chat lab: starter and session share one mount. Starting a chat
  * only updates the URL — the interface morphs in place instead of reloading.
  */
+/** The card as the model reads it: its data, pictures named rather than sent. */
+const cardSnapshot = (data: unknown) =>
+  JSON.stringify(data, (_key, value: unknown) => (typeof value === "string" && value.startsWith("data:") ? "[image]" : value)).slice(0, 4000);
+
 export function ChatLabWorkspace() {
   const navigate = useNavigate();
   const { chat_id } = useParams<PathParams[typeof ROUTES.CHAT_LAB_SESSION]>();
@@ -458,8 +462,11 @@ export function ChatLabWorkspace() {
               kind,
               title: starterTitle(kind, shell) || extractCustomization(text),
               content: seedArtefactContent(kind, shell),
+              ...(kind === "search" && (shell as { filters?: string[] }).filters?.length ? { filters: (shell as { filters: string[] }).filters } : {}),
             }
           : undefined,
+      // Everything set on the card, whatever the interface can hold, reaches the first reply.
+      ...(opensInterface && shell && field?.kind === kind ? { card: cardSnapshot(shell) } : {}),
     });
     void generateChatLabTitle(id, text);
     setMessage("");
@@ -474,6 +481,7 @@ export function ChatLabWorkspace() {
     const id = createSession(text, {
       brief,
       artefact: { kind: "shell", title: titleOf(value) || extractCustomization(text), shell: value as ArtefactShell },
+      card: cardSnapshot(value.data),
     });
     void generateChatLabTitle(id, text);
     setMessage("");

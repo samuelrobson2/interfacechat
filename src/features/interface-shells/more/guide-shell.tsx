@@ -6,6 +6,7 @@ import { ghostLabels, ghostsAfter } from "../ui/shell-accents";
 import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle, SHELL_BODY_PAD, SHELL_EDGE_X } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
 import { SuggestedBox, SuggestedText, placedSuggestions, suggestionsAfter, type PlacedSuggestion } from "../ui/suggested-chip";
+import { useAskedField } from "../ui/question-card";
 import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolPopover } from "../ui/shell-toolbar";
 
@@ -48,6 +49,8 @@ export function scaleNeed(text: string, factor: number) {
 }
 
 const SERVES = /^(serves|servings|makes|people|portions|yield)$/i;
+/** A control the chat is asking about: outlined in the suggestion colour until it's answered. */
+const ASKED = "ring-2 ring-shell-suggest/45 ring-offset-1";
 const servesOf = (facts: GuideFact[]) => {
   const index = facts.findIndex((fact) => SERVES.test(fact.label.trim()) && readAmount(fact.value.trim()));
   return index < 0 ? null : { index, value: readAmount(facts[index]!.value.trim())!.value };
@@ -204,6 +207,10 @@ export function GuideShell({
   suggested,
 }: ShellProps<GuideShellData>) {
   const [cooking, setCooking] = useState(false);
+  // Asked about in the chat: the control it fills lights up in the suggestion colour until it's answered.
+  const askedServes = useAskedField("serves");
+  const askedTime = useAskedField("time");
+  const asked = (label: string) => (/^serves$/i.test(label.trim()) ? askedServes : /^time$/i.test(label.trim()) ? askedTime : false);
   // What the recipe said before scaling, so each step scales from it and rounding never adds up.
   const [scaleBase, setScaleBase] = useState<{ serves: number; texts: Record<string, string>; written: Record<string, string> } | null>(null);
   useWakeLock(cooking && size === "large");
@@ -270,7 +277,7 @@ export function GuideShell({
       {standard.map((label) => {
         const guess = guessOf(label === "Serves" ? "serves" : "time");
         return (
-          <span key={label} className={cn("inline-flex items-center gap-1 rounded-full bg-shell-fill font-bureau", large ? "h-8 px-3" : "h-6 px-2")}>
+          <span key={label} className={cn("inline-flex items-center gap-1 rounded-full bg-shell-fill font-bureau", large ? "h-8 px-3" : "h-6 px-2", asked(label) && ASKED)}>
             <span className={cn(text, "text-typography-secondary")}>{label}</span>
             {guess ? (
               <SuggestedText text={guess} onAccept={update && (() => setStandard(label, guess))} className={cn(text, "px-0.5")} />
@@ -283,7 +290,7 @@ export function GuideShell({
       {data.facts.map((fact, i) => (
         <span
           key={i}
-          className={cn("group inline-flex items-center gap-1 rounded-full bg-shell-fill font-bureau", large ? "h-8 px-3" : "h-6 px-2")}
+          className={cn("group inline-flex items-center gap-1 rounded-full bg-shell-fill font-bureau", large ? "h-8 px-3" : "h-6 px-2", asked(fact.label) && ASKED)}
         >
           <InlineInput value={fact.label} placeholder="Label" label="Fact" onChange={update && ((label) => setFact(i, { label }))} className={cn(text, "field-sizing-content min-w-6 text-typography-secondary")} />
           <InlineInput value={fact.value} placeholder="Add" label={fact.label || "Value"} onChange={update && ((value) => setFact(i, { value }))} className={cn(text, "field-sizing-content min-w-6")} />
@@ -424,8 +431,9 @@ export function GuideShell({
         // Sized from the toolbar's tokens like every other tool: the same icon and type, no bigger.
         // The people icon and how many, with − and +: no word, no fill, like the tools beside it.
         className={cn(
-          "flex h-[calc(var(--shell-tools-icon,16px)+16px)] shrink-0 items-center gap-0.5 pl-2 font-bureau text-[length:var(--shell-tools-font-size,13px)] tabular-nums",
-          !serves && "opacity-40",
+          "flex h-[calc(var(--shell-tools-icon,16px)+16px)] shrink-0 items-center gap-0.5 rounded-full pl-2 font-bureau text-[length:var(--shell-tools-font-size,13px)] tabular-nums",
+          !serves && !askedServes && "opacity-40",
+          askedServes && ASKED,
         )}
       >
         <Users aria-hidden className="mr-1 size-[var(--shell-tools-icon,16px)] shrink-0 text-typography-secondary" />

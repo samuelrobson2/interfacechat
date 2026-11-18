@@ -105,7 +105,10 @@ You are updating a table that already exists. Write a choice out in full only
 when it's new or its options need to change; to change one, write it again
 under its key. For the rest give fresh scores. Drop a choice only when their
 words give you a reason (they now say it themselves, or the request changed).
-Rows marked picked are settled: leave them out entirely. Keep it calm: what is
+Rows marked picked are settled: leave them out entirely, and never ask what a
+picked row asks again under another key or in other words. When fewer than three
+unpicked choices are worth asking, offer the next one that matters most, a
+different question, building on what they picked. Keep it calm: what is
 on screen shouldn't shuffle while they type. Be quick. Never use em dashes.`;
 
 /** The card's own parts, asked for on their own: short, so they land fast while the choices are still being written. */
@@ -113,9 +116,10 @@ const FILLS_SYSTEM = (kind: string, label: string) => `While someone types a req
 ${fillParts(kind)
   .map((part) => `- ${part.key}: ${part.ask}.${part.kind === "default" ? " One value." : ""}`)
   .join("\n")}
-Specific to this request, never generic. Leave out any it already has. Keep the
-ones already suggested that are still right, in the same order, so it stays
-calm. Never use em dashes.`;
+Specific to this request, never generic. Leave out any it already has: one
+they've just added leaves the suggestions, so offer the next that fits, going
+with what they chose. Keep the ones already suggested that are still right, in
+the same order, so it stays calm. Never use em dashes.`;
 
 export async function POST(req: Request) {
   if (apiKeyMissing()) return configError();

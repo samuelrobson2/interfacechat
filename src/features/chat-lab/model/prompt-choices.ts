@@ -52,7 +52,8 @@ export function ownOption(choice: Pick<PromptChoice, "template" | "multi">, text
   const phrase = choice.multi ? label : choice.template.includes("{}") ? choice.template.replace("{}", label) : `${choice.template} ${label}`;
   return { label, phrase: phrase.trim() };
 }
-type Row = PromptChoice & { order: number; picked?: string[] };
+/** `skipped`: answered "No preference": settled, but nothing goes into the brief. */
+type Row = PromptChoice & { order: number; picked?: string[]; skipped?: boolean };
 
 const clamp = (value: unknown, low: number, high: number, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? Math.min(high, Math.max(low, value)) : fallback;
@@ -166,8 +167,12 @@ async function streamChoices(
 }
 
 export type PromptChoicesState = {
-  /** What the card shows: picked ones, then the best of the rest, in the order they came. */
+  /** The open questions: the best unpicked ones, in the order they came. A picked one moves to `picked`, and the next takes its place. */
   shown: (PromptChoice & { picked?: string[] })[];
+  /** The ones answered so far (or answered "No preference"): shown small, as their answers, and still open to change; picks go with the interface (and into Notes as lines). */
+  picked: (PromptChoice & { picked?: string[]; skipped?: boolean })[];
+  /** Answer a choice "No preference": settled, nothing added to the request. */
+  skip: (key: string) => void;
   thinking: boolean;
   /**
    * Pick (or, for multi, set) the options a choice holds; an empty list
@@ -187,6 +192,27 @@ export type PromptChoicesState = {
  * The choices for `kind` while `draft` is typed. `kind` is null when no
  * interface card is open, or the open one has no list of choices.
  */
+/** A question's words, for comparing: lower case, letters and spaces only, a plural's "s" off each word. */
+const askWords = (ask: string) =>
+  ask
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.replace(/s$/, ""))
+    .join(" ");
+
+/**
+ * Whether a new choice asks what one on the card already asks, under another
+ * key: the same kind of question (a second "Who it's for"), or the same words.
+ * Facts are the exception by kind: a card can ask about more than one.
+ */
+export function repeatsChoice(choice: Pick<PromptChoice, "key" | "kind" | "ask">, rows: Pick<PromptChoice, "key" | "kind" | "ask">[]) {
+  return rows.some(
+    (row) => row.key !== choice.key && ((row.kind === choice.kind && choice.kind !== "fact") || askWords(row.ask) === askWords(choice.ask)),
+  );
+}
+
 export function usePromptChoices(
   kind: ChatShellKind | null,
   label: string,
@@ -229,6 +255,14 @@ export function usePromptChoices(
 
   // The request without the brief the choices wrote: what the model judges.
   const request = brief ? draft.replace(brief, "").trim() : draft.trim();
+  // What's been settled since: each pick, and each part the card now holds (a suggested column added). Either
+  // asks again, so a used suggestion is replaced by the next one.
+  const pickedKey = Object.values(rows)
+    .filter((row) => row.picked?.length || row.skipped)
+    .map((row) => `${row.key}=${row.skipped ? "-" : row.picked!.join("|")}`)
+    .sort()
+    .join(";");
+  const hasKey = JSON.stringify(has);
   const active = Boolean(kind && CHOICE_KINDS.includes(kind) && request.split(/\s+/).length >= MIN_WORDS);
 
   useEffect(() => {
@@ -243,7 +277,8 @@ export function usePromptChoices(
         guess: row.guess,
         impact: row.impact,
         said: row.said,
-        ...(row.picked?.length ? { picked: row.picked } : {}),
+        // No preference is settled too: the model leaves it alone and doesn't ask it again.
+        ...(row.picked?.length ? { picked: row.picked } : row.skipped ? { picked: ["No preference"] } : {}),
       }));
       const shown = Object.fromEntries(
         Object.entries(fillsRef.current).map(([group, values]) => [group, (values ?? []).filter((value) => !dismissedRef.current.includes(value))]),
@@ -254,19 +289,21 @@ export function usePromptChoices(
         choice: (choice) =>
           setRows((current) => {
             const row = current[choice.key];
-            if (row?.picked?.length) return current;
+            if (row?.picked?.length || row?.skipped) return current;
+            // Asked already, under another key (answered or not): the card never shows a question twice.
+            if (!row && repeatsChoice(choice, Object.values(current))) return current;
             return { ...current, [choice.key]: { ...choice, order: row?.order ?? next.current++ } };
           }),
         score: (key, impact, said) =>
           setRows((current) => {
             const row = current[key];
-            if (!row || row.picked?.length) return current;
+            if (!row || row.picked?.length || row.skipped) return current;
             return { ...current, [key]: { ...row, impact: clamp(impact, 1, 5, row.impact), said: clamp(said, 0, 1, row.said) } };
           }),
         drop: (keys) =>
           setRows((current) => {
             const out = { ...current };
-            for (const key of keys) if (out[key] && !out[key].picked?.length) delete out[key];
+            for (const key of keys) if (out[key] && !out[key].picked?.length && !out[key].skipped) delete out[key];
             return out;
           }),
       })
@@ -280,17 +317,19 @@ export function usePromptChoices(
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [active, kind, label, request]);
+  }, [active, kind, label, request, pickedKey, hasKey]);
 
-  const shown = useMemo(() => {
-    const all = Object.values(rows);
-    const picked = all.filter((row) => row.picked?.length);
-    const open = all
-      .filter((row) => !row.picked?.length && choiceScore(row) >= SHOW_AT)
-      .sort((a, b) => choiceScore(b) - choiceScore(a))
-      .slice(0, Math.max(0, MAX_SHOWN - picked.length));
-    return [...picked, ...open].sort((a, b) => a.order - b.order);
-  }, [rows]);
+  // Picked, a choice has done its job as a question: it moves to the answers (`picked`), still open to change,
+  // and the next one the model offers takes its place.
+  const shown = useMemo(
+    () =>
+      Object.values(rows)
+        .filter((row) => !row.picked?.length && !row.skipped && choiceScore(row) >= SHOW_AT)
+        .sort((a, b) => choiceScore(b) - choiceScore(a))
+        .slice(0, MAX_SHOWN)
+        .sort((a, b) => a.order - b.order),
+    [rows],
+  );
 
   const pick = useCallback((key: string, labels: string[], own?: string) => {
     const current = rowsRef.current;
@@ -304,7 +343,7 @@ export function usePromptChoices(
       const label = options.find((item) => item.label.toLowerCase() === option.label.toLowerCase())!.label;
       chosen = row.multi ? [...labels.filter((item) => item !== label), label] : [label];
     }
-    const updated = { ...current, [key]: { ...row, options, picked: chosen.length ? chosen : undefined } };
+    const updated = { ...current, [key]: { ...row, options, picked: chosen.length ? chosen : undefined, skipped: false } };
     rowsRef.current = updated;
     setRows(updated);
     setBrief(briefOf(Object.values(updated)));
@@ -312,14 +351,31 @@ export function usePromptChoices(
 
   // Before the first choices land, "thinking" covers the pause before the call too, so something shows at once.
   const waiting = active && !shown.length && request !== judged;
-  const suggested = useMemo(
-    () =>
-      active
-        ? Object.fromEntries(Object.entries(fills).map(([group, values]) => [group, (values ?? []).filter((value) => !dismissed.includes(value))]))
-        : {},
-    [fills, active, dismissed],
-  );
+  // A suggestion they've added (a column now on the card) leaves at once, before the next arrives.
+  const suggested = useMemo(() => {
+    if (!active) return {};
+    const held = JSON.parse(hasKey) as Partial<Record<SuggestedGroup, string[]>>;
+    return Object.fromEntries(
+      Object.entries(fills).map(([group, values]) => {
+        const already = new Set((held[group as SuggestedGroup] ?? []).map((value) => value.trim().toLowerCase()));
+        return [group, (values ?? []).filter((value) => !dismissed.includes(value) && !already.has(value.trim().toLowerCase()))];
+      }),
+    );
+  }, [fills, active, dismissed, hasKey]);
   const dismiss = useCallback((_group: SuggestedGroup, value: string) => setDismissed((current) => [...current, value]), []);
 
-  return { shown: active || shown.some((row) => row.picked) ? shown : [], thinking: active && (thinking || waiting), pick, brief, suggested, dismiss };
+  const picked = useMemo(() => Object.values(rows).filter((row) => row.picked?.length || row.skipped).sort((a, b) => a.order - b.order), [rows]);
+
+  /** "No preference": the question is settled with nothing added to the request. Picking an option later replaces it. */
+  const skip = useCallback((key: string) => {
+    const current = rowsRef.current;
+    const row = current[key];
+    if (!row) return;
+    const updated = { ...current, [key]: { ...row, picked: undefined, skipped: true } };
+    rowsRef.current = updated;
+    setRows(updated);
+    setBrief(briefOf(Object.values(updated)));
+  }, []);
+
+  return { shown: active ? shown : [], picked, skip, thinking: active && (thinking || waiting), pick, brief, suggested, dismiss };
 }

@@ -5,8 +5,12 @@ import {
   assistantInstruction,
   formatInstruction,
   readCatalogueValue,
+  answerText,
   applyRoleTool,
   isCatalogueKind,
+  writeAnswer,
+  type AnswerValue,
+  type Question,
   PROGRESS_START,
   ROLE_TOOL_OWNER,
   SHELL_META,
@@ -40,6 +44,7 @@ import {
   opensAsOf,
   resolveImplementableKind,
   retrieveInterfaces,
+  retrievalInput,
   type VisualInterfaceKind,
 } from "./visual-interfaces";
 
@@ -433,6 +438,35 @@ function noteWhatWasMade(id: string, messages: ChatLabMessage[]) {
   useChatLabStore.getState().updateArtefact(id, { shell: { kind: "notes", data: result.data } as typeof notes.shell }, notes.id);
 }
 
+/**
+ * The person's answers to the model's questions: each goes straight into the
+ * interface it's for (Serves 8 sets the Guide's Serves), and into the Notes as
+ * a line when the thread keeps them. Returns what to send to the model.
+ */
+export function applyAnswers(sessionId: string, key: string, questions: Question[], values: AnswerValue[]) {
+  const store = useChatLabStore.getState();
+  const notes = trackedArtefacts(sessionId).find((artefact) => artefact.shell?.kind === "notes");
+  const lines: string[] = [];
+  questions.forEach((question, i) => {
+    const value = values[i];
+    if (value === undefined) return;
+    const target = store.sessions[sessionId]?.artefacts[question.for];
+    if (target?.shell && target.shell.kind !== "notes") {
+      const data = writeAnswer(target.shell.kind, target.shell.data, question.field, value);
+      if (data !== target.shell.data) store.updateArtefact(sessionId, { shell: { kind: target.shell.kind, data } as typeof target.shell }, target.id);
+    }
+    if (question.control !== "confirm") lines.push(`${question.field && target?.shell?.kind === "notes" ? question.field : question.label}: ${answerText(question, value)}`);
+  });
+  if (notes?.shell && lines.length) {
+    const result = applyRoleTool("notes_add", notes.shell.data, { lines });
+    if (result.ok) store.updateArtefact(sessionId, { shell: { kind: "notes", data: result.data } as typeof notes.shell }, notes.id);
+  }
+  store.setAnswers(sessionId, key, values);
+  // What they said, as their next message: "Yes", or "Serves: 8 people. Time: 1 hour."
+  if (questions.length === 1 && questions[0]!.control === "confirm") return String(values[0]);
+  return questions.map((question, i) => `${question.label}: ${values[i] === undefined ? "–" : answerText(question, values[i]!)}`).join(". ");
+}
+
 /** Pull this turn's tool calls into the interface it's working on. */
 function syncArtefact(id: string, messages: ChatLabMessage[]) {
   syncOpenInterface(id, messages);
@@ -590,6 +624,15 @@ function interfaceCandidatesForRequest(
   return retrieveInterfaces(getMessageText(lastUser), 5);
 }
 
+/** Hybrid retrieval: the keyword half, with the catalogue, for the API to merge with a ranking by meaning. */
+function retrievalForRequest(sessionId: string, messages: ChatLabMessage[]) {
+  const lastUser = [...messages].reverse().find((message) => message.role === "user");
+  const session = useChatLabStore.getState().sessions[sessionId];
+  const firstTurn = messages.filter((message) => message.role === "user").length === 1;
+  if (!lastUser || (session?.fromChatCard && firstTurn)) return undefined;
+  return retrievalInput(getMessageText(lastUser));
+}
+
 /**
  * The Chat card's two modes, as instructions: who replies (every turn), and
  * how the first reply is laid out. Both are free text; known ones get a fuller
@@ -602,9 +645,12 @@ function chatModesForRequest(sessionId: string, messages: ChatLabMessage[]) {
   const persona = session.persona ? { label: session.persona, instruction: assistantInstruction(session.persona) } : undefined;
   const layout = firstTurn && session.replyFormat ? formatInstruction(session.replyFormat) : undefined;
   // Choices picked on the home card: context for the first reply, not words in their message.
-  const chose = firstTurn && session.brief ? `On the interface's card they also chose: ${session.brief} Take it into account; don't repeat it back.` : undefined;
-  const format = [layout, chose].filter(Boolean).join("\n\n") || undefined;
-  return persona || format ? { persona, format } : undefined;
+  const chose = firstTurn && session.brief ? `Settled on the home card, so don't ask about these again: ${session.brief}` : undefined;
+  // Everything they set up on the home card (what they typed into it, suggestions they accepted), whatever the interface can hold.
+  const card = firstTurn && session.card ? `The interface as they set it up on the home card (JSON):\n${session.card}` : undefined;
+  // A format shapes the reply (nothing opens); what they set on the card is context, and doesn't stop an interface opening.
+  const context = [chose, card].filter(Boolean).join("\n\n") || undefined;
+  return persona || layout || context ? { persona, ...(layout ? { format: layout } : {}), ...(context ? { context } : {}) } : undefined;
 }
 
 export function getChatLabChat(id: string) {
@@ -638,7 +684,9 @@ export function getChatLabChat(id: string) {
         messageId,
         system: useChatLabStore.getState().systemPrompt ?? undefined,
         artefact,
+        // The keyword list stays as the fallback; with retrieval, the API merges in matches by meaning.
         interfaceCandidates: interfaceCandidatesForRequest(id, messages),
+        retrieval: retrievalForRequest(id, messages),
         chatModes: chatModesForRequest(id, messages),
         tracked: trackedForRequest(id),
         open: openForRequest(id, artefact?.id),

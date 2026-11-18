@@ -5,6 +5,7 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { InterfaceShell, type InterfaceShellProps } from "../../interface-shell";
 import { SHELL_FIXTURES } from "../../model/shell-fixtures";
+import { SHELL_ACCENT } from "../../model/shell-meta";
 import { SHELL_KINDS, type ShellKind, type ShellSize, type SuggestedValues } from "../../model/shell-types";
 import { primitives, resolveToken, SHELL_TOKENS, sizeTokens, TOKEN_SIZES } from "../shell-tokens";
 
@@ -64,6 +65,10 @@ describe("colour contrast (WCAG 1.4.3, 1.4.11)", () => {
     const stops = [...block.matchAll(/#[0-9a-f]{6}/gi)].map((m) => m[0]);
     expect(stops.length).toBeGreaterThan(1);
     for (const stop of stops) expect(contrast(rgba(stop).slice(0, 3), surface(bg)), stop).toBeGreaterThanOrEqual(4.5);
+  });
+  it.each(Object.entries(SHELL_ACCENT))("%s's accent text is 4.5:1 or better on white and on the panel", (_kind, accent) => {
+    expect(contrast(rgba(accent.text).slice(0, 3), WHITE)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(rgba(accent.text).slice(0, 3), surface("panel"))).toBeGreaterThanOrEqual(4.5);
   });
   it.each(["panel", "fill"] as const)("a control's outline is 3:1 or better on %s", (bg) => {
     expect(contrast(surface("control"), surface(bg))).toBeGreaterThanOrEqual(3);

@@ -355,7 +355,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
   },
   tracker: {
     description:
-      "Turn a goal into steps and keep track of them: each item with an owner, a due date and whether it's done, grouped and updated as things change. Choose this when the person wants to see what needs doing and what needs attention.",
+      "Any list to tick off: to-dos and steps toward a goal (with owners and due dates when there are any), a shopping or grocery list, the ingredients to buy, things to pack or bring. Grouped, and ticked off as things get done. Choose this whenever the answer is a list of separate things to get or do.",
     notFor:
       "Times and durations (use Schedule), or comparing options across many columns (use Table).",
     queries: [
@@ -363,6 +363,8 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Track the launch to-dos and who owns each one",
       "Make a packing list for the location trip",
       "List the open action items from today's meeting",
+      "Make a shopping list for the lasagne",
+      "Give me a list of the ingredients I need to buy",
     ],
     avoidQueries: [
       "Make a table comparing three cameras",
@@ -377,6 +379,9 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "action items",
       "task list",
       "packing list",
+      "shopping list",
+      "grocery list",
+      "ingredients list",
       "owners",
       "deadlines",
       "task",

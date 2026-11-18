@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { rolesOf, type ChatShellKind, type DocumentPieces, type InterfaceRole, type ShellDataByKind } from "@/features/interface-shells";
+import { rolesOf, type AnswerValue, type ChatShellKind, type DocumentPieces, type InterfaceRole, type ShellDataByKind } from "@/features/interface-shells";
 import {
   addEntry,
   applyLayoutChange,
@@ -63,7 +63,9 @@ export type ChatLabArtefact = {
 
 export type CreateSessionOptions = {
   /** `content` seeds the interface before the model writes (e.g. table columns). */
-  artefact?: Pick<ChatLabArtefact, "kind" | "title"> & { content?: string; shell?: ArtefactShell };
+  artefact?: Pick<ChatLabArtefact, "kind" | "title"> & { content?: string; shell?: ArtefactShell; filters?: string[] };
+  /** From the home: the card as they left it (JSON), so everything they set there reaches the first reply. */
+  card?: string;
   /** Chat from the home: nothing opens on the first turn. */
   fromChatCard?: boolean;
   /** Chat from the home: how the first reply is laid out, in the person's words. */
@@ -110,8 +112,12 @@ export type ChatLabSession = {
   persona?: string;
   /** Choices picked on the home card, sent as context with the first turn. */
   brief?: string;
+  /** The home card as they left it (JSON), sent with the first turn. */
+  card?: string;
   /** Interfaces the person closed: kept in the thread, out of the model's context until opened again. */
   closed?: string[];
+  /** Answers to the model's questions, by the question's key (its tool call, or the reply for a yes-or-no). */
+  answers?: Record<string, AnswerValue[]>;
   createdAt: number;
   updatedAt: number;
 };
@@ -154,6 +160,8 @@ type ChatLabState = {
   focusArtefact: (sessionId: string, artefactId: string | null) => void;
   /** Closed: out of the model's context. Opened again: back in. */
   setClosed: (sessionId: string, artefactId: string, closed: boolean) => void;
+  /** The person's answers to a group of questions. */
+  setAnswers: (sessionId: string, key: string, values: AnswerValue[]) => void;
   setLayout: (sessionId: string, layout: WorkspaceLayout) => void;
   setTurnTarget: (sessionId: string, userMessageId: string, artefactId: string) => void;
   deleteSession: (id: string) => void;
@@ -343,7 +351,7 @@ export const useChatLabStore = create<ChatLabState>()(
                 options.artefact.title.trim() ||
                 ARTEFACT_FALLBACK_TITLE[options.artefact.kind],
               content: options.artefact.content ?? "",
-              filters: [],
+              filters: options.artefact.filters ?? [],
               sourceUserMessageId: null,
               pinned: false,
               ...(options.artefact.shell ? { shell: options.artefact.shell } : {}),
@@ -370,6 +378,7 @@ export const useChatLabStore = create<ChatLabState>()(
               ...(options?.replyFormat?.trim() ? { replyFormat: options.replyFormat.trim() } : {}),
               ...(options?.persona?.trim() ? { persona: options.persona.trim() } : {}),
               ...(options?.brief?.trim() ? { brief: options.brief.trim() } : {}),
+              ...(options?.card ? { card: options.card } : {}),
               createdAt: now,
               updatedAt: now,
             },
@@ -561,6 +570,13 @@ export const useChatLabStore = create<ChatLabState>()(
               [sessionId]: { ...session, activeArtefactId: artefactId },
             },
           };
+        }),
+
+      setAnswers: (sessionId, key, values) =>
+        set((state) => {
+          const session = state.sessions[sessionId];
+          if (!session) return state;
+          return { sessions: { ...state.sessions, [sessionId]: { ...session, answers: { ...(session.answers ?? {}), [key]: values } } } };
         }),
 
       setClosed: (sessionId, artefactId, closed) =>

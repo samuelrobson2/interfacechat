@@ -24,36 +24,42 @@ const PAN = { type: "spring" as const, stiffness: 110, damping: 22, mass: 1 };
 /** A tile opening in place: a little lift, settling softly. */
 const GROW = { type: "spring" as const, stiffness: 300, damping: 26, mass: 0.9 };
 const EASE = [0.23, 1, 0.32, 1] as const;
-/** Arriving: once the headline has faded in, each tile spins out of the centre to its place, overshooting a touch. */
-const SPIN_OUT = { type: "spring" as const, stiffness: 95, damping: 14, mass: 1 };
-/** One tile leaves the title after another, this far apart. */
-const LAUNCH_STEP = 0.075;
 /**
- * The order tiles leave the title in: the ring round the headline first, then the outer one,
- * each going clockwise from the top left, so they come out one by one rather than as a burst.
+ * Arriving: once the headline has faded in, every tile leaves the centre together and glides to its place.
+ * Eased, not sprung: a spring leaves at full speed, so the start at the centre point would be a jump.
  */
-const LAUNCH_ORDER = (Object.keys(HOME_POSITIONS) as (keyof typeof HOME_POSITIONS)[])
-  .map((kind) => {
-    const { x, y } = HOME_POSITIONS[kind];
-    // Clockwise from the top left: angle measured from up-and-left.
-    const angle = (Math.atan2(y, x) + Math.PI * 2 + Math.PI * 0.9) % (Math.PI * 2);
-    return { kind, ring: Math.hypot(x, y) > 500 ? 1 : 0, angle };
-  })
-  .sort((a, b) => a.ring - b.ring || a.angle - b.angle)
-  .map(({ kind }) => kind);
-/** When a tile sets off after the release: its place in the launch order. */
-const introDelay = (kind: keyof typeof HOME_POSITIONS) => Math.max(0, LAUNCH_ORDER.indexOf(kind)) * LAUNCH_STEP;
+const SPIN_EASE = [0.45, 0, 0.15, 1] as const;
+/**
+ * Each tile's own flight: the time follows the distance, so the near ones land first and the far ones after, and
+ * each turns by its own amount over its own time, so they don't move as one block.
+ */
+function flightOf(kind: keyof typeof HOME_POSITIONS) {
+  const { x, y } = HOME_POSITIONS[kind];
+  const distance = Math.hypot(x, y);
+  // A steady number from the interface's name (not its place, which mirrors), so each flies its own way, every time.
+  let hash = 0;
+  for (const char of kind) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const seed = ((hash * 2654435761) >>> 0) / 2 ** 32;
+  const duration = 0.8 + distance * 0.00075;
+  return {
+    duration,
+    // Turned one way or the other, by 30 to 80 degrees, untwisting a little before or after it lands.
+    rotate: (seed > 0.5 ? 1 : -1) * (30 + seed * 50),
+    rotateDuration: duration * (0.75 + seed * 0.4),
+  };
+}
 /** How long after the release a tile that mounts still spins out, rather than just being there. */
 const INTRO_WINDOW_MS = 1500;
-/** About when a spun-out tile reaches its place, for the shapes in its interaction area to draw in. */
-const LAND_AFTER = 0.55;
+/** How far through its flight a tile is in place, for the shapes in its interaction area to draw in. */
+const LAND_AT = 0.85;
 /** How long the drawing-in runs, after which the shapes only answer hover. */
 const LANDING_MS = 1400;
 
 const MEDIUM = SHELL_DIMENSIONS.medium;
 const MEDIUM_PLUS = SHELL_DIMENSIONS["medium-plus"];
 /** Every tile waits here, in the centre, small, turned and unseen, until the headline has faded in. */
-const HELD = { x: -MEDIUM.width / 2, y: -MEDIUM.height / 2, width: MEDIUM.width, height: MEDIUM.height, opacity: 0, scale: 0.3, rotate: -50 };
+// Centred on the one point every tile leaves from: (0, 0), the middle of the headline.
+const heldAt = (rotate: number) => ({ x: -MEDIUM.width / 2, y: -MEDIUM.height / 2, width: MEDIUM.width, height: MEDIUM.height, opacity: 0, scale: 0.12, rotate });
 
 /** The field is laid out for this width and scaled down below it. */
 const DESIGN_WIDTH = 1180;
@@ -99,6 +105,8 @@ function Shell({
     enabled: Boolean(onChange),
     // The card changes with every keystroke: ask once they've paused, so the name and fills aren't held up.
     settleMs: 1400,
+    // The home card has its own suggestions, read off the request (prompt-choices).
+    suggest: false,
   });
   const own = generative.props;
   // The home's own suggestions (read off the request) come first; the system's fill groups it has none for.
@@ -210,7 +218,7 @@ function PeekShell({ peek }: { peek: HomePeek }) {
 
   return (
     <div ref={root} data-peek-stage={built ? "built" : "typing"} className="size-full">
-      <Shell value={peekValue({ kind: peek.kind, prompt: chars.slice(0, typed).join("") || BLANK })} size="medium-plus" />
+      <Shell value={peekValue({ kind: peek.kind, data: peek.data, prompt: chars.slice(0, typed).join("") || BLANK })} size="medium-plus" />
     </div>
   );
 }
@@ -263,7 +271,9 @@ function FieldTile({
 
   // Arriving, the tile waits in the centre, spins out to its place once released, and its glyph pops in as it lands.
   const [spin] = useState(() => intro && !reduce);
-  const [delay] = useState(() => (spin ? introDelay(tile.kind) : 0));
+  // Every tile leaves the title at the same moment; how long it flies and turns is its own.
+  const [flight] = useState(() => flightOf(tile.kind));
+  const waitPose = heldAt(flight.rotate);
   const [arriving, setArriving] = useState(spin);
   const [landed, setLanded] = useState(!spin);
   // Just landed: the shapes in the interaction area draw themselves in, once.
@@ -274,16 +284,16 @@ function FieldTile({
     const land = window.setTimeout(() => {
       setLanded(true);
       setLanding(true);
-    }, (delay + LAND_AFTER) * 1000);
-    const drawn = window.setTimeout(() => setLanding(false), (delay + LAND_AFTER) * 1000 + LANDING_MS);
+    }, flight.duration * LAND_AT * 1000);
+    const drawn = window.setTimeout(() => setLanding(false), flight.duration * LAND_AT * 1000 + LANDING_MS);
     // Settled: later moves (opening, panning) start at once.
-    const settle = window.setTimeout(() => setArriving(false), (delay + 2) * 1000);
+    const settle = window.setTimeout(() => setArriving(false), (Math.max(flight.duration, flight.rotateDuration) + 0.2) * 1000);
     return () => {
       window.clearTimeout(land);
       window.clearTimeout(drawn);
       window.clearTimeout(settle);
     };
-  }, [spin, held, delay]);
+  }, [spin, held, flight]);
 
   return (
     <motion.div
@@ -295,10 +305,10 @@ function FieldTile({
       onPointerEnter={() => onPeekHover(true)}
       onPointerLeave={() => onPeekHover(false)}
       className={cn("absolute top-0 left-0", open ? "z-20" : peeking ? "z-[15]" : "z-0")}
-      initial={spin ? HELD : false}
+      initial={spin ? waitPose : false}
       animate={
         waiting
-          ? HELD
+          ? waitPose
           : {
               x: x - side.width / 2,
               y: y - side.height / 2,
@@ -313,7 +323,14 @@ function FieldTile({
         reduce
           ? { duration: 0 }
           : arriving
-            ? { ...SPIN_OUT, delay, opacity: { duration: 0.45, ease: EASE, delay } }
+            // Seen at once, tiny, at the centre point, so the whole way out shows: a slow fade would hide where they start.
+            ? {
+                type: "tween",
+                duration: flight.duration,
+                ease: SPIN_EASE,
+                rotate: { type: "tween", duration: flight.rotateDuration, ease: SPIN_EASE },
+                opacity: { duration: 0.12, ease: "linear" },
+              }
             : { ...GROW, opacity: { duration: 0.3, ease: EASE } }
       }
     >
@@ -348,7 +365,7 @@ function FieldTile({
             open && card?.editable
               ? {
                   // Inside the card: what the request leaves open, with the guesses it'll go with.
-                  brief: <PromptChoices choices={field.choices} thinking={field.choicesThinking} onPick={field.pickChoice} />,
+                  brief: <PromptChoices choices={field.choices} answered={field.answered} thinking={field.choicesThinking} onPick={field.pickChoice} onSkip={field.skipChoice} />,
                 }
               : undefined
           }

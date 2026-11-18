@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import {
   convertToModelMessages,
+  hasToolCall,
   stepCountIs,
   streamText,
   tool,
@@ -28,7 +29,9 @@ import {
   type InPlay,
 } from "../src/features/interface-shells/model/interface-roles.js";
 import type { InterfaceRole, ShellKind } from "../src/features/interface-shells/model/shell-types.js";
-import { chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT } from "./_chat-lab.js";
+import { askableFields, askInputSchema, normalizeQuestions } from "../src/features/interface-shells/model/questions.js";
+import { CHART_BLOCK, chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT, wantsChart } from "./_chat-lab.js";
+import { hybridCandidates, type RetrievalInput } from "./_interface-retrieval.js";
 import { compactArtifactHistory } from "../src/features/chat-lab/model/artifact-history.js";
 import {
   apiKeyMissing,
@@ -59,6 +62,41 @@ type ArtefactContext = {
   label?: string;
   snapshot?: string;
 };
+
+/** Writes one request, exactly as it goes to the model, for reading. */
+async function dumpPrompt(folder: string, system: string, messages: unknown, tools: ToolSet) {
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  await mkdir(folder, { recursive: true });
+  const toolList = Object.fromEntries(
+    Object.entries(tools).map(([name, entry]) => {
+      const schema = (entry as { inputSchema?: unknown }).inputSchema;
+      let input: unknown = "(provider tool)";
+      try {
+        input = schema ? z.toJSONSchema(schema as z.ZodType) : input;
+      } catch {
+        input = "(schema)";
+      }
+      return [name, { description: (entry as { description?: string }).description ?? "(provider tool)", input }];
+    }),
+  );
+  await writeFile(`${folder}/prompt-${Date.now()}.json`, JSON.stringify({ system, messages, tools: toolList }, null, 2));
+}
+
+/**
+ * Asking: a question the person answers with a tiny interface (a stepper, a
+ * few chips, Yes and No) instead of typing. Each interface in play says what
+ * it can be asked; plain questions are for the chat.
+ */
+function askAddon(targets: { id: string; kind: ShellKind; label: string; title: string }[]) {
+  const lines = targets.flatMap((target) => {
+    if (target.kind === "notes") return [`- id=${target.id} (Notes "${target.title}"): any fact, with field set to a short label (Guests, Budget); the answer becomes a line.`];
+    const fields = askableFields(target.kind);
+    return fields.length ? [`- id=${target.id} (${target.label} "${target.title}"): ${fields.join(", ")}.`] : [];
+  });
+  return `Asking: when you need something from them that's a pick, a yes or no, a number, a time or a date, ask with the ask tool, never as a question in your text. At most three at once, only what they'd know offhand, each with your best guess; then stop and wait for the answer. Keep them light to read: a question of five words or fewer (How many guests?), options of one or two words, no units or examples in the words (the control shows them). If they skip, go with your guesses.
+What can be asked, and where the answer goes:
+${[...lines, '- for "chat": a plain question (confirm for yes or no, choose for options, text otherwise).'].join("\n")}`;
+}
 
 /** A plain request to make something: "Make the menu", "Now give me the recipe", "Can you draft a brief". */
 const MAKE_REQUEST =
@@ -345,6 +383,7 @@ export async function POST(req: Request) {
     chatModes,
     tracked: trackedInput,
     open: openInput,
+    retrieval,
   }: {
     messages: UIMessage[];
     system?: string;
@@ -353,13 +392,18 @@ export async function POST(req: Request) {
     tracked?: TrackedContext[] | null;
     /** Every other interface open beside the chat. */
     open?: OpenContext[] | null;
+    /** Hybrid retrieval: the app's keyword ranking and catalogue, merged here with a ranking by meaning. */
+    retrieval?: RetrievalInput | null;
     interfaceCandidates?: InterfaceCandidate[] | null;
     /** From a Chat card: who replies (each turn) and how the first reply is laid out. */
-    chatModes?: { persona?: { label: string; instruction: string }; format?: string } | null;
+    chatModes?: { persona?: { label: string; instruction: string }; format?: string; context?: string } | null;
   } = await req.json();
   const model = chatLabModel();
   const baseSystem = system?.trim() || DEFAULT_CHAT_LAB_SYSTEM_PROMPT;
-  const candidates = interfaceCandidates?.slice(0, 5) ?? [];
+  // The interfaces this turn could make: keywords and meaning merged when the app sends both, else its own list.
+  const retrieved = retrieval ? await hybridCandidates(retrieval) : null;
+  if (retrieved) console.log(`  [ai:retrieval] ${retrieved.trace}`);
+  const candidates = (retrieved?.candidates as InterfaceCandidate[] | undefined) ?? interfaceCandidates?.slice(0, 5) ?? [];
   const tracked = (trackedInput ?? []).filter((entry) => roleSpec(entry.kind, entry.role));
   const others = (openInput ?? []).slice(0, 6);
 
@@ -395,10 +439,20 @@ export async function POST(req: Request) {
     ]
       .filter(Boolean)
       .join("\n\n") || null;
+  const latestAsk = [...messages].reverse().find((message) => message.role === "user");
+  const latestText = (latestAsk?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
+  // What questions can fill: the interfaces in view and the tracked ones.
+  const askTargets = [
+    ...inView.map((entry) => ({ id: entry.id, kind: entry.kind as ShellKind, label: entry.label, title: entry.title })),
+    ...tracked.map((entry) => ({ id: entry.id, kind: entry.kind, label: entry.label, title: entry.title })),
+  ];
   const fullSystem = [
     baseSystem,
+    // The chat's chart block, only when the request is about numbers.
+    wantsChart(latestText) ? CHART_BLOCK : null,
     chatModes?.persona ? `Assistant for this thread: ${chatModes.persona.label}. ${chatModes.persona.instruction}` : null,
     chatModes?.format ? `Reply format: ${chatModes.format} Use ordinary markdown text; nothing opens.` : null,
+    chatModes?.context ?? null,
     artefact ? artefactSystemAddon(artefact) : null,
     !artefact && candidates.length > 0
       ? candidatesSystemAddon(candidates)
@@ -406,6 +460,7 @@ export async function POST(req: Request) {
         ? `To make something new rather than change what's open (a recipe while the menu is open), these fit the request:${candidatesSystemAddon(candidates.filter((candidate) => candidate.layer !== "format"))}`
         : null,
     roleRules,
+    askAddon(askTargets),
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -512,9 +567,15 @@ export async function POST(req: Request) {
     !inView.some((entry) => entry.kind === offered[0]!.opensAs) &&
     !(artefact && artefact.kind === offered[0]!.opensAs);
 
-  const result = streamText({
-    model: openai.responses(model),
-    tools: {
+  const tools: ToolSet = {
+      ask: tool({
+        description: "Ask the person one to three questions, each answered with a tiny interface (a stepper, chips, Yes and No) and your guess already in place. Then stop: their answers come back as their next message.",
+        inputSchema: askInputSchema,
+        execute: async (input) => {
+          const questions = normalizeQuestions(input, askTargets);
+          return questions.length ? { ok: true as const, questions } : { ok: false as const, error: "No question could be asked: check each question's for and field." };
+        },
+      }),
       web_search: openai.tools.webSearch({ searchContextSize: "low" }),
       ...(needsWrite ? { write_interface: writeInterfaceTool } : {}),
       ...fillTools,
@@ -538,9 +599,25 @@ export async function POST(req: Request) {
             }),
           }
         : {}),
-    },
+    };
+  const modelMessages = [
+      // No version of any interface stays in the history: those in use are sent as they are now, below (see artifact-history.ts).
+      ...compactArtifactHistory(await convertToModelMessages(messages), {
+        writes: [...Object.keys(FILL_TOOL_KIND), "write_interface", "update_interface"],
+      }),
+      ...(artefact && artefactContents(artefact) ? [{ role: "system" as const, content: artefactContents(artefact)! }] : []),
+      ...others.flatMap((entry) => (openContents(entry) ? [{ role: "system" as const, content: openContents(entry)! }] : [])),
+      ...(trackedContents(tracked) ? [{ role: "system" as const, content: trackedContents(tracked)! }] : []),
+    ];
+  // Dev only: CHAT_LAB_PROMPT_DUMP=<folder> writes each request as the model gets it (system, messages, tools).
+  if (process.env.CHAT_LAB_PROMPT_DUMP) await dumpPrompt(process.env.CHAT_LAB_PROMPT_DUMP, fullSystem, modelMessages, tools);
+
+  const result = streamText({
+    model: openai.responses(model),
+    tools,
     prepareStep: ({ stepNumber }) => (mustMake && stepNumber === 0 ? { toolChoice: { type: "tool" as const, toolName: "open_interface" } } : {}),
-    stopWhen: stepCountIs(
+    // Asking ends the turn: the answers come back as the next message.
+    stopWhen: [stepCountIs(
       // Keeping tracked interfaces current takes a step or two of its own.
       (tracked.length ? 2 : 0) +
         (artefact?.kind === "search" ||
@@ -550,17 +627,9 @@ export async function POST(req: Request) {
           : artefact || candidates.length
             ? 4
             : 2),
-    ),
+    ), hasToolCall("ask")],
     system: fullSystem,
-    messages: [
-      // No version of any interface stays in the history: those in use are sent as they are now, below (see artifact-history.ts).
-      ...compactArtifactHistory(await convertToModelMessages(messages), {
-        writes: [...Object.keys(FILL_TOOL_KIND), "write_interface", "update_interface"],
-      }),
-      ...(artefact && artefactContents(artefact) ? [{ role: "system" as const, content: artefactContents(artefact)! }] : []),
-      ...others.flatMap((entry) => (openContents(entry) ? [{ role: "system" as const, content: openContents(entry)! }] : [])),
-      ...(trackedContents(tracked) ? [{ role: "system" as const, content: trackedContents(tracked)! }] : []),
-    ],
+    messages: modelMessages,
     providerOptions: {
       openai: {
         reasoningEffort: "low",

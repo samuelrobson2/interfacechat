@@ -257,11 +257,12 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
   tracker: {
     kind: "tracker",
     label: "Tracker",
-    makes: "tasks to get done, with owners and dates",
+    makes: "any list to tick off: to-dos, a shopping list, ingredients to buy, things to pack",
     tool: "fill_tracker",
-    description: "The steps to get something done, with owners, due dates and what's finished.",
+    description: "A list to tick off: things to do (with owners and due dates when there are any), a shopping list, ingredients to buy, things to pack.",
     guidance: [
       "One item per thing to do, a few words each, in the order they'd be done.",
+      "Keep items concise and specific: include amounts and details when known.",
       "Only give an owner or a due date the user gave or plainly implied.",
       "Use groups only when the items fall into a few clear sections.",
     ],

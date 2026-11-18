@@ -4,6 +4,7 @@ import * as chatLabSuggestions from "../_ai-chat-lab-suggestions.js";
 import * as chatLabTitle from "../_ai-chat-lab-title.js";
 import * as generate from "../_ai-generate.js";
 import * as interfaceFill from "../_ai-interface-fill.js";
+import * as interfaceSuggest from "../_ai-interface-suggest.js";
 import * as interfaceTitle from "../_ai-interface-title.js";
 import * as promptChoices from "../_ai-prompt-choices.js";
 import * as toolbarRewrite from "../_ai-toolbar-rewrite.js";
@@ -31,6 +32,7 @@ const MODULES: Record<string, Module> = {
   "chat-lab-title": chatLabTitle,
   generate,
   "interface-fill": interfaceFill,
+  "interface-suggest": interfaceSuggest,
   "interface-title": interfaceTitle,
   "prompt-choices": promptChoices,
   "toolbar-rewrite": toolbarRewrite,

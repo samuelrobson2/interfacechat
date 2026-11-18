@@ -108,9 +108,15 @@ export function promptFromShellData(
 
 /** Interface content to seed a new session with, before the model writes. */
 export function seedArtefactContent(kind: ExpandableInterfaceKind, data: StarterData | null) {
-  if (kind !== "table" || !data) return undefined;
-  const columns = namedColumns(data as TableShellData);
-  return columns.length ? serializeMarkdownTable(columns, []) : undefined;
+  if (!data) return undefined;
+  // What they wrote in a document on the card is where it starts.
+  if (kind === "document") return (data as DocumentShellData).body?.trim() || undefined;
+  if (kind !== "table") return undefined;
+  const table = data as TableShellData;
+  const columns = namedColumns(table);
+  // Columns they named, and any rows they typed in.
+  const rows = table.rows.filter((row) => columns.some((column) => String(row.cells[column.id] ?? "").trim()));
+  return columns.length ? serializeMarkdownTable(columns, rows) : undefined;
 }
 
 /** The editor has its own title field, so a leading `# Heading` becomes the title. */

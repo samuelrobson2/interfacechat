@@ -10,6 +10,8 @@
  * interface never touches it.
  */
 
+import { layoutRules } from "./workbench-rules";
+
 export type InstanceId = string;
 
 /** How big an interface is drawn. Sidebar is Chat's own; the rest are everyone else's. */
@@ -41,8 +43,13 @@ export type WorkspaceLayout = {
   entries: Record<InstanceId, LayoutEntry>;
   /** Share of the main area the first large interface takes when two are open. */
   divider: number;
-  /** Two large interfaces sit one above the other rather than side by side. */
+  /**
+   * Two large interfaces sit one above the other rather than side by side. Only
+   * on the right, beside Chat's sidebar: never across the full page (`isStacked`).
+   */
   stacked?: boolean;
+  /** Share of the page Chat's sidebar takes, once dragged; unset, it's the default narrow column. */
+  chatWidth?: number;
 };
 
 export type PresetId = "focus" | "pair" | "split" | "stack" | "research";
@@ -58,14 +65,20 @@ export type LayoutChange =
   | { type: "present"; id: InstanceId; presentation: Presentation }
   /** Take it off the workbench altogether: no window, no icon in the strip. What it holds is kept, so it can be opened again. Chat can't be closed. */
   | { type: "close"; id: InstanceId }
-  /** Dragged somewhere. The presentation follows the region. `stacked` says how the main area is shared from then on. */
-  | { type: "move"; id: InstanceId; region: Region; order: number; stacked?: boolean }
+  /**
+   * Dragged somewhere. The presentation follows the region, or `size` when
+   * the drop chose one (a side column's middle is an extended medium, its top
+   * or bottom a medium). `stacked` says how the main area is shared from then on.
+   */
+  | { type: "move"; id: InstanceId; region: Region; order: number; stacked?: boolean; size?: "medium" | "extended" }
   /** Same presentation, the other side (or the other main slot: left is first, so the top when stacked). */
   | { type: "side"; id: InstanceId; side: Side }
   /** Two large interfaces: one above the other, or side by side. */
   | { type: "arrange"; stacked: boolean }
   | { type: "preset"; preset: PresetId }
-  | { type: "divider"; ratio: number };
+  | { type: "divider"; ratio: number }
+  /** How wide Chat's sidebar is, as a share of the page. */
+  | { type: "chatWidth"; ratio: number };
 
 /**
  * Room the controller has to respect beyond slot counts. `fits` says whether
@@ -85,7 +98,11 @@ export type LayoutResult = {
 export const MAIN_SLOTS = 2;
 /** A side column is two mediums tall. */
 export const SIDE_UNITS = 2;
+/** How many interfaces a side column holds: two, one above the other, where the rules let that side stack. */
+const sideEntries = (side: Side) => ((side === "left" ? layoutRules().leftStack : layoutRules().rightStack) ? 2 : 1);
 export const DIVIDER_RANGE = [0.25, 0.75] as const;
+/** How narrow and how wide Chat's sidebar can be dragged, as shares of the page. */
+export const CHAT_WIDTH_RANGE = [0.18, 0.6] as const;
 
 const UNITS: Record<Presentation, number> = {
   minimized: 0,
@@ -117,10 +134,26 @@ export const PRESETS: { id: PresetId; label: string; description: string }[] = [
 
 /** The options a size menu offers, in order. */
 export function presentationsFor(entry: Pick<LayoutEntry, "chat">): Presentation[] {
-  return entry.chat ? ["minimized", "sidebar", "large"] : ["minimized", "medium", "extended", "large"];
+  if (entry.chat) return ["minimized", "sidebar", "large"];
+  return layoutRules().extended ? ["minimized", "medium", "extended", "large"] : ["minimized", "medium", "large"];
 }
 
 const isSide = (region: Region | undefined): region is Side => region === "left" || region === "right";
+
+/** Whether two large interfaces may stack here: the rules allow it, and Chat's sidebar is on the left for them to sit beside. */
+export function canStackLarge(layout: WorkspaceLayout) {
+  return layoutRules().largeStacked && inRegion(layout, "left").some((entry) => entry.chat && entry.presentation === "sidebar");
+}
+
+/** Whether the main area is drawn stacked now: asked for (or side by side isn't allowed), where stacking can be. */
+export function isStacked(layout: WorkspaceLayout) {
+  return canStackLarge(layout) && (!!layout.stacked || !layoutRules().largeSideBySide);
+}
+
+/** How many large interfaces the main area holds: two where they can sit side by side or stack, else one. */
+export function mainSlots(layout: WorkspaceLayout) {
+  return layoutRules().largeSideBySide || canStackLarge(layout) ? MAIN_SLOTS : 1;
+}
 
 const defaultSide = (entry: LayoutEntry): Side => (entry.chat ? "left" : "right");
 
@@ -133,6 +166,20 @@ export function inRegion(layout: WorkspaceLayout, region: Region): LayoutEntry[]
   return Object.values(layout.entries)
     .filter((entry) => entry.region === region)
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+}
+
+/**
+ * Two extended medium side by side: the supporting column (not Chat's) holds
+ * a pair at full height, next to each other, and widens to fit them.
+ */
+export function isExtendedPair(entries: LayoutEntry[]) {
+  return (
+    layoutRules().extended &&
+    layoutRules().extendedPair &&
+    entries.length === 2 &&
+    !entries.some((entry) => entry.chat) &&
+    entries.every((entry) => entry.presentation === "extended")
+  );
 }
 
 function sideUnits(entries: LayoutEntry[]) {
@@ -219,16 +266,29 @@ function enforceCapacity(layout: WorkspaceLayout, keep: Set<InstanceId>, options
   };
 
   let main = inRegion(layout, "main");
+  // A third large interface comes in while Chat is one of the large: Chat makes room by moving into its sidebar,
+  // rather than being minimized. Whatever else is in the left column goes to the top bar.
+  const chatInMain = main.find((entry) => entry.chat && !keep.has(entry.id));
+  if (main.length > mainSlots(layout) && chatInMain) {
+    for (const item of inRegion(layout, "left")) if (!item.chat) evict(item);
+    layout.entries[chatInMain.id] = { ...chatInMain, presentation: "sidebar", region: "left", order: 0 };
+    main = inRegion(layout, "main");
+  }
   for (const entry of evictionOrder(main, keep)) {
-    if (main.length <= MAIN_SLOTS) break;
+    if (main.length <= mainSlots(layout)) break;
     evict(entry);
     main = inRegion(layout, "main");
   }
 
   for (const side of ["left", "right"] as const) {
     let column = inRegion(layout, side);
+    // Two in the column and one of them extended: with the rule on, both go full height, side by side, rather than one going.
+    if (layoutRules().extended && layoutRules().extendedPair && column.length === 2 && !column.some((entry) => entry.chat) && column.some((entry) => entry.presentation === "extended")) {
+      for (const entry of column) if (entry.presentation !== "extended") layout.entries[entry.id] = { ...entry, presentation: "extended" };
+      column = inRegion(layout, side);
+    }
     for (const entry of evictionOrder(column, keep)) {
-      if (sideUnits(column) <= SIDE_UNITS) break;
+      if (isExtendedPair(column) || (sideUnits(column) <= SIDE_UNITS && column.length <= sideEntries(side))) break;
       evict(entry);
       column = inRegion(layout, side);
     }
@@ -249,7 +309,9 @@ function enforceCapacity(layout: WorkspaceLayout, keep: Set<InstanceId>, options
         });
       }
     }
-    const oldest = groups.sort((a, b) => a.recency - b.recency)[0];
+    // Chat goes last: any interface makes room before it does.
+    const hasChat = (group: { ids: InstanceId[] }) => group.ids.some((id) => layout.entries[id]?.chat);
+    const oldest = groups.sort((a, b) => Number(hasChat(a)) - Number(hasChat(b)) || a.recency - b.recency)[0];
     if (!oldest) break;
     for (const id of oldest.ids) {
       const entry = layout.entries[id];
@@ -298,6 +360,14 @@ function presetPlacements(layout: WorkspaceLayout, preset: PresetId): Map<Instan
   return placements;
 }
 
+/** Chat into its sidebar on the left, where two large stack beside it; anything else in that column goes to the top bar. */
+function chatToSidebar(layout: WorkspaceLayout, now: number) {
+  const chat = Object.values(layout.entries).find((item) => item.chat);
+  if (!chat || canStackLarge(layout)) return;
+  for (const item of inRegion(layout, "left")) if (!item.chat) layout.entries[item.id] = minimize(item);
+  layout.entries[chat.id] = place(chat, { presentation: "sidebar", region: "left", order: 0 }, now);
+}
+
 /** Apply a change and whatever minimizations it forces, as one transaction. */
 export function applyLayoutChange(
   layout: WorkspaceLayout,
@@ -311,6 +381,11 @@ export function applyLayoutChange(
   if (change.type === "divider") {
     const divider = clampDivider(change.ratio);
     return divider === layout.divider ? unchanged : { layout: { ...next, divider }, evicted: [], changed: true };
+  }
+
+  if (change.type === "chatWidth") {
+    const chatWidth = Math.min(CHAT_WIDTH_RANGE[1], Math.max(CHAT_WIDTH_RANGE[0], change.ratio));
+    return chatWidth === layout.chatWidth ? unchanged : { layout: { ...next, chatWidth }, evicted: [], changed: true };
   }
 
   if (change.type === "preset") {
@@ -329,8 +404,11 @@ export function applyLayoutChange(
   }
 
   if (change.type === "arrange") {
-    if (!!layout.stacked === change.stacked) return unchanged;
+    // Only to an arrangement the rules allow.
+    if (change.stacked ? !layoutRules().largeStacked : !layoutRules().largeSideBySide) return unchanged;
+    if (isStacked(layout) === change.stacked && !!layout.stacked === change.stacked) return unchanged;
     next.stacked = change.stacked;
+    if (change.stacked) chatToSidebar(next, now);
     // Side by side needs the width; the one used last stays.
     const latest = byRecency(inRegion(next, "main"))[0];
     const evicted = enforceCapacity(next, new Set(latest ? [latest.id] : []), options);
@@ -370,7 +448,10 @@ export function applyLayoutChange(
       break;
     case "move":
       placement = {
-        presentation: presentationForRegion(entry, change.region),
+        presentation:
+          change.size && isSide(change.region) && !entry.chat && (change.size === "medium" || layoutRules().extended)
+            ? change.size
+            : presentationForRegion(entry, change.region),
         region: change.region,
         order: change.order,
       };
@@ -389,6 +470,10 @@ export function applyLayoutChange(
   }
 
   next.entries[entry.id] = place(entry, placement, now);
+  // Dropped to stack: the stack sits beside Chat's sidebar, so Chat goes there (from the page, or the top bar).
+  if (change.type === "move" && change.region === "main" && change.stacked && layoutRules().largeStacked && !entry.chat) {
+    chatToSidebar(next, now);
+  }
   const evicted = enforceCapacity(next, new Set([entry.id]), options);
   normalize(next);
   return { layout: next, evicted, changed: !sameArrangement(layout, next) };
@@ -408,7 +493,7 @@ export function touchEntry(layout: WorkspaceLayout, id: InstanceId, now: number)
 
 /** Placement and divider only, ignoring recency. */
 export function sameArrangement(a: WorkspaceLayout, b: WorkspaceLayout) {
-  if (a.divider !== b.divider || !!a.stacked !== !!b.stacked) return false;
+  if (a.divider !== b.divider || !!a.stacked !== !!b.stacked || a.chatWidth !== b.chatWidth) return false;
   const ids = Object.keys(a.entries);
   if (ids.length !== Object.keys(b.entries).length) return false;
   return ids.every((id) => {
@@ -435,7 +520,7 @@ export function restoreArrangement(snapshot: WorkspaceLayout, current: Workspace
   for (const [id, entry] of Object.entries(current.entries)) {
     if (!entries[id]) entries[id] = { ...minimize(entry), order: LAST };
   }
-  const layout: WorkspaceLayout = { entries, divider: snapshot.divider, stacked: snapshot.stacked };
+  const layout: WorkspaceLayout = { entries, divider: snapshot.divider, stacked: snapshot.stacked, chatWidth: snapshot.chatWidth };
   normalize(layout);
   return layout;
 }
@@ -461,7 +546,7 @@ export function describePlacement(layout: WorkspaceLayout, entry: LayoutEntry): 
   if (entry.region === "main") {
     const side = mainSide(layout, entry);
     if (!side) return size;
-    return `${size}, ${layout.stacked ? (side === "left" ? "top" : "bottom") : side}`;
+    return `${size}, ${isStacked(layout) ? (side === "left" ? "top" : "bottom") : side}`;
   }
   if (entry.presentation === "medium") {
     const column = inRegion(layout, entry.region);

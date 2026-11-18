@@ -102,3 +102,27 @@ export function contentFor(size: ShellSize, state: ShellState): ShellState {
   if (STATEFUL_SIZES.includes(size)) return state;
   return size === "large" ? "history" : "empty";
 }
+
+/**
+ * Each interface's colour, matched to its artwork: `solid` for fills and
+ * outlines, `text` a darker shade that reads at 4.5:1 or better on white (the
+ * accessibility test checks every one). Used where something belongs to an
+ * interface, such as a question's choices: orange for Notes, coral for Guide.
+ */
+export const SHELL_ACCENT: Record<ShellKind, { solid: string; text: string }> = {
+  notes: { solid: "#fc8723", text: "#b45309" },
+  document: { solid: "#3b8fe0", text: "#1d5fae" },
+  search: { solid: "#6b6b6b", text: "#4a4a4a" },
+  table: { solid: "#3fa36b", text: "#15803d" },
+  schedule: { solid: "#2bb3a3", text: "#0f766e" },
+  tracker: { solid: "#f0525c", text: "#be123c" },
+  calendar: { solid: "#8b5cf6", text: "#6d28d9" },
+  reader: { solid: "#64748b", text: "#475569" },
+  map: { solid: "#e0a800", text: "#92400e" },
+  moodboard: { solid: "#ec6fa8", text: "#a3215c" },
+  chart: { solid: "#3b8fe0", text: "#1d5fae" },
+  guide: { solid: "#e8664f", text: "#b4321f" },
+  generator: { solid: "#8b5cf6", text: "#6d28d9" },
+  dashboard: { solid: "#8b5cf6", text: "#6d28d9" },
+  chat: { solid: "#6b6b6b", text: "#4a4a4a" },
+};

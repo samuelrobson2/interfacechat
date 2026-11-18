@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
+  AskedFieldsContext,
   EMPTY_SHELL_DATA,
   InlineShell,
   InlineSmall,
@@ -13,7 +14,7 @@ import {
 } from "@/features/interface-shells";
 import { useInterfaceGenerative } from "@/features/generative-toolbar";
 import { useChatLabSession } from "../model/chat-lab-session";
-import { roleOf, useChatLabStore, type ChatLabArtefact } from "../model/chat-lab-store";
+import { getMessageText, roleOf, useChatLabStore, type ChatLabArtefact } from "../model/chat-lab-store";
 import {
   artefactLabel,
   artefactOrdinal,
@@ -179,6 +180,29 @@ export function ChatLabArtefactWindow({
   size: InterfaceShellProps["size"];
 }) {
   const view = useArtefactView(sessionId, artefact);
+  // The thread around it, for suggestions: the Notes as they are, and the latest messages.
+  const threadContext = useChatLabStore((state) => {
+    const session = state.sessions[sessionId];
+    if (!session) return "";
+    const notes = Object.values(session.artefacts).find((entry) => entry.id !== artefact.id && entry.shell?.kind === "notes" && roleOf(entry) === "track");
+    const said = session.messages
+      .slice(-6)
+      .map((message) => `${message.role === "user" ? "They" : "You"}: ${getMessageText(message).slice(0, 500)}`)
+      .join("\n");
+    return [notes?.shell ? `Notes:\n${(notes.shell.data as { body: string }).body}` : "", said].filter(Boolean).join("\n\n");
+  });
+  // Fields the latest reply is asking about, unanswered: the interface lights up the controls they fill.
+  const askedKey = useChatLabStore((state) => {
+    const session = state.sessions[sessionId];
+    const last = [...(session?.messages ?? [])].reverse().find((message) => message.role === "assistant");
+    const fields = (last?.parts as { type?: string; toolCallId?: string; state?: string; output?: unknown }[] | undefined ?? []).flatMap((part) => {
+      if (part.type !== "tool-ask" || part.state !== "output-available" || !part.toolCallId || session?.answers?.[part.toolCallId]) return [];
+      const questions = (part.output as { questions?: { for: string; field?: string }[] } | undefined)?.questions ?? [];
+      return questions.filter((question) => question.for === artefact.id && question.field).map((question) => question.field!);
+    });
+    return fields.sort().join("|");
+  });
+  const asked = useMemo(() => new Set(askedKey ? askedKey.split("|") : []), [askedKey]);
   // Generated tools in the toolbar and beside the parts they act on; not while the model is writing to it,
   // and not on a tracked interface (Notes, the goal's progress): the model keeps those itself.
   const root = useRef<HTMLDivElement>(null);
@@ -189,8 +213,12 @@ export function ChatLabArtefactWindow({
     data: view.data,
     onChange: view.onChange,
     enabled: view.status !== "loading" && roleOf(artefact) !== "track",
+    // Suggestions in place on every interface, tracked ones too, from the thread around it.
+    suggest: view.status !== "loading",
+    context: threadContext,
   });
   return (
+    <AskedFieldsContext.Provider value={asked}>
     <div ref={root} className="relative size-full">
       <InterfaceShell
         {...({
@@ -208,6 +236,7 @@ export function ChatLabArtefactWindow({
       />
       {generative.note}
     </div>
+    </AskedFieldsContext.Provider>
   );
 }
 

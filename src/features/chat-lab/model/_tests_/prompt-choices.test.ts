@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { briefOf, ownOption, readChoice, usePromptChoices, withBrief } from "../prompt-choices";
+import { briefOf, ownOption, readChoice, repeatsChoice, usePromptChoices, withBrief } from "../prompt-choices";
 
 const audience = {
   key: "audience",
@@ -69,13 +69,13 @@ describe("usePromptChoices", () => {
   const stream = (lines: unknown[]) =>
     new Response(lines.map((line) => JSON.stringify(line)).join("\n") + "\n", { status: 200 });
 
-  it("asks once the request has a few words, shows at most three, and keeps picks beside the prompt, never in it", async () => {
+  it("asks once the request has a few words, shows at most three, and a pick leaves the card for the brief, never the prompt", async () => {
     const fetch = vi.fn(async () =>
       stream([
         { choice: audience },
         { choice: covers },
-        { choice: { ...audience, key: "purpose", ask: "What it should do" } },
-        { choice: { ...audience, key: "voice", ask: "Voice", impact: 2 } },
+        { choice: { ...audience, key: "purpose", kind: "purpose", ask: "What it should do" } },
+        { choice: { ...audience, key: "voice", kind: "voice", ask: "Voice", impact: 2 } },
         { done: { ms: 10 } },
       ]),
     );
@@ -89,14 +89,17 @@ describe("usePromptChoices", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(result.current.shown.map((choice) => choice.key)).not.toContain("voice");
 
-    // A pick goes into the brief sent with the interface; the prompt is never touched.
+    // A pick goes into the brief sent with the interface; the prompt is never touched. It leaves the card, and
+    // the next choice (here the one held back) takes its place, and the model is asked again for more.
     act(() => result.current.pick("audience", ["The team"]));
     expect(result.current.brief).toBe("For the launch team.");
-    expect(result.current.shown.find((choice) => choice.key === "audience")?.picked).toEqual(["The team"]);
+    expect(result.current.shown.map((choice) => choice.key)).not.toContain("audience");
+    expect(result.current.picked.find((choice) => choice.key === "audience")?.picked).toEqual(["The team"]);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2), { timeout: 3000 });
 
     // Picking nothing unpicks it.
     act(() => result.current.pick("audience", []));
-    expect(result.current.shown.find((choice) => choice.key === "audience")?.picked).toBeUndefined();
+    expect(result.current.picked.find((choice) => choice.key === "audience")).toBeUndefined();
     expect(result.current.brief).toBe("");
 
     // Their own words: picked, and in the brief through the template.
@@ -104,5 +107,14 @@ describe("usePromptChoices", () => {
     expect(result.current.brief).toBe("For my lab group.");
     act(() => result.current.pick("covers", ["Timeline"], "the budget"));
     expect(result.current.brief).toBe("For my lab group, covering the timeline and the budget.");
+  });
+
+  it("never shows a question twice: the same kind under another key, or the same words, is left out", () => {
+    const rows = [{ key: "audience", kind: "audience", ask: "Who it's for" }, { key: "fact-1", kind: "fact", ask: "Budget" }];
+    expect(repeatsChoice({ key: "readers", kind: "audience", ask: "Who reads it" }, rows)).toBe(true);
+    expect(repeatsChoice({ key: "who", kind: "purpose", ask: "Who it’s for?" }, rows)).toBe(true);
+    // Its own key is an update, not a repeat; a second fact is a different question.
+    expect(repeatsChoice({ key: "audience", kind: "audience", ask: "Who it's for" }, rows)).toBe(false);
+    expect(repeatsChoice({ key: "fact-2", kind: "fact", ask: "Guest count" }, rows)).toBe(false);
   });
 });
