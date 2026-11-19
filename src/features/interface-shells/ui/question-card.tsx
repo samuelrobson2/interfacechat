@@ -10,10 +10,10 @@ import { ShellGlyph } from "./shell-icons";
  * Questions as tiny interfaces: the smallest size in the system, drawn in a
  * reply. As little text as works: the interface's glyph and a short question
  * on one line, then the control, with an icon for a unit rather than its word
- * (a person and 9, not "9 people"). The model's guess is already in place, in
- * the suggestion gradient until it's changed. One Send answers them all; Skip
- * leaves it to the model; a lone yes-or-no sends on the tap. Answered, it folds
- * to a line of chips ("Guests 9").
+ * (a person and 9, not "9 people"). Nothing is picked for them: no guess is
+ * suggested. One Send answers whichever they've answered, and the model chooses
+ * for the rest; Skip leaves it all to the model; a lone yes-or-no sends on the
+ * tap. Answered, it folds to a line of chips ("Guests 9").
  */
 
 /** A unit drawn as an icon instead of its word. */
@@ -39,21 +39,15 @@ const CHIP = "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full b
 /**
  * A chip picked: in its interface's colour (--q-accent, --q-text) when the
  * question is for one, so the choices read as part of it (orange for Notes);
- * neutral for a plain chat question. A guess keeps its words in the
- * suggestion gradient until it's changed.
+ * neutral for a plain chat question.
  */
-const chip = (on: boolean, guessed: boolean) =>
+const chip = (on: boolean) =>
   cn(
     CHIP,
     on
-      ? cn(
-          "border-[color:var(--q-accent,#6a4cc9)] bg-[color-mix(in_srgb,var(--q-accent,#6a4cc9)_12%,transparent)]",
-          !guessed && "text-[color:var(--q-text,#1a1718)]",
-        )
+      ? "border-[color:var(--q-accent,#6a4cc9)] bg-[color-mix(in_srgb,var(--q-accent,#6a4cc9)_12%,transparent)] text-[color:var(--q-text,#1a1718)]"
       : "border-shell-line-strong bg-shell-panel text-typography-primary hover:bg-shell-fill",
   );
-/** A chip's words: in the suggestion gradient while it's only the guess. */
-const Words = ({ children, guessed }: { children: React.ReactNode; guessed: boolean }) => <span className={cn(guessed && "text-gradient-suggest")}>{children}</span>;
 
 const HOURS = ["17:00", "18:00", "19:00", "19:30", "20:00"];
 const DURATIONS = ["30 min", "1 hour", "2 hours", "Half day", "Full day"];
@@ -69,7 +63,7 @@ function SomethingElse({ onAnswer, label = "Something else…" }: { onAnswer: (v
   const [draft, setDraft] = useState("");
   if (!open)
     return (
-      <button type="button" onClick={() => setOpen(true)} className={chip(false, false)}>
+      <button type="button" onClick={() => setOpen(true)} className={chip(false)}>
         {label}
       </button>
     );
@@ -90,16 +84,16 @@ function SomethingElse({ onAnswer, label = "Something else…" }: { onAnswer: (v
   );
 }
 
-/** One question's control, by kind. `guessed` is true while the value is still the model's guess. */
-function Control({ question, value, guessed, onChange }: { question: Question; value: AnswerValue | undefined; guessed: boolean; onChange: (value: AnswerValue) => void }) {
+/** One question's control, by kind. Empty until they answer it. */
+function Control({ question, value, onChange }: { question: Question; value: AnswerValue | undefined; onChange: (value: AnswerValue) => void }) {
   const id = useId();
   switch (question.control) {
     case "confirm":
       return (
         <div role="radiogroup" aria-label={question.ask} className="flex flex-wrap items-center gap-1.5">
           {["Yes", "No"].map((option) => (
-            <button key={option} type="button" role="radio" aria-checked={value === option} onClick={() => onChange(option)} className={chip(value === option, guessed)}>
-              <Words guessed={guessed && value === option}>{option}</Words>
+            <button key={option} type="button" role="radio" aria-checked={value === option} onClick={() => onChange(option)} className={chip(value === option)}>
+              {option}
             </button>
           ))}
           <SomethingElse onAnswer={onChange} />
@@ -122,10 +116,10 @@ function Control({ question, value, guessed, onChange }: { question: Question; v
                 aria-checked={question.multi ? undefined : on}
                 aria-pressed={question.multi ? on : undefined}
                 onClick={() => onChange(question.multi ? (on ? picked.filter((item) => item !== option) : [...picked, option]) : option)}
-                className={chip(on, guessed)}
+                className={chip(on)}
               >
                 {question.multi && on && <Check className="size-3" />}
-                <Words guessed={guessed && on}>{option}</Words>
+                {option}
               </button>
             );
           })}
@@ -134,20 +128,20 @@ function Control({ question, value, guessed, onChange }: { question: Question; v
       );
     }
     case "number": {
-      const number = typeof value === "number" ? value : Number(value) || question.min || 1;
+      // Blank until they set it: the first tap starts from the bottom of its range.
+      const number = typeof value === "number" ? value : undefined;
+      const from = number ?? (question.min ?? 1) - 1;
       const set = (next: number) => onChange(Math.max(question.min ?? 0, Math.min(question.max ?? 999, next)));
       return (
         <div className="flex items-center gap-1" role="group" aria-label={question.ask}>
-          <button type="button" aria-label={`Fewer ${question.unit ?? ""}`.trim()} onClick={() => set(number - 1)} className="grid size-8 cursor-pointer place-items-center rounded-full border border-shell-line-strong bg-shell-panel hover:bg-shell-fill">
+          <button type="button" aria-label={`Fewer ${question.unit ?? ""}`.trim()} onClick={() => set(from - 1)} className="grid size-8 cursor-pointer place-items-center rounded-full border border-shell-line-strong bg-shell-panel hover:bg-shell-fill">
             <Minus className="size-3.5" />
           </button>
-          <span aria-live="polite" aria-label={answerText(question, number)} className="flex min-w-12 items-center justify-center gap-1.5 font-bureau text-[15px] tabular-nums">
+          <span aria-live="polite" aria-label={number === undefined ? "Not set" : answerText(question, number)} className="flex min-w-12 items-center justify-center gap-1.5 font-bureau text-[15px] tabular-nums">
             <UnitIcon unit={question.unit} className="size-4 text-typography-secondary" />
-            <span className={cn(!guessed && "text-[color:var(--q-text,inherit)]")}>
-              <Words guessed={guessed}>{number}</Words>
-            </span>
+            <span className={cn(number === undefined ? "text-typography-secondary" : "text-[color:var(--q-text,inherit)]")}>{number ?? "–"}</span>
           </span>
-          <button type="button" aria-label={`More ${question.unit ?? ""}`.trim()} onClick={() => set(number + 1)} className="grid size-8 cursor-pointer place-items-center rounded-full border border-shell-line-strong bg-shell-panel hover:bg-shell-fill">
+          <button type="button" aria-label={`More ${question.unit ?? ""}`.trim()} onClick={() => set(from + 1)} className="grid size-8 cursor-pointer place-items-center rounded-full border border-shell-line-strong bg-shell-panel hover:bg-shell-fill">
             <Plus className="size-3.5" />
           </button>
         </div>
@@ -159,8 +153,8 @@ function Control({ question, value, guessed, onChange }: { question: Question; v
       return (
         <div role="radiogroup" aria-label={question.ask} className="flex flex-wrap items-center gap-1.5">
           {times.map((time) => (
-            <button key={time} type="button" role="radio" aria-checked={current === time} onClick={() => onChange(time)} className={chip(current === time, guessed)}>
-              <Words guessed={guessed && current === time}>{shortValue(question, time)}</Words>
+            <button key={time} type="button" role="radio" aria-checked={current === time} onClick={() => onChange(time)} className={chip(current === time)}>
+              {shortValue(question, time)}
             </button>
           ))}
           <label htmlFor={id} className="sr-only">Another time</label>
@@ -174,8 +168,8 @@ function Control({ question, value, guessed, onChange }: { question: Question; v
       return (
         <div role="radiogroup" aria-label={question.ask} className="flex flex-wrap items-center gap-1.5">
           {days.map((day) => (
-            <button key={day} type="button" role="radio" aria-checked={current === day} onClick={() => onChange(day)} className={chip(current === day, guessed)}>
-              <Words guessed={guessed && current === day}>{day === isoDay(0) ? "Today" : day === isoDay(1) ? "Tomorrow" : answerText(question, day)}</Words>
+            <button key={day} type="button" role="radio" aria-checked={current === day} onClick={() => onChange(day)} className={chip(current === day)}>
+              {day === isoDay(0) ? "Today" : day === isoDay(1) ? "Tomorrow" : answerText(question, day)}
             </button>
           ))}
           <label htmlFor={id} className="sr-only">Another date</label>
@@ -190,19 +184,10 @@ function Control({ question, value, guessed, onChange }: { question: Question; v
           aria-label={question.ask}
           placeholder="Your answer"
           onChange={(event) => onChange(event.target.value)}
-          className={cn("h-8 w-full max-w-80 rounded-full border border-shell-line-strong bg-shell-panel px-3 font-bureau text-[13px] outline-none focus:ring-2 focus:ring-shell-suggest/40", guessed && "text-gradient-suggest")}
+          className="h-8 w-full max-w-80 rounded-full border border-shell-line-strong bg-shell-panel px-3 font-bureau text-[13px] outline-none focus:ring-2 focus:ring-shell-suggest/40"
         />
       );
   }
-}
-
-/** A guess as the control holds it: a time as HH:MM, a date as an ISO day, several as a list. */
-function startValue(question: Question): AnswerValue | undefined {
-  const guess = question.guess;
-  if (guess === undefined) return question.control === "number" ? question.min ?? 1 : undefined;
-  if (question.control === "number") return Number(guess) || question.min || 1;
-  if (question.multi) return Array.isArray(guess) ? guess : [String(guess)];
-  return Array.isArray(guess) ? guess[0] : guess;
 }
 
 export function QuestionGroup({
@@ -223,15 +208,15 @@ export function QuestionGroup({
   /** The reply already shows that interface right above: no header of its own. */
   headerless?: boolean;
   /** Answers already sent: the group folds to them. */
-  answered?: AnswerValue[];
+  answered?: (AnswerValue | null)[];
   /** An older reply's questions, never answered: shown, not answerable. */
   disabled?: boolean;
-  onAnswer: (values: AnswerValue[]) => void;
-  /** Leave it to the model: it goes with its own guesses. */
+  /** What they answered, by question: one left blank is the model's to choose. */
+  onAnswer: (values: (AnswerValue | undefined)[]) => void;
+  /** Leave it to the model: it chooses. */
   onSkip?: () => void;
 }) {
-  const [values, setValues] = useState<(AnswerValue | undefined)[]>(() => questions.map(startValue));
-  const [touched, setTouched] = useState<boolean[]>(() => questions.map(() => false));
+  const [values, setValues] = useState<(AnswerValue | undefined)[]>(() => questions.map(() => undefined));
   const single = questions.length === 1 && questions[0]!.control === "confirm";
 
   if (answered) {
@@ -245,7 +230,7 @@ export function QuestionGroup({
             <span key={i} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-shell-fill px-2.5 font-bureau text-[12px] text-typography-primary">
               <Check className="size-3 text-typography-secondary" />
               <span className="text-typography-secondary">{question.label}</span>
-              {answered[i] !== undefined ? shortValue(question, answered[i]!) : "–"}
+              {answered[i] != null ? shortValue(question, answered[i]!) : "you choose"}
             </span>
           ))
         )}
@@ -256,7 +241,9 @@ export function QuestionGroup({
   // All for the same interface: its name once, above, and the questions plain. Mixed: each shows its own.
   const shared = questions.every((question) => question.for === questions[0]!.for) ? questions[0]!.for : null;
   const sharedKind = shared && shared !== "chat" ? kindOf(shared) : null;
-  const ready = values.every((value) => value !== undefined && (!Array.isArray(value) || value.length > 0) && value !== "");
+  // Sendable once anything is answered; the rest are left to the model.
+  const given = (value: AnswerValue | undefined) => value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
+  const ready = values.some(given);
   return (
     // In the reply like the other inline interfaces: no plate behind it.
     <div
@@ -285,13 +272,11 @@ export function QuestionGroup({
             <Control
               question={question}
               value={values[i]}
-              guessed={!touched[i]}
               onChange={(value) => {
                 const next = values.map((entry, j) => (j === i ? value : entry));
                 setValues(next);
-                setTouched((current) => current.map((entry, j) => entry || j === i));
                 // A lone yes-or-no sends on the tap.
-                if (single) onAnswer(next as AnswerValue[]);
+                if (single) onAnswer(next);
               }}
             />
           </div>
@@ -302,7 +287,7 @@ export function QuestionGroup({
           <button
             type="button"
             disabled={!ready}
-            onClick={() => onAnswer(values as AnswerValue[])}
+            onClick={() => onAnswer(values.map((value) => (given(value) ? value : undefined)))}
             className="rounded-full bg-gray-5 px-4 py-1.5 font-bureau text-[13px] text-white transition-[opacity,transform] enabled:cursor-pointer active:scale-[0.96] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-shell-suggest/40 focus-visible:outline-none"
           >
             Send

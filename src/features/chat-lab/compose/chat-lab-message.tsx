@@ -29,6 +29,8 @@ import { QuestionGroup, trailingYesNo, type Question } from "@/features/interfac
 import { applyAnswers } from "../model/chat-lab-runtime";
 import { useChatLabStore } from "../model/chat-lab-store";
 import { AgentIsland } from "./agent-island";
+import { OfferLink } from "./offer-link";
+import { readOfferLink, withOfferLinks } from "../model/offer-links";
 
 function sourcesFromMessage(message: ChatLabMessage): ChatSource[] {
   const seen = new Set<string>();
@@ -138,7 +140,7 @@ export function ReplyQuestions({ message, text, live, shown }: { message: ChatLa
             }}
             onSkip={() => {
               useChatLabStore.getState().setAnswers(sessionId, group.key, []);
-              void sendText("Skip: go with your best guess.");
+              void sendText("Skip: you choose.");
             }}
           />
         </div>
@@ -158,7 +160,7 @@ export function ChatLabMessageItem({
   /** Interfaces this reply made, shown under its text. */
   inline?: ChatLabArtefact[];
 }) {
-  const { sessionId, isGenerating, isTextGenerating, regenerate } = useChatLabSession();
+  const { sessionId, isGenerating, isTextGenerating, regenerate, sendText } = useChatLabSession();
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [thoughtOpen, setThoughtOpen] = useState(false);
   const text = getMessageText(message);
@@ -211,8 +213,13 @@ export function ChatLabMessageItem({
           <ChatAssistantMessage
             className="order-2 md:order-0"
             messageId={message.id}
-            answer={text}
+            // What the latest reply offers to make is a click away, once it's finished.
+            answer={isLatestAssistantMessage && !isGenerating ? withOfferLinks(text) : text}
             isStreaming={isStreaming}
+            renderLink={(href, children) => {
+              const offer = readOfferLink(href);
+              return offer ? <OfferLink kind={offer.kind} onMake={() => void sendText(offer.request)}>{children}</OfferLink> : null;
+            }}
           />
         )}
         {inline?.map((artefact) => (

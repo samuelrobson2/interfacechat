@@ -8,6 +8,7 @@ import {
   answerText,
   applyRoleTool,
   isCatalogueKind,
+  makeIntent,
   writeAnswer,
   type AnswerValue,
   type Question,
@@ -243,12 +244,30 @@ const STREAM_FILL_MS = 60;
 const appliedCalls = new Map<string, string>();
 // The interface each `id: "new"` fill made, by tool call, so its streamed parts keep going into the same one.
 const newByCall = new Map<string, string>();
+// Interfaces a fill has written into. One this turn opened that's still unwritten is waiting for its fill.
+const written = new Set<string>();
+// The interface each fill call writes into, once it's started: a call keeps it to the end. Its first parts can
+// arrive before its id does (a title, then `id: "new"`), and choosing again then would split one interface in two.
+const targetByCall = new Map<string, string>();
 
-/** A fill with `id: "new"`: its own interface, made on its first part, beside whatever is open. */
+/**
+ * A fill with `id: "new"`: its own interface, beside whatever is open. If this
+ * turn opened one of its kind that nothing has filled yet, that's the one it
+ * means (open the checklist, then "new" for it as the second thing made), so
+ * it fills that instead of leaving it empty beside a second.
+ */
 function newCatalogueTarget(id: string, userMessageId: string, kind: CatalogueKind, title: string, callId: string) {
   const store = useChatLabStore.getState();
   const existing = newByCall.get(callId);
   if (existing) return store.sessions[id]?.artefacts[existing];
+  const claimed = new Set(newByCall.values());
+  const waiting = Object.values(store.sessions[id]?.artefacts ?? {}).find(
+    (artefact) => artefact.sourceUserMessageId === userMessageId && artefactCatalogueKind(artefact) === kind && !written.has(artefact.id) && !claimed.has(artefact.id),
+  );
+  if (waiting) {
+    newByCall.set(callId, waiting.id);
+    return waiting;
+  }
   const artefactId = store.createArtefact(id, {
     ...newCatalogueArtefact(kind, title),
     title: title || CATALOGUE[kind].label,
@@ -293,6 +312,7 @@ function applyCatalogueValue(id: string, artefactId: string, value: CatalogueVal
   const artefact = useChatLabStore.getState().sessions[id]?.artefacts[artefactId];
   const patch = artefact && catalogueArtefactPatch(artefact, value);
   if (!artefact || !patch) return;
+  written.add(artefactId);
   useChatLabStore.getState().updateArtefact(id, patch, artefactId);
 
   // Short results stay in the reply. A full document, or one asked for as a window, opens.
@@ -343,13 +363,16 @@ function syncCatalogue(id: string, userMessageId: string, replies: ChatLabMessag
             if (locked && locked.sourceUserMessageId !== userMessageId && artefactCatalogueKind(locked) === kind) continue;
           }
         }
+        const stuck = targetByCall.get(callId);
         const target =
-          named === "new"
+          (stuck ? useChatLabStore.getState().sessions[id]?.artefacts[stuck] : undefined) ??
+          (named === "new"
             ? newCatalogueTarget(id, userMessageId, kind, value.title, callId)
             : byId && artefactCatalogueKind(byId) === kind
               ? byId
-              : catalogueTarget(id, userMessageId, kind, value.title);
+              : catalogueTarget(id, userMessageId, kind, value.title));
         if (!target) continue;
+        targetByCall.set(callId, target.id);
         lastStreamedAt.set(id, now);
         appliedCalls.set(callId, signature);
         applyCatalogueValue(id, target.id, value);
@@ -459,6 +482,35 @@ function syncTracked(id: string, userMessageId: string, replies: ChatLabMessage[
  * finishes, everything it made is ticked off in the thread's Notes, as
  * "[x] Dinner party menu (Document)", unless the notes already say so.
  */
+/** What holds an interface's content, by key: with all of these empty, it holds nothing but its title and settings. */
+const CONTENT_KEYS = ["body", "rows", "items", "steps", "needs", "tasks", "blocks", "variations"];
+const holdsNothing = (value: object) => Object.entries(value).every(([key, part]) => !CONTENT_KEYS.includes(key) || (Array.isArray(part) ? part.length === 0 : typeof part === "string" ? !part.trim() : !part));
+
+/**
+ * At the end of a turn, an interface it made that's still empty goes: one
+ * opened and never filled (opened as one kind, filled as another), so a blank
+ * one never sits beside the real one. Not one a question this turn is for:
+ * that one fills when they answer.
+ */
+function dropEmptyMade(id: string, messages: ChatLabMessage[]) {
+  const { userMessageId, replies } = currentTurn(messages);
+  const session = useChatLabStore.getState().sessions[id];
+  if (!userMessageId || !session) return;
+  const askedFor = new Set(
+    replies.flatMap((message) =>
+      message.parts.flatMap((part) => {
+        const typed = part as { type?: string; toolName?: string; input?: { questions?: { for?: string }[] } };
+        return typed.type === "tool-ask" || (typed.type === "dynamic-tool" && typed.toolName === "ask") ? (typed.input?.questions ?? []).map((question) => question.for ?? "") : [];
+      }),
+    ),
+  );
+  for (const artefact of Object.values(session.artefacts)) {
+    if (artefact.sourceUserMessageId !== userMessageId || roleOf(artefact) !== "make" || askedFor.has(artefact.id)) continue;
+    const value = artefactCatalogueKind(artefact) ? artefactCatalogueValue(artefact) : null;
+    if (value && holdsNothing(value)) useChatLabStore.getState().deleteArtefact(id, artefact.id);
+  }
+}
+
 function noteWhatWasMade(id: string, messages: ChatLabMessage[]) {
   const { userMessageId } = currentTurn(messages);
   const session = useChatLabStore.getState().sessions[id];
@@ -472,7 +524,18 @@ function noteWhatWasMade(id: string, messages: ChatLabMessage[]) {
   const body = (notes.shell.data as { body: string }).body;
   const missing = lines.filter((line) => !body.toLowerCase().includes(line.slice(4, line.lastIndexOf(" (")).toLowerCase()));
   if (!missing.length) return;
-  const result = applyRoleTool("notes_add", notes.shell.data, { lines: missing });
+  // An open to-do for what was made ("[ ] Draft a menu" for the menu) is ticked, rather than a second line added
+  // beside it: it names the thing by the last word of its title (menu, list, recipe).
+  let rows = body.split("\n");
+  const unticked: string[] = [];
+  for (const line of missing) {
+    const thing = line.slice(4, line.lastIndexOf(" (")).trim().split(/\s+/).at(-1)?.toLowerCase() ?? "";
+    const at = thing.length > 2 ? rows.findIndex((row) => /^\[ \]\s/.test(row) && new RegExp(`\\b${thing.replace(/[^a-z0-9]/g, "")}s?\\b`, "i").test(row)) : -1;
+    if (at >= 0) rows = rows.map((row, i) => (i === at ? row.replace(/^\[ \]/, "[x]") : row));
+    else unticked.push(line);
+  }
+  const ticked = { ...(notes.shell.data as object), body: rows.join("\n") };
+  const result = unticked.length ? applyRoleTool("notes_add", ticked, { lines: unticked }) : { ok: true as const, data: ticked };
   if (!result.ok) return;
   useChatLabStore.getState().updateArtefact(id, { shell: { kind: "notes", data: result.data } as typeof notes.shell }, notes.id);
 }
@@ -482,7 +545,8 @@ function noteWhatWasMade(id: string, messages: ChatLabMessage[]) {
  * interface it's for (Serves 8 sets the Guide's Serves), and into the Notes as
  * a line when the thread keeps them. Returns what to send to the model.
  */
-export function applyAnswers(sessionId: string, key: string, questions: Question[], values: AnswerValue[]) {
+export function applyAnswers(sessionId: string, key: string, questions: Question[], given: (AnswerValue | undefined)[]) {
+  const values = given.map((value) => value ?? undefined);
   const store = useChatLabStore.getState();
   const notes = trackedArtefacts(sessionId).find((artefact) => artefact.shell?.kind === "notes");
   const lines: string[] = [];
@@ -500,10 +564,13 @@ export function applyAnswers(sessionId: string, key: string, questions: Question
     const result = applyRoleTool("notes_add", notes.shell.data, { lines });
     if (result.ok) store.updateArtefact(sessionId, { shell: { kind: "notes", data: result.data } as typeof notes.shell }, notes.id);
   }
-  store.setAnswers(sessionId, key, values);
+  store.setAnswers(sessionId, key, values.map((value) => value ?? null));
   // What they said, as their next message: "Yes", or "Serves: 8 people. Time: 1 hour."
   if (questions.length === 1 && questions[0]!.control === "confirm") return String(values[0]);
-  return questions.map((question, i) => `${question.label}: ${values[i] === undefined ? "–" : answerText(question, values[i]!)}`).join(". ");
+  // One left blank is theirs to leave: the model chooses it.
+  const answered = questions.flatMap((question, i) => (values[i] === undefined ? [] : [`${question.label}: ${answerText(question, values[i]!)}`]));
+  const open = questions.filter((_, i) => values[i] === undefined).map((question) => question.label);
+  return [...answered, ...(open.length ? [`${open.join(", ")}: you choose`] : [])].join(". ");
 }
 
 /** Pull this turn's tool calls into the interface it's working on. */
@@ -663,14 +730,32 @@ function interfaceCandidatesForRequest(
   return retrieveInterfaces(getMessageText(lastUser), 5);
 }
 
+/**
+ * A thread gets one round of questions. It's had it once the model has asked
+ * (the ask tool, in any earlier reply) or the home card settled choices before
+ * the thread began: after that the model goes ahead with sensible choices.
+ */
+export function questionsAsked(sessionId: string, messages: ChatLabMessage[]) {
+  const session = useChatLabStore.getState().sessions[sessionId];
+  if (session?.brief?.startsWith("Settled on the home card")) return true;
+  const lastUser = messages.map((message) => message.role).lastIndexOf("user");
+  return messages
+    .slice(0, Math.max(0, lastUser))
+    .some((message) => message.role === "assistant" && message.parts.some((part) => part.type === "tool-ask" || (part.type === "dynamic-tool" && (part as { toolName?: string }).toolName === "ask")));
+}
+
 /** Hybrid retrieval: the keyword half, with the catalogue, for the API to merge with a ranking by meaning. */
 function retrievalForRequest(sessionId: string, messages: ChatLabMessage[]) {
   const lastUser = [...messages].reverse().find((message) => message.role === "user");
   const session = useChatLabStore.getState().sessions[sessionId];
   const firstTurn = messages.filter((message) => message.role === "user").length === 1;
   if (!lastUser || (session?.fromChatCard && firstTurn)) return undefined;
+  // The reply it answers counts only when the message refers back to it: agreeing to what it offered ("do both")
+  // or asking for it in an interface ("add these"). Otherwise its words would retrieve for "Thanks!" too.
   const answered = messages.slice(0, messages.indexOf(lastUser)).reverse().find((message) => message.role === "assistant");
-  return retrievalInput(getMessageText(lastUser), answered ? getMessageText(answered) : "");
+  const answeredText = answered ? getMessageText(answered) : "";
+  const refersBack = ["offer", "into"].includes(makeIntent(getMessageText(lastUser), answeredText) ?? "");
+  return retrievalInput(getMessageText(lastUser), refersBack ? answeredText : "");
 }
 
 /**
@@ -730,6 +815,8 @@ export function getChatLabChat(id: string) {
         chatModes: chatModesForRequest(id, messages),
         tracked: trackedForRequest(id),
         open: openForRequest(id, artefact?.id),
+        questionsAsked: questionsAsked(id, messages),
+        fromCard: Boolean(useChatLabStore.getState().sessions[id]?.card) && messages.filter((message) => message.role === "user").length === 1,
       },
       };
     },
@@ -742,7 +829,10 @@ export function getChatLabChat(id: string) {
     onFinish: ({ messages, isAbort }) => {
       useChatLabStore.getState().saveMessages(id, messages);
       syncArtefact(id, messages);
-      if (!isAbort) noteWhatWasMade(id, messages);
+      if (!isAbort) {
+        dropEmptyMade(id, messages);
+        noteWhatWasMade(id, messages);
+      }
       const activity = useChatLabActivity.getState();
       // Chat is minimized: the reply shows above the input for a moment.
       if (!isAbort && activity.viewingId === id && isChatMinimized(id)) {

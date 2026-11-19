@@ -5,7 +5,7 @@ import { shellId, type GuideFact, type GuideNeed, type GuideShellData, type Guid
 import { ghostLabels, ghostsAfter } from "../ui/shell-accents";
 import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle, SHELL_BODY_PAD, SHELL_EDGE_X } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { DismissSuggestion, SuggestedBox, SuggestedText, placedSuggestions, suggestionsAfter, type PlacedSuggestion } from "../ui/suggested-chip";
+import { SuggestedText } from "../ui/suggested-chip";
 import { useAskedField } from "../ui/question-card";
 import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolPopover } from "../ui/shell-toolbar";
@@ -205,7 +205,6 @@ export function GuideShell({
   className,
   suggestions,
   suggested,
-  onDismissSuggestion,
 }: ShellProps<GuideShellData>) {
   const [cooking, setCooking] = useState(false);
   // Asked about in the chat: the control it fills lights up in the suggestion colour until it's answered.
@@ -314,31 +313,11 @@ export function GuideShell({
     </div>
   );
 
-  // Suggested steps go after the step they follow (or after the last), numbered in place.
-  // With no steps yet, the suggested ones are the method as it's written (all of them); otherwise two at most.
-  const stepsWhere = suggestionsAfter(
-    placedSuggestions(suggested?.steps, data.steps.map((step) => step.text)).slice(0, data.steps.length ? 2 : 6),
-    data.steps.map((step) => step.text),
-  );
-  // Real steps keep their numbers; a suggestion between them has none, one after the last takes the next.
-  const suggestedStep = (placed: PlacedSuggestion, at: number, number?: number) => (
-    <li key={placed.value} data-shell-part="suggest" className={cn("flex min-w-0 items-start gap-2.5", large && "rounded-[14px] px-4 py-3")}>
-      <span className={cn("shrink-0 pt-0.5 font-bureau text-gradient-suggest tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]")}>{number}</span>
-      <SuggestedText
-        text={placed.value}
-        onAccept={update && (() => update({ steps: [...data.steps.slice(0, at), { id: shellId("step"), text: placed.value, done: false }, ...data.steps.slice(at)] }))}
-        className={cn("min-w-0 flex-1 font-bureau leading-[1.5]", large ? "text-[14px]" : "h-6 truncate text-[12px] leading-6")}
-      />
-      {/* Its tick, empty, outlined in violet: what it gets once added. */}
-      <SuggestedBox shape="round" className={large ? "mt-0.5 size-[18px]" : "size-3.5 self-center"} />
-    </li>
-  );
   const steps = (
     <ol className={cn("flex flex-col", large ? "gap-2" : "gap-1")}>
-      {/* No steps yet: suggested steps fill the placeholders, numbered as they would be; what's left stays a placeholder. */}
-      {ghostSteps && stepsWhere.atEnd.map((placed, k) => suggestedStep(placed, k, k + 1))}
+      {/* No steps yet: placeholders where they'll go. A Guide takes no suggestions in place: it's followed as written. */}
       {ghostSteps &&
-        ghostsAfter("Step", stepsWhere.atEnd.length).map((label) => (
+        ghostsAfter("Step", 0).map((label) => (
           <li key={label} className={cn("flex items-center gap-2.5", large && "rounded-[14px] bg-shell-fill px-4 py-3")}>
             <span className={cn("font-bureau text-typography-secondary tabular-nums", large ? "w-5 text-[15px]" : "w-3 text-[11px]")}>{label.split(" ").pop()}</span>
             <span className={cn("font-bureau font-light text-typography-secondary", large ? "text-[14px]" : "text-[12px]")}>{label}</span>
@@ -346,7 +325,7 @@ export function GuideShell({
         ))}
       {data.steps.map((step, i) => {
         const isCurrent = i === current;
-        return [
+        return (
           <li
             key={step.id}
             className={cn(
@@ -392,11 +371,9 @@ export function GuideShell({
             {large && step.minutes ? <Timer key={`${step.id}-${step.minutes}`} minutes={step.minutes} /> : null}
             <Tick done={step.done} size={large ? "md" : "sm"} label={step.done ? "Mark step as not done" : "Mark step as done"} onToggle={update && (() => setStep({ ...step, done: !step.done }))} />
             {large && update && <Remove label={`Remove step ${i + 1}`} onRemove={() => update({ steps: data.steps.filter((s) => s.id !== step.id) })} />}
-          </li>,
-          ...stepsWhere.after(i).map((placed) => suggestedStep(placed, i + 1, i === data.steps.length - 1 ? data.steps.length + 1 : undefined)),
-        ];
+          </li>
+        );
       })}
-      {!ghostSteps && stepsWhere.atEnd.map((placed, k) => suggestedStep(placed, data.steps.length, data.steps.length + k + 1))}
     </ol>
   );
 
@@ -422,19 +399,6 @@ export function GuideShell({
       needs,
     });
   };
-  // A suggested thing to get goes after the one it follows (or at the end), ticked off like the rest once added.
-  const needsWhere = suggestionsAfter(placedSuggestions(suggested?.needs, data.needs.map((need) => need.text)).slice(0, 2), data.needs.map((need) => need.text));
-  const suggestedNeed = (placed: PlacedSuggestion, at: number, group?: string) => (
-    <li key={placed.value} data-shell-part="suggest" className="flex min-w-0 items-start gap-2 py-0.5">
-      <SuggestedBox shape="round" className="mt-[3px] size-3.5 shrink-0" />
-      <SuggestedText
-        text={placed.value}
-        onAccept={update && (() => update({ needs: [...data.needs.slice(0, at), { id: shellId("need"), text: placed.value, have: false, ...(group ? { group } : {}) }, ...data.needs.slice(at)] }))}
-        className="min-w-0 flex-1 px-1 font-bureau text-[13px] leading-[1.35]"
-      />
-      {onDismissSuggestion && <DismissSuggestion label={placed.value} onDismiss={() => onDismissSuggestion("needs", placed.value)} />}
-    </li>
-  );
   const standardTools = (
     <>
       <span
@@ -538,7 +502,7 @@ export function GuideShell({
                   <span className="font-bureau text-[13px] font-light text-typography-secondary">{label}</span>
                 </li>
               ))}
-            {data.needs.map((need, i) => [
+            {data.needs.map((need, i) => (
               <li key={need.id} className={cn("group flex min-w-0 flex-col", need.group && need.group !== data.needs[i - 1]?.group && i > 0 && "mt-2.5")}>
                 {need.group && need.group !== data.needs[i - 1]?.group && (
                   <span className="pb-0.5 font-bureau text-[11px] text-typography-secondary">{need.group}</span>
@@ -560,10 +524,8 @@ export function GuideShell({
                 />
                 {update && <Remove label={`Remove ${need.text || "item"}`} onRemove={() => update({ needs: data.needs.filter((n) => n.id !== need.id) })} />}
                 </span>
-              </li>,
-              ...needsWhere.after(i).map((placed) => suggestedNeed(placed, i + 1, need.group)),
-            ])}
-            {needsWhere.atEnd.map((placed) => suggestedNeed(placed, data.needs.length, placed.group ?? data.needs.at(-1)?.group))}
+              </li>
+            ))}
           </ul>
           {update && (
             <Add

@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
 import type { ShellKind, SuggestedGroup, SuggestedValues } from "@/features/interface-shells";
 
-/** Interfaces the suggestion pass has something to offer for (api/_ai-interface-suggest.ts). */
-export const SUGGESTABLE: ShellKind[] = ["document", "notes", "search", "table", "tracker", "schedule", "guide", "generator", "moodboard"];
-
-/** What an interface draws at each size, where it's less than all it can be offered: a Guide shows what you need only at large. */
-export function shownGroups(kind: ShellKind, size: string): SuggestedGroup[] | undefined {
-  if (kind === "guide" && size !== "large") return ["steps"];
-  return undefined;
-}
+/** Interfaces the suggestion pass has something to offer for (api/_ai-interface-suggest.ts). Not Guide: a recipe or how-to is followed as written, with no suggestions in it. */
+export const SUGGESTABLE: ShellKind[] = ["document", "notes", "search", "table", "tracker", "schedule", "generator", "moodboard"];
 
 /** Wait for the interface and the thread to settle before asking again. */
 const SETTLE_MS = 1500;
@@ -30,7 +24,6 @@ export function useContextSuggestions({
   context,
   on,
   dismissed,
-  groups,
 }: {
   kind: ShellKind;
   label: string;
@@ -38,12 +31,10 @@ export function useContextSuggestions({
   context?: string;
   on: boolean;
   dismissed: Partial<Record<SuggestedGroup, string[]>>;
-  /** Only these groups, the ones it shows at its size; all of them when unset. */
-  groups?: SuggestedGroup[];
 }): SuggestedValues | null {
   const [answer, setAnswer] = useState<{ for: string; suggested: SuggestedValues } | null>(null);
   const active = on && SUGGESTABLE.includes(kind);
-  const key = active ? `${kind}|${groups?.join(",") ?? ""}|${JSON.stringify(snapshot(data)).length}|${context?.length ?? 0}|${(context ?? "").slice(-200)}` : "";
+  const key = active ? `${kind}|${JSON.stringify(snapshot(data)).length}|${context?.length ?? 0}|${(context ?? "").slice(-200)}` : "";
 
   useEffect(() => {
     if (!active) return;
@@ -52,7 +43,7 @@ export function useContextSuggestions({
       fetch("/api/interface-suggest", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind, label, data: snapshot(data), context, ...(groups ? { groups } : {}) }),
+        body: JSON.stringify({ kind, label, data: snapshot(data), context }),
         signal: controller.signal,
       })
         .then((response) => (response.ok ? response.json() : null))

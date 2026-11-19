@@ -204,7 +204,7 @@ export type LayoutControls = {
   onChange: (change: LayoutChange) => void;
 };
 
-/** The glyph beside the navigation controls; opens the size and placement menu. */
+/** The glyph beside the navigation controls; opens Move to, the places it can go. */
 function LayoutButton({ instance, entry, controls }: { instance: WorkbenchInstance; entry: LayoutEntry; controls: LayoutControls }) {
   const [open, setOpen] = useState(false);
   const host = useWorkbenchHost();
@@ -247,7 +247,7 @@ function LayoutButton({ instance, entry, controls }: { instance: WorkbenchInstan
           preview={controls.preview}
           geometryOf={controls.geometryOf}
           onChange={(change) => {
-            controls.onChange(change);
+            if (change) controls.onChange(change);
             setOpen(false);
           }}
         />

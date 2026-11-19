@@ -175,7 +175,7 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
   const shownCard = card && card.interface.kind === "notes" ? withPickedLines(card, choices.picked) : card;
 
   const suggested: SuggestedValues = name.steps.length
-    ? { ...choices.suggested, ...(card?.interface.kind === "guide" ? { steps: name.steps } : card?.interface.kind === "schedule" ? { tasks: name.steps } : {}) }
+    ? { ...choices.suggested, ...(card?.interface.kind === "schedule" ? { tasks: name.steps } : {}) }
     : choices.suggested;
 
   const choose = (tileId: string, nextDraft: string) => {

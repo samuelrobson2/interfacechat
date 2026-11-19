@@ -117,7 +117,8 @@ export type ChatLabSession = {
   /** Interfaces the person closed: kept in the thread, out of the model's context until opened again. */
   closed?: string[];
   /** Answers to the model's questions, by the question's key (its tool call, or the reply for a yes-or-no). */
-  answers?: Record<string, AnswerValue[]>;
+  /** Answers to the model's questions, by reply; null where one was left for the model to choose. */
+  answers?: Record<string, (AnswerValue | null)[]>;
   createdAt: number;
   updatedAt: number;
 };
@@ -161,7 +162,7 @@ type ChatLabState = {
   /** Closed: out of the model's context. Opened again: back in. */
   setClosed: (sessionId: string, artefactId: string, closed: boolean) => void;
   /** The person's answers to a group of questions. */
-  setAnswers: (sessionId: string, key: string, values: AnswerValue[]) => void;
+  setAnswers: (sessionId: string, key: string, values: (AnswerValue | null)[]) => void;
   setLayout: (sessionId: string, layout: WorkspaceLayout) => void;
   setTurnTarget: (sessionId: string, userMessageId: string, artefactId: string) => void;
   deleteSession: (id: string) => void;

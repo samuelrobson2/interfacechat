@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/shared/ui/kit/tooltip";
-import { ChatAssistantMarkdown } from "./chat-assistant-markdown";
+import { ChatAssistantMarkdown, type RenderLink } from "./chat-assistant-markdown";
 
 export function ChatAssistantMessageLayout({
   className,
@@ -111,10 +111,13 @@ export function ChatAssistantMessage({
   answer,
   className,
   isStreaming = false,
+  renderLink,
 }: {
   messageId: string;
   answer: string;
   className?: string;
+  /** Links the host draws itself; others stay plain text. */
+  renderLink?: RenderLink;
   /**
    * True while the assistant message is still being streamed. Used by the
    * `numi-plot` code-block renderer to show a typed skeleton when the
@@ -131,7 +134,7 @@ export function ChatAssistantMessage({
       )}
       data-slot={`chat-answer-${messageId}`}
     >
-      <ChatAssistantMarkdown content={answer} isStreaming={isStreaming} />
+      <ChatAssistantMarkdown content={answer} isStreaming={isStreaming} renderLink={renderLink} />
     </div>
   );
 }

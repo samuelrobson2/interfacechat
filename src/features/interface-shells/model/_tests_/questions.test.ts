@@ -6,7 +6,9 @@ const targets = [{ id: "g1", kind: "guide" as const }, { id: "s1", kind: "schedu
 describe("questions", () => {
   it("binds a question to an interface's field, taking that field's control and unit", () => {
     const [question] = normalizeQuestions({ questions: [{ for: "g1", field: "serves", label: "Guests", ask: "How many are coming?", control: "text", guess: 8 }] }, targets);
-    expect(question).toMatchObject({ for: "g1", field: "serves", control: "number", unit: "people", guess: 8, min: 1 });
+    expect(question).toMatchObject({ for: "g1", field: "serves", control: "number", unit: "people", min: 1 });
+    // Nothing is pre-picked: a guess the model sends anyway isn't kept.
+    expect(question!.guess).toBeUndefined();
   });
 
   it("drops a question for an interface that isn't in play, keeps a plain one", () => {

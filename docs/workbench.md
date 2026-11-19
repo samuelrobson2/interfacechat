@@ -20,7 +20,7 @@ The workbench is the flexible workspace chat will become: the conversation is th
 - **The divider** between two large interfaces sets how they share the main area. Double-click it to even it out.
 - **Stacked or side by side.** Stacking only happens on the right, and only for medium or large: two mediums one above the other in the right column, or two large interfaces one above the other beside Chat's sidebar. It never spans the full page, either way: with nothing large open and Chat minimized, a column of two stacked mediums grows to half the page at most, not the full width; without Chat's sidebar on the left, two large interfaces sit side by side, and choosing Stacked brings Chat in as the sidebar. Stacked, the two large are half the height each, and Chat and the stack share the width half and half; the bar between Chat and the stack sets that (double-click to even it). Choose in either one's layout menu, or drag: drop an interface on the top or bottom half of a large one to stack with it (Chat moves into its sidebar if it was the page or minimized), or on its left or right half to put them side by side, sharing the width evenly. A drop onto a large interface wins over the side columns, except in a thin band at the page's edge, so it never ends up a medium with the other stretched to two thirds.
 - **Resizing.** A bar sits on each boundary you can move, with a small pill that darkens on hover: between two large side by side, beside the stack, and beside Chat's sidebar (Chat's width, `chatWidth`). Drag to resize; double-click to reset.
-- **Layout rules.** The grid icon in the top bar opens the arrangements the workbench allows, each drawn, with a switch: two medium stacked on the right, two medium stacked on the left, a medium alone filling its column, extended medium, two large side by side, two large stacked. A switch changes the workbench at once (size menus, drops, drawing) and is kept in the browser; Reset puts the defaults back (`model/workbench-rules.ts`, `ui/layout-rules-menu.tsx`). With side by side off, two large always stack; with stacking off, Stacked isn't offered.
+- **Layout rules.** The arrangements the workbench allows are settled and fixed in `model/workbench-rules.ts`: two medium stacked on the right (not the left), a lone medium staying half height at the top, extended medium, two extended medium side by side, and two large either side by side or stacked. There is no menu to change them.
 - **⌘Z** undoes a layout change and **⇧⌘Z** redoes it, unless a field has focus.
 
 ## Regions and sizes
@@ -65,7 +65,7 @@ Standard interfaces offer minimize, medium, extended medium and large. Chat offe
 - Navigation history is separate from a document's edit undo, its version history and the workspace's layout undo.
 - Chat has no navigation controls.
 
-## Layout glyph and size menu
+## Layout glyph and Move to menu
 
 - Each visible interface has a small glyph beside its navigation controls. It's drawn like macOS window tiling: a rounded outline of the workspace, with the interface's region filled and other regions faint.
 - The glyph is generated from layout state, so it shows size and position:
@@ -78,8 +78,9 @@ Standard interfaces offer minimize, medium, extended medium and large. Chat offe
 | Chat sidebar | A narrow full-height region on its side |
 | Minimized | A row of icons with one filled |
 
-- Clicking the glyph opens the size and placement menu. The current size is checked. Each option has its own glyph of where it would land, and names anything it would minimize ("Minimizes Table"). Left and Right move it to the other side or the other main slot.
-- Choosing an option runs the layout controller and its capacity rules.
+- Clicking the glyph opens **Move to**: one grid of places the interface can go, each drawn as the whole workspace after the move (this interface dark, Chat tinted, the rest white), with a short name under it ("Large, left", "Medium, right, top", "Extended medium, right"). Where it is now is marked. There's one choice to make, the place, rather than separate size, side and arrangement rows.
+- The places are the moves a drag could make (the main area alone, left, right, top or bottom; each side column full height, top or bottom), run through the layout controller and the layout rules. Two that land in the same spot are shown once, keeping the one that minimizes least. Hovering a place that would minimize something names it under the grid ("Minimizes Table").
+- Minimize isn't in the menu: it has its own button in the header (`model/workbench-placements.ts`, `ui/workbench-menus.tsx`).
 - The button's accessible name and tooltip say where it is, as in "Document: large, right. Change layout". The diagram is never the only cue.
 
 ## Interaction and motion

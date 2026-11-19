@@ -14,9 +14,6 @@
         "notes": [
           "^Goal:",
           "^When: next week"
-        ],
-        "calledAny": [
-          "ask"
         ]
       },
       "turns": [
@@ -34,6 +31,9 @@
             ],
             "notNotes": [
               "^When: next week"
+            ],
+            "notCalled": [
+              "ask"
             ]
           }
         },
@@ -56,15 +56,12 @@
             ],
             "inContext": [
               "Document"
-            ],
-            "notes": [
-              "\\(Guide\\)"
             ]
           }
         },
         {
           "do": "minimize document",
-          "say": "Add a dessert to the menu",
+          "say": "Add a cheese course to the menu",
           "expect": {
             "calledAny": [
               "update_interface",
@@ -127,7 +124,7 @@
           }
         },
         {
-          "say": "Move the lifestyle scenes to start at 10:30",
+          "say": "Move the lifestyle scenes to start at 11:15",
           "expect": {
             "calledAny": [
               "update_interface",
@@ -157,6 +154,9 @@
             ],
             "notes": [
               "6"
+            ],
+            "notCalled": [
+              "ask"
             ]
           }
         },
@@ -194,6 +194,9 @@
             ],
             "notes": [
               "6"
+            ],
+            "notCalled": [
+              "ask"
             ]
           }
         },

@@ -29,7 +29,7 @@ describe("sending the home card", () => {
       ],
       {},
     );
-    expect((sent.interface.data as { body: string }).body.split("\n")).toEqual(["Goal: dinner party", "For 10 guests", "Vegetarian"]);
+    expect((sent.interface.data as { body: string }).body.split("\n")).toEqual(["Goal: dinner party", "For 10 guests", "What style: no preference", "Vegetarian"]);
     expect(sent.brief).toContain("How many guests: 10");
     expect(sent.brief).toContain("What style: no preference");
     expect(sent.brief).toContain("Any diet needs: Vegetarian (the suggested answer, left as is)");

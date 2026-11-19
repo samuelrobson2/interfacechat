@@ -39,3 +39,21 @@ describe("compactArtifactHistory", () => {
     expect(JSON.stringify(later.slice(0, history.length))).toBe(JSON.stringify(once));
   });
 });
+
+describe("reasoning in the history", () => {
+  it("leaves out earlier turns' reasoning, and keeps the turn in progress's", async () => {
+    const { compactArtifactHistory } = await import("../artifact-history");
+    const reasoning = (text: string) => ({ type: "reasoning" as const, text });
+    const messages = [
+      { role: "user" as const, content: [{ type: "text" as const, text: "Make the menu" }] },
+      { role: "assistant" as const, content: [reasoning("Thinking about the menu"), { type: "text" as const, text: "Done." }] },
+      { role: "assistant" as const, content: [reasoning("Only thinking")] },
+      { role: "user" as const, content: [{ type: "text" as const, text: "Thanks" }] },
+      { role: "assistant" as const, content: [reasoning("Working now")] },
+    ];
+    const out = compactArtifactHistory(messages as never, { writes: [] });
+    expect(out.map((message) => message.role)).toEqual(["user", "assistant", "user", "assistant"]);
+    expect(JSON.stringify(out[1])).not.toContain("Thinking about the menu");
+    expect(JSON.stringify(out[3])).toContain("Working now");
+  });
+});

@@ -555,11 +555,11 @@ export type ShellProps<D> = {
 /**
  * Groups of values an interface can show suggestions in: Search's and Map's
  * filters, Generator's tones, styles and lengths, Schedule's constraints,
- * a Table's columns, a Tracker's items, a Guide's needs, a Moodboard canvas's notes, and text
+ * a Table's columns, a Tracker's items, a Moodboard canvas's notes, and text
  * offered in place: a Document's next sentences, a Guide's next steps, a
  * Schedule's next lines.
  */
-export const SUGGESTED_GROUPS = ["filters", "tones", "styles", "lengths", "constraints", "columns", "items", "notes", "text", "steps", "needs", "tasks", "serves", "time"] as const;
+export const SUGGESTED_GROUPS = ["filters", "tones", "styles", "lengths", "constraints", "columns", "items", "notes", "text", "steps", "tasks", "serves", "time"] as const;
 export type SuggestedGroup = (typeof SUGGESTED_GROUPS)[number];
 /**
  * One suggestion. Plain words go at the end of their list; a suggestion can

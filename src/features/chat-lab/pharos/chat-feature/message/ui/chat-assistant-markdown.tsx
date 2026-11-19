@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -11,7 +12,10 @@ import { PLOT_LANGUAGE, parsePlot } from "../../plot/model/plot-schema";
 const block = "mb-2 last:mb-0";
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-const createComponents = (isStreaming: boolean): Components => {
+/** Draws a link the host knows (an offer to make something); anything else stays plain text. */
+export type RenderLink = (href: string | undefined, children: ReactNode) => ReactNode | null;
+
+const createComponents = (isStreaming: boolean, renderLink?: RenderLink): Components => {
   const paragraph: Components["p"] = ({ node, color, ...rest }) => (
     <p {...rest} className={block} />
   );
@@ -37,7 +41,7 @@ const createComponents = (isStreaming: boolean): Components => {
     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
     em: ({ children }) => <em className="italic">{children}</em>,
     del: ({ children }) => <>{children}</>,
-    a: ({ children }) => <>{children}</>,
+    a: ({ href, children }) => <>{renderLink?.(href, children) ?? children}</>,
     hr: () => null,
     img: () => null,
     input: () => null,
@@ -67,15 +71,17 @@ const createComponents = (isStreaming: boolean): Components => {
 export function ChatAssistantMarkdown({
   content,
   isStreaming = false,
+  renderLink,
 }: {
   content: string;
   isStreaming?: boolean;
+  renderLink?: RenderLink;
 }) {
   return (
     <div className="relative min-w-0">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={createComponents(isStreaming)}
+        components={createComponents(isStreaming, renderLink)}
       >
         {content}
       </ReactMarkdown>

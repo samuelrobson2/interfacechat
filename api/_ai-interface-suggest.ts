@@ -24,10 +24,6 @@ const OFFERS: Record<string, Record<string, string>> = {
     tasks: "a missing block of the day, a few words, placed after the task it follows",
     constraints: "a limit to plan around that the thread implies (Loft from 8am)",
   },
-  guide: {
-    steps: "a missing step, in the imperative, placed after the step it follows",
-    needs: "a missing ingredient, part or piece of equipment, with its amount (2 tbsp tomato purée), placed after the item it follows and in its group",
-  },
   generator: { tones: "a tone (Warm, Wry)", styles: "a style (Cinematic, Risograph)", lengths: "a length (One line, Under 6 words)" },
   moodboard: { notes: "a short note on the look (Soft daylight)" },
 };
@@ -40,11 +36,8 @@ const suggestion = z.object({
 
 export async function POST(req: Request) {
   if (apiKeyMissing()) return configError();
-  const { kind, label, data, context, groups }: { kind?: string; label?: string; data?: unknown; context?: string; groups?: string[] } = await req.json();
-  // Only what the interface shows at its size: a medium plus Guide draws its steps, not what you need.
-  const all = kind ? OFFERS[kind] : undefined;
-  const shown = all && groups?.length ? Object.fromEntries(Object.entries(all).filter(([group]) => groups.includes(group))) : all;
-  const offers = shown && Object.keys(shown).length ? shown : undefined;
+  const { kind, label, data, context }: { kind?: string; label?: string; data?: unknown; context?: string } = await req.json();
+  const offers = kind ? OFFERS[kind] : undefined;
   if (!kind || !offers) return new Response(JSON.stringify({ suggested: {} }), { headers: { "content-type": "application/json" } });
   // One suggestion, always, in whichever of its kinds fits best: more than one is a lot to take in, and
   // leaving the model a way to offer nothing meant most interfaces showed none. Dismissing it is one tap.
@@ -57,7 +50,7 @@ export async function POST(req: Request) {
       model: openai(chatLabModel()),
       schema,
       providerOptions: { openai: { strictJsonSchema: false, reasoningEffort: "none" } },
-      system: `Suggest the one most useful thing to add to this ${label ?? kind}, about what it holds: the next step in a recipe, a missing ingredient, the missing item on a list, the column a table needs. Read the thread only to make it fit (their guests, their dates, their diet); don't bring in things that belong elsewhere. Never suggest what it already has, in any wording. Check its parts against each other first: something a step uses that the list doesn't have, a gap between two steps, a column the rows imply. Specific, never a stock example. Plain words, no emoji.`,
+      system: `Suggest the one most useful thing to add to this ${label ?? kind}, about what it holds: the next step in a plan, the missing item on a list, the column a table needs. Read the thread only to make it fit (their guests, their dates, their diet); don't bring in things that belong elsewhere. Never suggest what it already has, in any wording. Check its parts against each other first: something a step uses that the list doesn't have, a gap between two steps, a column the rows imply. Specific, never a stock example. Plain words, no emoji.`,
       prompt: `The thread so far:\n${(context ?? "").slice(0, 6000) || "(nothing yet)"}\n\nThe ${label ?? kind} as it is now (JSON):\n${JSON.stringify(data).slice(0, 8000)}`,
     });
     const result = object as { group: string | null; suggestion: z.infer<typeof suggestion> | null };

@@ -11,7 +11,7 @@ import type { ModelMessage } from "ai";
  * what it did, but its contents are replaced by a fixed note naming only the
  * title and id. The note is the same bytes every turn, and a call's note never
  * changes once written, so the whole history before the latest turn stays a
- * cacheable prefix.
+ * cacheable prefix. The model's reasoning from earlier turns is left out too.
  *
  * Read by the chat API (`api/_ai-chat-lab.ts`), so it imports only types.
  */
@@ -28,6 +28,14 @@ type ToolCallPart = { type: "tool-call"; toolName: string; input: unknown };
 const isToolCall = (part: unknown): part is ToolCallPart =>
   typeof part === "object" && part !== null && (part as { type?: unknown }).type === "tool-call";
 
+/** A part without the provider's id for its stored item: sent as content, not as a reference to that item. */
+function withoutStoredId(part: unknown): unknown {
+  const options = (part as { providerOptions?: { openai?: Record<string, unknown> } }).providerOptions;
+  if (!options?.openai || !("itemId" in options.openai)) return part;
+  const openai = Object.fromEntries(Object.entries(options.openai).filter(([key]) => key !== "itemId"));
+  return { ...(part as object), providerOptions: { ...options, openai } };
+}
+
 /** What names the interface a write went to: its title, and its id when the call gave one. */
 function nameOf(input: unknown) {
   const fields = (input ?? {}) as { title?: unknown; id?: unknown };
@@ -39,14 +47,30 @@ function nameOf(input: unknown) {
 
 export function compactArtifactHistory(messages: ModelMessage[], { writes }: ArtifactTools): ModelMessage[] {
   const names = new Set(writes);
-  return messages.map((message) => {
-    if (message.role !== "assistant" || !Array.isArray(message.content)) return message;
+  // The model's reasoning matters within its own turn; from earlier turns it's thousands of characters a reply,
+  // resent every turn, that the model doesn't use. The turn in progress (after the latest message) keeps it.
+  // Without it, an earlier part can't be a reference to the provider's stored item (which would need its
+  // reasoning), so it goes as plain content; and a built-in search's call and results go too, as the reply says
+  // what it found.
+  const current = messages.map((message) => message.role).lastIndexOf("user");
+  return messages.flatMap((message, index) => {
+    if (index < current && (message.role === "assistant" || message.role === "tool") && Array.isArray(message.content)) {
+      const content = (message.content as unknown[]).flatMap((part) => {
+        const typed = part as { type?: unknown; providerExecuted?: unknown };
+        if (typed.type === "reasoning" || typed.providerExecuted === true) return [];
+        const plain = withoutStoredId(part);
+        return [isToolCall(plain) && names.has(plain.toolName) ? { ...plain, input: { ...nameOf(plain.input), note: LEFT_OUT } } : plain];
+      });
+      return content.length ? [{ ...message, content } as ModelMessage] : [];
+    }
+    if (message.role !== "assistant" || !Array.isArray(message.content)) return [message];
     let changed = false;
-    const content = message.content.map((part) => {
-      if (!isToolCall(part) || !names.has(part.toolName)) return part;
+    const content = message.content.flatMap((part) => {
+      if (!isToolCall(part) || !names.has(part.toolName)) return [part];
       changed = true;
-      return { ...part, input: { ...nameOf(part.input), note: LEFT_OUT } };
+      return [{ ...part, input: { ...nameOf(part.input), note: LEFT_OUT } }];
     });
-    return changed ? ({ ...message, content } as ModelMessage) : message;
+    if (!changed) return [message];
+    return content.length ? [{ ...message, content } as ModelMessage] : [];
   });
 }

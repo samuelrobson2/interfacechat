@@ -1,6 +1,5 @@
 import {
   CHART_TYPE_META,
-  catalogueFields,
   isCatalogueKind,
   SHELL_ROUTE_FLOOR,
   scoreProfile,
@@ -531,8 +530,8 @@ function libraryCandidateText(kind: ShellKind, profile: ShellRetrieval) {
   return [
     profile.description.trim(),
     profile.notFor.trim() && `Not for: ${profile.notFor.trim()}`,
-    // A catalogue interface's fields come from the schema the model fills.
-    `Parts: ${isCatalogueKind(kind) ? catalogueFields(kind) : shellPartsSummary(kind)}.`,
+    // A catalogue interface's fields are in the schema of the tool that fills it: no need to say them twice.
+    !isCatalogueKind(kind) && `Parts: ${shellPartsSummary(kind)}.`,
     examples.length && `Opens for: ${examples.map((q) => `"${q}"`).join(", ")}.`,
     nearMisses.length && `Does not open for: ${nearMisses.map((q) => `"${q}"`).join(", ")}.`,
   ]
@@ -618,6 +617,19 @@ export function matchVisualInterface(
 ): VisualInterfaceKind | null {
   const best = rankInterfaces(draft)[0];
   return best && best.score >= SHELL_ROUTE_FLOOR ? best.item.id : null;
+}
+
+/**
+ * The interface a thing the assistant offered would be made as, for its icon
+ * on a clickable offer: "shot list" → Table, "menu" → Document. Only the ones
+ * the chat makes; null when nothing clearly fits, so the words stay plain.
+ */
+export function interfaceForThing(thing: string): ShellKind | null {
+  const best = rankInterfaces(thing).find((entry) => {
+    const kind = libraryKindOf(entry.item.id);
+    return kind !== null && isCatalogueKind(kind);
+  });
+  return best ? libraryKindOf(best.item.id) : null;
 }
 
 /** Exactly three shells: the ambient set, with a non-ambient match swapping in. */

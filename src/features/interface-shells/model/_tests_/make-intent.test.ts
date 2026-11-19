@@ -14,6 +14,9 @@ describe("a turn that asks for something to be made", () => {
     expect(asksToMake("Yes sounds good. can you do both?", OFFER)).toBe(true);
     expect(asksToMake("Sure", OFFER)).toBe(true);
     expect(asksToMake("go ahead", MADE_AS_TEXT)).toBe(true);
+    // As offers are really worded.
+    expect(asksToMake("Yes sounds good. can you do both?", "Got it, a fancy menu for 6. Next I’d turn that into the shopping list.")).toBe(true);
+    expect(asksToMake("Sure", "Want me to suggest a menu?")).toBe(true);
   });
 
   it("is asking for something to go into an interface", () => {
@@ -48,5 +51,32 @@ describe("why a turn asks to make something", () => {
     expect(makeIntent("can you add these to interfaces")).toBe("into");
     expect(makeIntent("Yes sounds good. can you do both?", OFFER)).toBe("offer");
     expect(makeIntent("Why is the sky blue?")).toBeNull();
+  });
+});
+
+describe("a message that only tells", () => {
+  it("gives facts, asks for nothing, so it makes nothing new", async () => {
+    const { onlyTells } = await import("../make-intent");
+    for (const text of ["8 of us, one vegetarian, relaxed. Saturday at 7pm.", "6 guests, no dietary restrictions, fancy, medium budget, meat main"]) expect(onlyTells(text), text).toBe(true);
+    for (const text of ["Make the menu", "What would you put on the menu?", "I need a packing list for Japan", "Yes sounds good. can you do both?", "Help me organize food"]) expect(onlyTells(text), text).toBe(false);
+  });
+});
+
+describe("what an offer names", () => {
+  it("finds each thing offered, where its words are", async () => {
+    const { offeredThings } = await import("../make-intent");
+    const cases: [string, string[]][] = [
+      ["If you want, I can turn this into a tighter shoot schedule or a shot list next.", ["tighter shoot schedule", "shot list"]],
+      ["Next I can draft a menu for you, then turn it into a shopping list.", ["menu", "shopping list"]],
+      ["If you want, I can next turn this into a timed prep plan so the cooking is easier on the day.", ["timed prep plan"]],
+      ["Want me to make a menu and a shopping list?", ["menu", "shopping list"]],
+      ["Got it, a fancy menu for 6. Next I’d turn that into the shopping list.", ["shopping list"]],
+      ["The menu is set. Have a lovely dinner!", []],
+      ["Great, I’d plan it around five setups, with the product shots first.", []],
+    ];
+    for (const [text, expected] of cases) {
+      const found = offeredThings(text);
+      expect(found.map((thing) => text.slice(thing.start, thing.end)), text).toEqual(expected);
+    }
   });
 });

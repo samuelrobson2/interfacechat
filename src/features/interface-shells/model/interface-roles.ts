@@ -72,19 +72,43 @@ const linesOf = (body: string) => body.split("\n").map((line) => line.trim()).fi
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 /** Labels for what passes (a question once answered, a next step once done): a rewrite may drop these. */
 const TRANSIENT = new Set(["open", "next", "todo", "to do", "question"]);
+/**
+ * A line that's really a thing to make: a long run of items (a shopping list, a
+ * packing list) belongs in its own interface, not the notes. A decision that
+ * names a few things (Menu: salad; lamb; tart) is fine.
+ */
+const LIST_ITEMS = 8;
+const listInLine = (line: string) => line.slice(line.indexOf(":") + 1).split(/[,;]/).filter((item) => item.trim()).length > LIST_ITEMS;
+const listError = (line: string) =>
+  `"${line.slice(0, 60)}…" is a list of things, which Notes doesn't hold: make it as its own interface (a Checklist for things to buy or do) and note only what it settles.`;
+
+/** The heading the to-dos sit under, last: what's left to do, apart from what's known. */
+export const TODO_HEADING = "## To do";
+const isTodo = (line: string) => /^\[( |x)\]\s/i.test(line);
+/**
+ * The notes as they're kept: what's known first (the goal, facts, decisions,
+ * what's open), then the to-dos together under their heading, done or not.
+ * Every notes tool writes through this, so the two never mix.
+ */
+export function withTodosLast(lines: string[]): string {
+  const notes = lines.filter((line) => !isTodo(line) && !same(line, TODO_HEADING));
+  const todos = lines.filter(isTodo);
+  return [...notes, ...(todos.length ? [TODO_HEADING, ...todos] : [])].join("\n");
+}
+
 /** A note's label ("when" in "When: Saturday"), if it has one. */
 const labelOf = (line: string) => line.match(/^\s*([^:]{1,24}):\s/)?.[1]?.trim().toLowerCase() ?? null;
 
 const notesTrack: RoleSpec<NotesShellData> = {
   rules: [
     "Notes is the thread's working memory: one note a line, plain words, 'Label: value' where there's a label (When: Saturday at 7pm; Guests: 8, one vegetarian).",
-    "It reads top to bottom in this order: the goal; the facts; the decisions (Menu: …); what's next, as a short checklist ('[ ] Make the shopping list', '[x]' once it's done); then what's still open ('Open: …', a few at most). Status lives here: there's no separate tracker unless they ask for one.",
+    "It reads top to bottom: the goal; the facts; the decisions (Menu: …); what's still open ('Open: …', a few at most). Your to-dos go apart from the notes, as '[ ] Make the shopping list' ('[x]' once done); they're kept last under 'To do' for you. Status lives here: there's no separate tracker unless they ask for one.",
     "Keep it short and in that order as it grows: when lines are out of order, repeated, or no longer matter (an answered question, a step that's done and no longer useful), rewrite it with notes_rewrite. Facts are never dropped, only merged or made more exact.",
     "A line can take a style from how it starts, as in Apple Notes: '## ' a heading, '- ' a bullet, '1. ' numbered, '[ ] ' a to-do ('[x] ' done), with **bold** inside a line. Facts stay as plain 'Label: value' lines.",
     "Don't copy into Notes what another interface holds (a recipe's steps, a schedule's times): each thing lives in one place; the notes say only what it settles.",
     "Never add a line that repeats a fact already there under another label (Where and Location are the same fact); change that line instead if it's now more exact.",
-    "Notes holds facts, decisions, what's next and what's open, never the things you make. When they ask for something, make it as its own interface (open it and fill it), then note what it settles and tick it off in what's next.",
-    "While the goal is still being worked out, don't make anything unasked: ask about what's open, a couple of things at a time, and offer what you could make from the notes next (a menu, a shopping list, a schedule, a shot list), by name. A question whose answer is the thing itself (what's on the menu, what to buy) asks for it.",
+    "Notes holds facts, decisions, what's next and what's open, never the things you make (no shopping list or menu written out in a line). When they ask for something, make it as its own interface (open it and fill it), then note what it settles and tick it off in what's next.",
+    "While the goal is still being worked out, don't make anything unasked: ask about what's open (once, see Asking), and offer what you could make from the notes next (a menu, a shopping list, a schedule, a shot list), by name. A question whose answer is the thing itself (what's on the menu, what to buy) asks for it.",
   ],
   contents: (data) => `Notes "${data.title}":\n${data.body.trim() || "(empty)"}`,
   tools: [
@@ -94,6 +118,8 @@ const notesTrack: RoleSpec<NotesShellData> = {
       input: z.object({ lines: z.array(z.string()).min(1).describe('Lines to add, as "Label: value" where there is a label') }),
       apply: (data, input: { lines: string[] }) => {
         // One line per label: a newer "When: Saturday 7pm" replaces "When: next week". "Open:" lines are many.
+        const list = input.lines.find(listInLine);
+        if (list) return { ok: false, error: listError(list) };
         let lines = linesOf(data.body);
         let added = 0;
         let changed = 0;
@@ -110,7 +136,7 @@ const notesTrack: RoleSpec<NotesShellData> = {
           }
         }
         if (!added && !changed) return { ok: true, data, summary: "Already in the notes." };
-        return { ok: true, data: { ...data, body: lines.join("\n") }, summary: [added && `Added ${added}`, changed && `updated ${changed}`].filter(Boolean).join(", ") + " line(s)." };
+        return { ok: true, data: { ...data, body: withTodosLast(lines) }, summary: [added && `Added ${added}`, changed && `updated ${changed}`].filter(Boolean).join(", ") + " line(s)." };
       },
     },
     {
@@ -127,9 +153,11 @@ const notesTrack: RoleSpec<NotesShellData> = {
           const label = labelOf(line);
           return label && !TRANSIENT.has(label) && !kept.has(label) && !after.some((next) => next.toLowerCase().includes(line.slice(line.indexOf(":") + 1).trim().toLowerCase()));
         });
+        const list = after.find((line) => listInLine(line) && !before.includes(line));
+        if (list) return { ok: false, error: listError(list) };
         if (lost.length) return { ok: false, error: `That would lose these facts: ${lost.join("; ")}. Keep them (merged or more exact is fine), or change one with notes_change if it's wrong.` };
         if (!after.length) return { ok: false, error: "The notes can't be empty." };
-        return { ok: true, data: { ...data, body: after.join("\n") }, summary: `Rewrote the notes: ${before.length} lines to ${after.length}.` };
+        return { ok: true, data: { ...data, body: withTodosLast(after) }, summary: `Rewrote the notes: ${before.length} lines to ${after.length}.` };
       },
     },
     {
@@ -143,9 +171,10 @@ const notesTrack: RoleSpec<NotesShellData> = {
         const lines = linesOf(data.body);
         const at = lines.findIndex((line) => line.toLowerCase().startsWith(input.line.trim().toLowerCase()));
         if (at < 0) return { ok: false, error: `No line starts with "${input.line}". The notes are:\n${lines.join("\n")}` };
+        if (listInLine(input.to)) return { ok: false, error: listError(input.to) };
         if (!input.to.trim() && !/^open:/i.test(lines[at]!)) return { ok: false, error: "Only an answered 'Open:' line can be removed; change the line instead." };
         const next = input.to.trim() ? lines.map((line, i) => (i === at ? input.to.trim() : line)) : lines.filter((_, i) => i !== at);
-        return { ok: true, data: { ...data, body: next.join("\n") }, summary: `Changed "${lines[at]}".` };
+        return { ok: true, data: { ...data, body: withTodosLast(next) }, summary: `Changed "${lines[at]}".` };
       },
     },
   ],

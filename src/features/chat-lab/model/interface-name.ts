@@ -5,7 +5,7 @@ import type { ChatShellKind } from "@/features/interface-shells";
  * The card names itself from the request at once, without the model
  * (`parsePrompt`). One small call (`/api/interface-title`) runs only when it's
  * needed: to condense a name that came out very long, and for the interfaces
- * made of steps (Guide, Schedule) to write their first few steps, which the
+ * made of steps (a Schedule; not a Guide, which takes no suggestions) to write its first few steps, which the
  * card adds one at a time as suggestions. Waits for a pause in typing; a newer
  * request replaces it.
  */
@@ -18,7 +18,7 @@ const LONG_CHARS = 42;
 const LONG_WORDS = 7;
 export const tooLongForTitle = (title: string) => title.length > LONG_CHARS || title.trim().split(/\s+/).length > LONG_WORDS;
 /** Interfaces that start with steps the model writes. */
-const STEPPED: ChatShellKind[] = ["guide", "schedule"];
+const STEPPED: ChatShellKind[] = ["schedule"];
 /** Interfaces whose title is their name (Search's is its query, Chat's the message). */
 const NAMED: ChatShellKind[] = ["notes", "document", "table", "schedule", "tracker", "reader", "guide", "generator", "dashboard", "calendar", "moodboard", "chart"];
 

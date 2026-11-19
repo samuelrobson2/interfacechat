@@ -31,7 +31,7 @@ import {
 import type { InterfaceRole, ShellKind } from "../src/features/interface-shells/model/shell-types.js";
 import { askableFields, askInputSchema, normalizeQuestions } from "../src/features/interface-shells/model/questions.js";
 import { CHART_BLOCK, chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT, wantsChart } from "./_chat-lab.js";
-import { ALWAYS_MAKEABLE, makeIntent } from "../src/features/interface-shells/model/make-intent.js";
+import { ALWAYS_MAKEABLE, makeIntent, onlyTells } from "../src/features/interface-shells/model/make-intent.js";
 import { hybridCandidates, type RetrievalInput } from "./_interface-retrieval.js";
 import { compactArtifactHistory } from "../src/features/chat-lab/model/artifact-history.js";
 import {
@@ -94,7 +94,7 @@ function askAddon(targets: { id: string; kind: ShellKind; label: string; title: 
     const fields = askableFields(target.kind);
     return fields.length ? [`- id=${target.id} (${target.label} "${target.title}"): ${fields.join(", ")}.`] : [];
   });
-  return `Asking: when you need something from them that's a pick, a yes or no, a number, a time or a date, ask with the ask tool, never as a question in your text. At most three at once, only what they'd know offhand, each with your best guess; then stop and wait for the answer. Keep them light to read: a question of five words or fewer (How many guests?), options of one or two words, no units or examples in the words (the control shows them). If they skip, go with your guesses.
+  return `Asking: you get one round of questions in this thread, so ask everything that matters at once (at most three, only what they'd know offhand), with the ask tool, never as a question in your text; after it you go ahead with sensible choices. Asking ends your turn, so first record what they've just told you (in the tracked interfaces). Keep them light: a question of five words or fewer (How many guests?), options of one or two words, no units or examples in the words. What they leave blank or skip is yours to choose.
 What can be asked, and where the answer goes:
 ${[...lines, '- for "chat": a plain question (confirm for yes or no, choose for options, text otherwise).'].join("\n")}`;
 }
@@ -288,13 +288,6 @@ Routing rules:
 - If the user is just chatting, reply in chat only and skip write_interface.`;
 };
 
-/**
- * The catalogue interfaces this turn could open. Each brings its own guidance,
- * so the prompt only carries how to write the interfaces actually on offer.
- */
-const retrievedCatalogueKinds = (interfaces: InterfaceCandidate[]) =>
-  CATALOGUE_KINDS.filter((kind) => interfaces.some((candidate) => candidate.opensAs === kind));
-
 const candidatesSystemAddon = (candidates: InterfaceCandidate[], standing: InterfaceCandidate[] = []) => {
   const retrievedOnes = candidates.filter((candidate) => candidate.layer !== "format");
   const interfaces = [...retrievedOnes, ...standing];
@@ -319,11 +312,10 @@ ${standing.map((candidate) => `- id="${candidate.id}" (${candidate.label}) → o
   Keep the chat reply short.
 - For search, call web_search before write_interface, and write one result per
   line as "- [Title](https://source.url) — one-sentence finding".
-${retrievedCatalogueKinds(interfaces).flatMap((kind) => CATALOGUE[kind].guidance.map((line) => `- ${CATALOGUE[kind].label}: ${line}`)).join("\n")}
-- Call open_interface at most once a turn. One interface per thing asked for: when they
-  ask for more than one (two versions, one for each guest, a vegan and a normal one), call
-  the fill tool once for each, with id "new" for each one after the first. Never say you
-  only have room for one: each "new" fill adds another.
+- One interface per thing asked for: when they ask for more than one (a menu and a shopping
+  list, a vegan and a normal one), make each, calling its fill tool once (a fill makes it;
+  opening first is optional), with id "new" for each one after the first of the same kind.
+  Never put one in an interface and write the other in your reply.
 - Don't say where the interface is on screen (no "side panel" or "on the right"):
   the user places it. Refer to it by what it is, as in "the table".`
     : "";
@@ -395,6 +387,8 @@ export async function POST(req: Request) {
     chatModes,
     tracked: trackedInput,
     open: openInput,
+    questionsAsked,
+    fromCard,
     retrieval,
   }: {
     messages: UIMessage[];
@@ -404,6 +398,10 @@ export async function POST(req: Request) {
     tracked?: TrackedContext[] | null;
     /** Every other interface open beside the chat. */
     open?: OpenContext[] | null;
+    /** The thread has had its one round of questions (asked before, or settled on the home card). */
+    questionsAsked?: boolean;
+    /** The thread's first turn, started from an interface's card on the home page. */
+    fromCard?: boolean;
     /** Hybrid retrieval: the app's keyword ranking and catalogue, merged here with a ranking by meaning. */
     retrieval?: RetrievalInput | null;
     interfaceCandidates?: InterfaceCandidate[] | null;
@@ -415,10 +413,24 @@ export async function POST(req: Request) {
   // The interfaces this turn could make: keywords and meaning merged when the app sends both, else its own list.
   const retrieved = retrieval ? await hybridCandidates(retrieval) : null;
   if (retrieved) console.log(`  [ai:retrieval] ${retrieved.trace}`);
-  const candidates = (retrieved?.candidates as InterfaceCandidate[] | undefined) ?? interfaceCandidates?.slice(0, 5) ?? [];
-  // The everyday interfaces are always makeable, after what retrieval ranked for this turn: a turn that refers
-  // back ("do both", "add these to interfaces") names nothing retrieval can find, and still has to make them.
-  const standing: InterfaceCandidate[] = (retrieval?.catalogue ?? [])
+  // Whether this turn asks for something to be made: it says so, agrees to what was offered, or asks for an interface.
+  const lastAsk = [...messages].reverse().find((message) => message.role === "user");
+  const askText = (lastAsk?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
+  // The assistant's message it answers: "Yes, do both" makes what that message offered.
+  const answered = lastAsk ? messages.slice(0, messages.lastIndexOf(lastAsk)).reverse().find((message) => message.role === "assistant") : undefined;
+  const answeredText = (answered?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
+  // A plain "make" forces an interface only when retrieval found one that fits ("Write me a haiku" stays in chat);
+  // agreeing to an offer, or asking for an interface, always does.
+  const intent = makeIntent(askText, answeredText);
+  // Nothing new is made unless something is asked for: not on the first turn from a home card (they chose its
+  // interface there), and not when the message only gives facts ("8 of us, Saturday at 7pm"). What's open can
+  // still change.
+  const cardOnly = intent === null && (fromCard || onlyTells(askText));
+  const candidates = cardOnly ? [] : ((retrieved?.candidates as InterfaceCandidate[] | undefined) ?? interfaceCandidates?.slice(0, 5) ?? []);
+  // When the turn asks to make something, the everyday interfaces can be made too, after what retrieval ranked:
+  // a turn that refers back ("do both", "add these to interfaces") names nothing retrieval can find. A turn that
+  // doesn't ask (a fact, a question) only has what retrieval found for it.
+  const standing: InterfaceCandidate[] = (intent === null ? [] : (retrieval?.catalogue ?? []))
     .filter((entry) => (ALWAYS_MAKEABLE as readonly string[]).includes(entry.id) && !candidates.some((candidate) => candidate.id === entry.id))
     .map((entry) => ({ id: entry.id, label: entry.label, description: entry.description, opensAs: entry.opensAs, layer: "interface" }) as InterfaceCandidate);
   const makeable = [...candidates.filter((candidate) => candidate.layer !== "format"), ...standing];
@@ -478,7 +490,8 @@ export async function POST(req: Request) {
         ? `To make something new rather than change what's open (a recipe while the menu is open):${candidatesSystemAddon(candidates.filter((candidate) => candidate.layer !== "format"), standing)}`
         : null,
     roleRules,
-    askAddon(askTargets),
+    // One round of questions a thread: once it's had it, there's no ask tool and nothing about asking.
+    questionsAsked ? "You've had your one round of questions, so don't ask any more: where something's still open, choose sensibly and say what you chose. That's no reason to make what they haven't asked for: offer it by name instead." : askAddon(askTargets),
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -506,6 +519,10 @@ export async function POST(req: Request) {
       ...CATALOGUE_KINDS.filter((kind) => makeable.some((candidate) => candidate.opensAs === kind)),
     ]),
   ];
+  // Kinds only the always-makeable list offers (nothing in view or retrieved is that kind): their fill tools wait.
+  const standingOnly = fillKinds
+    .filter((kind) => !inView.some((entry) => entry.kind === kind) && !candidates.some((candidate) => candidate.layer !== "format" && candidate.opensAs === kind))
+    .map((kind) => CATALOGUE[kind].tool);
   const fillTools: ToolSet = Object.fromEntries(
     fillKinds.map((kind) => {
       const ofKind = inView.filter((entry) => entry.kind === kind);
@@ -528,7 +545,9 @@ export async function POST(req: Request) {
       return [
         CATALOGUE[kind].tool,
         tool({
-          description: `Write a ${CATALOGUE[kind].label}. ${CATALOGUE[kind].description} It is drawn as you write, so put the title first.`,
+          // How to write one goes with its tool, so it's only in the prompt when the tool is (one in view has it
+          // in its rules already).
+          description: `Write a ${CATALOGUE[kind].label}. ${CATALOGUE[kind].description} It is drawn as you write, so put the title first.${ofKind.length ? "" : `\n${CATALOGUE[kind].guidance.map((line) => `- ${line}`).join("\n")}`}`,
           inputSchema: schema as typeof CATALOGUE[typeof kind]["schema"],
           execute: async (input: unknown) => {
             const value = readCatalogueValue(kind, input);
@@ -580,14 +599,8 @@ export async function POST(req: Request) {
   // message asks to make a thing (and nothing of that kind is in view to
   // change), the first step opens an interface. The rules shape how it's
   // written; whether it's made isn't left to the model.
-  const lastAsk = [...messages].reverse().find((message) => message.role === "user");
-  const askText = (lastAsk?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
-  // The assistant's message it answers: "Yes, do both" makes what that message offered.
-  const answered = lastAsk ? messages.slice(0, messages.lastIndexOf(lastAsk)).reverse().find((message) => message.role === "assistant") : undefined;
-  const answeredText = (answered?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
   // A plain "make" forces an interface only when retrieval found one that fits ("Write me a haiku" stays in chat);
   // agreeing to an offer, or asking for an interface, always does.
-  const intent = makeIntent(askText, answeredText);
   const retrievedMakeable = candidates.filter((candidate) => candidate.layer !== "format");
   const offered = intent === "request" ? retrievedMakeable : makeable;
   const mustMake =
@@ -598,14 +611,18 @@ export async function POST(req: Request) {
     !(artefact && artefact.kind === offered[0]!.opensAs);
 
   const tools: ToolSet = {
-      ask: tool({
-        description: "Ask the person one to three questions, each answered with a tiny interface (a stepper, chips, Yes and No) and your guess already in place. Then stop: their answers come back as their next message.",
-        inputSchema: askInputSchema,
-        execute: async (input) => {
-          const questions = normalizeQuestions(input, askTargets);
-          return questions.length ? { ok: true as const, questions } : { ok: false as const, error: "No question could be asked: check each question's for and field." };
-        },
-      }),
+      ...(questionsAsked
+        ? {}
+        : {
+            ask: tool({
+              description: "Ask the person one to three questions, each answered with a tiny interface (a stepper, chips, Yes and No). Then stop: their answers come back as their next message.",
+              inputSchema: askInputSchema,
+              execute: async (input) => {
+                const questions = normalizeQuestions(input, askTargets);
+                return questions.length ? { ok: true as const, questions } : { ok: false as const, error: "No question could be asked: check each question's for and field." };
+              },
+            }),
+          }),
       web_search: openai.tools.webSearch({ searchContextSize: "low" }),
       ...(needsWrite ? { write_interface: writeInterfaceTool } : {}),
       ...fillTools,
@@ -645,7 +662,14 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openai.responses(model),
     tools,
-    prepareStep: ({ stepNumber }) => (mustMake && stepNumber === 0 ? { toolChoice: { type: "tool" as const, toolName: "open_interface" } } : {}),
+    prepareStep: ({ stepNumber, steps }) => {
+      if (mustMake && stepNumber === 0) return { toolChoice: { type: "tool" as const, toolName: "open_interface" } };
+      // A fill tool goes with the request only when it can be used: its interface is in view or was retrieved for
+      // this turn, the turn asks to make something, or the model has just opened one. The always-makeable ones'
+      // tools are most of the prompt (a document's alone is ~15k characters), so plain chat doesn't carry them.
+      const making = intent !== null || steps.some((step) => step.toolCalls.some((call) => call.toolName === "open_interface" || call.toolName.startsWith("fill_")));
+      return making || !standingOnly.length ? {} : { activeTools: Object.keys(tools).filter((name) => !standingOnly.includes(name)) };
+    },
     // Asking ends the turn: the answers come back as the next message.
     stopWhen: [stepCountIs(
       // Keeping tracked interfaces current takes a step or two of its own.

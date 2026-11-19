@@ -23,27 +23,53 @@ try {
 
 const BASE = process.env.JOURNEYS_URL || "http://localhost:3000";
 const CHROME = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const WAIT = Number(process.env.JOURNEYS_WAIT_MS || 45000);
+/** How long a turn may take, at most: a turn that makes several interfaces runs through several steps. */
+const WAIT = Number(process.env.JOURNEYS_WAIT_MS || 180000);
+/** After the reply has finished, time for the app to apply it (the notes, what was made). */
+const SETTLE = 4000;
 const { journeys } = JSON.parse(readFileSync(join(__dirname, "journeys.json"), "utf8"));
 const only = process.argv[2];
 
-/** One request and its reply: what the model was given and what it called. */
-function readTurn(body, stream) {
-  const called = [...new Set([...stream.matchAll(/"toolName":"([a-z_]+)"/g)].map((m) => m[1]))];
-  const opened = [...stream.matchAll(/"toolName":"open_interface"[^\n]*?"opensAs":"([a-z]+)"/g)].map((m) => m[1]);
-  const filled = called.filter((name) => name.startsWith("fill_")).map((name) => name.slice(5));
-  // What the model said, from the streamed text deltas.
-  const said = [...stream.matchAll(/"type":"text-delta"[^\n]*?"delta":"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`)).join("");
-  // What it asked, when it asked: the ask tool's questions, from its input.
-  const asked = [...stream.matchAll(/"toolName":"ask"[^\n]*?"input":(\{[^\n]*?\})\}?\s*$/gm)].map((m) => m[1]).join(" ").match(/"ask":"([^"]*)"/g)?.map((m) => m.slice(7, -1)) ?? [];
+/** What the model was given: the interfaces in its context, and the tracked ones. */
+function readRequest(body) {
   return {
-    said,
-    asked,
-    called,
-    made: [...new Set([...opened, ...filled])],
     inContext: [...(body.artefact ? [body.artefact.label ?? body.artefact.kind] : []), ...(body.open ?? []).map((entry) => entry.label)].map(String),
     tracked: (body.tracked ?? []).map((entry) => entry.label),
   };
+}
+
+/**
+ * What the model did this turn, read from the thread as the app saved it (the
+ * tool calls and text after the latest message), not from the network stream,
+ * whose body the browser doesn't always keep. Also every interface the turn made
+ * that's still empty: making one and filling another is a bug, not a choice.
+ */
+async function readReply(page) {
+  return page.evaluate(() => {
+    const store = JSON.parse(localStorage.getItem("chat-lab") ?? "null");
+    const session = store?.state?.sessions?.[location.pathname.split("/").pop()];
+    if (!session) return null;
+    const messages = session.messages ?? [];
+    const lastUser = messages.map((message) => message.role).lastIndexOf("user");
+    const parts = messages.slice(lastUser + 1).filter((message) => message.role === "assistant").flatMap((message) => message.parts ?? []);
+    const nameOf = (part) => (part.type === "dynamic-tool" ? part.toolName : part.type?.startsWith("tool-") ? part.type.slice(5) : null);
+    const called = [...new Set(parts.map(nameOf).filter(Boolean))];
+    const opened = parts.filter((part) => nameOf(part) === "open_interface").map((part) => part.output?.opensAs).filter(Boolean);
+    const filled = called.filter((name) => name.startsWith("fill_")).map((name) => name.slice(5));
+    const asked = parts.filter((part) => nameOf(part) === "ask").flatMap((part) => (part.input?.questions ?? []).map((question) => question.ask));
+    const said = parts.filter((part) => part.type === "text").map((part) => part.text).join(" ");
+    const userId = messages[lastUser]?.id;
+    // Nothing in it but its title and settings: no rows, items, steps or body.
+    const isEmpty = (data) =>
+      Object.entries(data ?? {}).every(([key, value]) =>
+        Array.isArray(value) ? value.length === 0 : typeof value === "string" ? key !== "body" || !value.trim() : value === null || typeof value !== "object" || isEmpty(value),
+      );
+    const empty = Object.values(session.artefacts ?? {})
+      .filter((artefact) => artefact.sourceUserMessageId === userId && artefact.role !== "track")
+      .filter((artefact) => (artefact.shell ? artefact.shell.kind !== "notes" && isEmpty(artefact.shell.data) : !(artefact.content ?? "").trim()))
+      .map((artefact) => `${artefact.title} (${artefact.shell?.kind ?? artefact.kind})`);
+    return { said, asked, called, made: [...new Set([...opened, ...filled])], empty };
+  });
 }
 
 async function notesOf(page) {
@@ -72,12 +98,16 @@ function check(expect = {}, turn, notes) {
 async function act(page, step) {
   const [verb, kind] = step.split(" ");
   if (!(await page.getByRole("button", { name: new RegExp(`^(Minimize|Close) ${kind}`) }).count())) {
-    const pin = page.getByRole("button", { name: new RegExp(`Pin this ${kind}`) });
+    // Shown in the reply: open it in its own window first.
+    const pin = page.getByRole("button", { name: new RegExp(`(Pin this|Open this|Open in) ${kind}`, "i") });
     if (await pin.count()) await pin.first().click();
     await page.waitForTimeout(1200);
   }
   const button = page.getByRole("button", { name: new RegExp(`^${verb === "close" ? "Close" : "Minimize"} ${kind}`) });
-  if (!(await button.count())) return `couldn't ${verb} the ${kind}: it has no window`;
+  if (!(await button.count())) {
+    const seen = await page.getByRole("button").evaluateAll((els, kind) => els.map((el) => el.getAttribute("aria-label") ?? "").filter((label) => label.toLowerCase().includes(kind)), kind);
+    return `couldn't ${verb} the ${kind}: it has no window (buttons naming it: ${seen.join(" | ") || "none"})`;
+  }
   await button.first().click();
   await page.waitForTimeout(800);
   return null;
@@ -87,18 +117,35 @@ async function run(journey, browser) {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
+  // The turn's request, and whether it's still going: finished or failed, it's done.
   let last = null;
-  page.on("response", async (response) => {
-    if (!response.url().endsWith("/api/chat-lab") || response.request().method() !== "POST") return;
+  let pending = 0;
+  const isTurn = (request) => request.url().endsWith("/api/chat-lab") && request.method() === "POST";
+  page.on("request", (request) => {
+    if (!isTurn(request)) return;
+    pending += 1;
     try {
-      last = readTurn(JSON.parse(response.request().postData()), await response.text());
-    } catch {}
+      last = readRequest(JSON.parse(request.postData() ?? "{}"));
+    } catch {
+      last = { inContext: [], tracked: [] };
+    }
   });
+  page.on("requestfinished", (request) => isTurn(request) && (pending -= 1));
+  page.on("requestfailed", (request) => isTurn(request) && (pending -= 1));
+  // A turn is done when its reply has finished streaming, not after a fixed time: wait for it, then let the app apply it.
+  const waitForTurn = async () => {
+    const until = Date.now() + WAIT;
+    await page.waitForTimeout(1500);
+    while (Date.now() < until && (pending > 0 || !last)) await page.waitForTimeout(500);
+    await page.waitForTimeout(SETTLE);
+  };
   const report = [];
   const record = async (say, expect, extra = []) => {
     const notes = await notesOf(page);
-    const turn = last ?? { said: "", asked: [], called: [], made: [], inContext: [], tracked: [] };
-    report.push({ say, fail: [...extra, ...check(expect, turn, notes)], turn, notes });
+    const reply = (await readReply(page)) ?? { said: "", asked: [], called: [], made: [], empty: [] };
+    const turn = { ...reply, ...(last ?? { inContext: [], tracked: [] }) };
+    const empty = reply.empty.map((name) => `made ${name} and left it empty`);
+    report.push({ say, fail: [...extra, ...empty, ...check(expect, turn, notes)], turn, notes });
     last = null;
   };
 
@@ -109,7 +156,7 @@ async function run(journey, browser) {
   await box.pressSequentially(journey.start, { delay: 4 });
   await page.waitForTimeout(3000);
   await page.keyboard.press("Enter");
-  await page.waitForTimeout(WAIT);
+  await waitForTurn();
   await record(journey.start, journey.expect);
 
   for (const step of journey.turns) {
@@ -118,7 +165,7 @@ async function run(journey, browser) {
     await input.focus();
     await input.pressSequentially(step.say, { delay: 4 });
     await page.keyboard.press("Enter");
-    await page.waitForTimeout(WAIT);
+    await waitForTurn();
     await record(step.say, step.expect, problem ? [problem] : []);
   }
   await page.close();

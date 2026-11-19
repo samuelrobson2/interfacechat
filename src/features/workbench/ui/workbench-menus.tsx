@@ -1,20 +1,10 @@
 import { Check } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/shared/lib/css";
 import { Text } from "@/shared/ui/kit/text";
 import type { WorkspaceGeometry } from "../model/workbench-geometry";
-import {
-  isStacked,
-  PRESENTATION_LABEL,
-  presentationsFor,
-  type InstanceId,
-  type LayoutChange,
-  type LayoutEntry,
-  type LayoutResult,
-  type Side,
-  type WorkspaceLayout,
-} from "../model/workbench-layout";
-import { layoutRules } from "../model/workbench-rules";
-import { LayoutGlyph } from "./layout-glyph";
+import type { InstanceId, LayoutChange, LayoutEntry, LayoutResult, WorkspaceLayout } from "../model/workbench-layout";
+import { placementOptions } from "../model/workbench-placements";
 
 /** The popover card the chat toolbar's menus use. */
 export function MenuCard({
@@ -88,11 +78,55 @@ export function MenuRow({
   );
 }
 
-const MenuDivider = () => <div aria-hidden className="mx-2 my-1.5 h-px bg-gray-2/50" />;
+const DIAGRAM = { width: 72, height: 46 };
+const OUTLINE = 1.25;
+/** Space between the outline and the windows inside it. */
+const INSET = 4;
 
 /**
- * Sizes for one interface, each with a glyph of where it would land and what
- * it would minimize. Choosing one runs the layout controller.
+ * The whole workspace after a choice, drawn like macOS's window tiling: a grey
+ * rounded outline, this interface filled grey, the others barely there. The
+ * same look as the glyph in the header, larger.
+ */
+function PlacementDiagram({ geometry, id }: { geometry: WorkspaceGeometry; id: InstanceId }) {
+  const { content } = geometry;
+  if (!content.width || !content.height) return null;
+  const sx = (DIAGRAM.width - INSET * 2) / content.width;
+  const sy = (DIAGRAM.height - INSET * 2) / content.height;
+  return (
+    <svg width={DIAGRAM.width} height={DIAGRAM.height} viewBox={`0 0 ${DIAGRAM.width} ${DIAGRAM.height}`} aria-hidden className="shrink-0 text-gray-3">
+      <rect
+        x={OUTLINE / 2}
+        y={OUTLINE / 2}
+        width={DIAGRAM.width - OUTLINE}
+        height={DIAGRAM.height - OUTLINE}
+        rx={8}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={OUTLINE}
+      />
+      {Object.entries(geometry.frames).map(([frameId, rect]) => (
+        <rect
+          key={frameId}
+          // A hairline gap between neighbours.
+          x={INSET + (rect.x - content.x) * sx + 0.75}
+          y={INSET + (rect.y - content.y) * sy + 0.75}
+          width={Math.max(1, rect.width * sx - 1.5)}
+          height={Math.max(1, rect.height * sy - 1.5)}
+          rx={3}
+          fill="currentColor"
+          fillOpacity={frameId === id ? 1 : 0.14}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Where one interface can go, drawn: pick one and it moves there. Each
+ * drawing is the whole workspace after the move, so what makes room is
+ * visible; anything it would minimize is named underneath. Minimize has its
+ * own button in the header, so it isn't here.
  */
 export function LayoutMenu({
   layout,
@@ -108,102 +142,51 @@ export function LayoutMenu({
   /** The controller's answer to a change, without committing it. */
   preview: (change: LayoutChange) => LayoutResult;
   geometryOf: (layout: WorkspaceLayout) => WorkspaceGeometry;
-  onChange: (change: LayoutChange) => void;
+  /** Null: where it already is, so nothing to change. */
+  onChange: (change: LayoutChange | null) => void;
 }) {
-  const sideOf = (): Side | null => {
-    if (entry.region === "left" || entry.region === "right") return entry.region;
-    return null;
-  };
-  const side = sideOf();
-  const mainCount = Object.values(layout.entries).filter((item) => item.region === "main").length;
-  const mainSide: Side | null = entry.region === "main" && mainCount > 1 ? (entry.order === 0 ? "left" : "right") : null;
-  // The arrangements two large interfaces can take under the layout rules: side by side, stacked, or both.
-  const rules = layoutRules();
-  const arrangements = ([false, true] as const).filter((stacked) => (stacked ? rules.largeStacked : rules.largeSideBySide));
-  const currentSide = side ?? mainSide;
-
+  const options = placementOptions(layout, entry, preview, geometryOf);
+  const [hovered, setHovered] = useState<number | null>(null);
   const evictionNote = (evicted: InstanceId[]) =>
     evicted.length ? `Minimizes ${evicted.map(labelOf).join(" and ")}` : undefined;
+  const note = hovered !== null ? evictionNote(options[hovered]?.result.evicted ?? []) : undefined;
 
   return (
-    <MenuCard title="Layout">
-      <div role="menu" aria-label="Size">
-        {presentationsFor(entry).map((presentation) => {
-          const change: LayoutChange = { type: "present", id: entry.id, presentation };
-          const selected = entry.presentation === presentation;
-          const result = selected ? { layout, evicted: [] } : preview(change);
+    <MenuCard title="Move to" className="w-auto">
+      <div role="menu" aria-label="Move to" className="grid grid-cols-3 items-start gap-1" onPointerLeave={() => setHovered(null)}>
+        {options.map((option, index) => {
+          const detail = evictionNote(option.result.evicted);
           return (
-            <MenuRow
-              key={presentation}
-              selected={selected}
-              leading={<LayoutGlyph geometry={geometryOf(result.layout)} id={entry.id} />}
-              label={PRESENTATION_LABEL[presentation]}
-              detail={evictionNote(result.evicted)}
-              onSelect={() => onChange(change)}
-            />
+            <button
+              key={option.label + index}
+              type="button"
+              role="menuitemradio"
+              aria-checked={option.current}
+              aria-label={detail ? `${option.label}. ${detail}` : option.label}
+              title={detail}
+              onPointerEnter={() => setHovered(index)}
+              onFocus={() => setHovered(index)}
+              onBlur={() => setHovered(null)}
+              onClick={() => onChange(option.change)}
+              className={cn(
+                "flex w-[96px] cursor-pointer flex-col items-center gap-1 rounded-[10px] px-1.5 pt-2 pb-1.5 transition-colors hover:bg-gray-6",
+                option.current && "bg-gray-6",
+              )}
+            >
+              <PlacementDiagram geometry={geometryOf(option.result.layout)} id={entry.id} />
+              {/* Two lines at most, so "Extended medium, right" reads whole. */}
+              <Text variant="caption" color={option.current ? "primary" : "secondary"} className="line-clamp-2 w-full text-center leading-tight text-balance">
+                {option.label}
+              </Text>
+            </button>
           );
         })}
       </div>
-      {(side || mainSide) && (
-        <>
-          <MenuDivider />
-          <div role="menu" aria-label="Side" className="flex gap-1 px-1 pb-0.5">
-            {(["left", "right"] as const).map((target) => {
-              const change: LayoutChange = { type: "side", id: entry.id, side: target };
-              const result = preview(change);
-              const selected = currentSide === target;
-              const stackedMain = !!mainSide && isStacked(layout);
-              return (
-                <button
-                  key={target}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={selected}
-                  disabled={!selected && !result.changed}
-                  title={evictionNote(result.evicted)}
-                  onClick={() => !selected && onChange(change)}
-                  className={cn(
-                    "flex h-8 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] transition-colors",
-                    "hover:bg-gray-6 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent",
-                    selected && "bg-gray-6",
-                  )}
-                >
-                  <LayoutGlyph geometry={geometryOf(result.layout)} id={entry.id} />
-                  <Text variant="label">
-                    {stackedMain ? (target === "left" ? "Top" : "Bottom") : target === "left" ? "Left" : "Right"}
-                  </Text>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-      {mainSide && arrangements.length > 1 && (
-        <div role="menu" aria-label="Arrangement" className="flex gap-1 px-1 pt-1 pb-0.5">
-          {/* Only the arrangements the layout rules allow; one alone needs no choice. */}
-          {arrangements.map((stacked) => {
-            const change: LayoutChange = { type: "arrange", stacked };
-            const selected = isStacked(layout) === stacked;
-            const result = selected ? { layout, evicted: [] } : preview(change);
-            return (
-              <button
-                key={String(stacked)}
-                type="button"
-                role="menuitemradio"
-                aria-checked={selected}
-                title={evictionNote(result.evicted)}
-                onClick={() => !selected && onChange(change)}
-                className={cn(
-                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] transition-colors hover:bg-gray-6",
-                  selected && "bg-gray-6",
-                )}
-              >
-                <LayoutGlyph geometry={geometryOf(result.layout)} id={entry.id} />
-                <Text variant="label">{stacked ? "Stacked" : "Side by side"}</Text>
-              </button>
-            );
-          })}
-        </div>
+      {/* Room for a note only where some choice minimizes something. */}
+      {options.some((option) => option.result.evicted.length > 0) && (
+        <Text variant="caption" color="secondary" className={cn("min-h-[18px] px-2 pt-1", !note && "invisible")} aria-live="polite">
+          {note ?? "\u00a0"}
+        </Text>
       )}
     </MenuCard>
   );

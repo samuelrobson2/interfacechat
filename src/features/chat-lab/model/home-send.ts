@@ -17,14 +17,15 @@ function pickedLine(choice: PromptChoice & { picked?: string[] }, orGuess = fals
 }
 
 /**
- * The card's notes, with a line for each choice picked that isn't in them yet;
- * and, when sending (`orGuess`), each choice left alone at its guess too, so
- * nothing on the card is asked again.
+ * The card's notes, with a line for each choice answered that isn't in them
+ * yet: picked, or "No preference" ("Any diet needs: no preference"), shown on
+ * the card as it will be sent. When sending (`orGuess`), each choice left alone
+ * at its guess too, so nothing on the card is asked again.
  */
 export function withPickedLines(card: HomeCard, shown: (PromptChoice & { picked?: string[]; skipped?: boolean })[], orGuess = false): HomeCard {
   const data = card.interface.data as { title: string; body: string };
   const have = new Set(data.body.split("\n").map((line) => line.trim().toLowerCase()));
-  const lines = shown.map((choice) => (choice.skipped ? null : pickedLine(choice, orGuess))).filter((line): line is string => Boolean(line) && !have.has(line!.toLowerCase()));
+  const lines = shown.map((choice) => (choice.skipped ? `${labelOf(choice)}: no preference` : pickedLine(choice, orGuess))).filter((line): line is string => Boolean(line) && !have.has(line!.toLowerCase()));
   if (!lines.length) return card;
   return { ...card, interface: { kind: "notes", data: { ...data, body: [data.body.replace(/\s+$/, ""), ...lines].filter(Boolean).join("\n") } } as KindData };
 }

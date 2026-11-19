@@ -54,7 +54,15 @@ describe("organising the notes", () => {
     const { applyRoleTool } = await import("../interface-roles");
     const body = "Goal: dinner party\nWhen: Saturday at 7pm\nGuests: 8, one vegetarian\nMenu: lasagne, salad, pavlova\n[ ] Make the shopping list";
     const result = applyRoleTool("notes_rewrite", data, { body });
-    expect(result.ok && (result.data as { body: string }).body).toBe(body);
+    expect(result.ok && (result.data as { body: string }).body).toBe(body.replace("\n[ ]", "\n## To do\n[ ]"));
+  });
+
+  it("keeps the to-dos apart from the notes: last, under their heading, whatever order they come in", async () => {
+    const { applyRoleTool, TODO_HEADING } = await import("../interface-roles");
+    const start = { title: "Dinner", body: "Goal: dinner party" };
+    const first = applyRoleTool("notes_add", start, { lines: ["[ ] Make the menu", "Guests: 8"] });
+    const then = first.ok ? applyRoleTool("notes_add", first.data, { lines: ["When: Saturday", "[x] Book the table"] }) : first;
+    expect(then.ok && (then.data as { body: string }).body.split("\n")).toEqual(["Goal: dinner party", "Guests: 8", "When: Saturday", TODO_HEADING, "[ ] Make the menu", "[x] Book the table"]);
   });
 
   it("refuses a rewrite that loses a fact, and says which", async () => {
@@ -75,5 +83,23 @@ describe("choosing an interface", () => {
   it("is a general rule built from every interface's own description", async () => {
     const { CHOOSING_RULE } = await import("../interface-roles");
     for (const label of ["Document", "Guide", "Schedule", "Table", "Tracker", "Generator"]) expect(CHOOSING_RULE).toContain(`${label} for`);
+  });
+});
+
+describe("notes never hold a list that should be its own interface", () => {
+  it("refuses a long list in a line, from any notes tool, and keeps a short decision", async () => {
+    const { applyRoleTool } = await import("../interface-roles");
+    const data = { title: "Dinner", body: "Goal: dinner party\nMenu: salad; lamb; tart" };
+    const list = "Shopping list: tomatoes, burrata, chicken, mushrooms, leeks, potatoes, green beans, salad leaves, berries, flour, butter, wine";
+    for (const [tool, input] of [
+      ["notes_add", { lines: [list] }],
+      ["notes_change", { line: "Menu", to: list }],
+      ["notes_rewrite", { body: `Goal: dinner party\nMenu: salad; lamb; tart\n${list}` }],
+    ] as const) {
+      const result = applyRoleTool(tool, data, input);
+      expect(result.ok, tool).toBe(false);
+      expect(!result.ok && result.error).toMatch(/its own interface/);
+    }
+    expect(applyRoleTool("notes_add", data, { lines: ["Guests: 8, one vegetarian"] }).ok).toBe(true);
   });
 });

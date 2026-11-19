@@ -31,8 +31,6 @@ import { usePointerDrag, type DragPoint } from "./use-pointer-drag";
 import { WorkbenchFrame, type LayoutControls } from "./workbench-frame";
 import { MenuCard, MenuRow } from "./workbench-menus";
 import { DragGhost, DropPreview, MainDivider, StripIcon } from "./workspace-parts";
-import { LayoutRulesMenu } from "./layout-rules-menu";
-import { useLayoutRules } from "../model/workbench-rules";
 
 type DragState = { id: InstanceId; point: DragPoint | null };
 
@@ -136,8 +134,6 @@ export function WorkbenchSurface({
   className,
 }: WorkbenchSurfaceProps) {
   const reducedMotion = useReducedMotion() ?? false;
-  // The layout rules feed the geometry and the menus: a switched rule redraws the workbench.
-  useLayoutRules((state) => state.rules);
   const [workspaceRef, size] = useElementSize<HTMLDivElement>();
   const [toolsRef, toolsSize] = useElementSize<HTMLDivElement>();
   const [liveDivider, setLiveDivider] = useState<number | null>(null);
@@ -241,7 +237,6 @@ export function WorkbenchSurface({
 
           {/* The strip of minimized interfaces runs up to this. */}
           <div ref={toolsRef} className="absolute top-0 right-0 z-30 flex h-14 items-center gap-1">
-            <LayoutRulesMenu />
             <AddInterfaceMenu onAdd={onAdd} />
           </div>
 

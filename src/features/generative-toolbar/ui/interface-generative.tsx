@@ -6,7 +6,7 @@ import { cn } from "@/shared/lib/css";
 import { TOOLBAR_KINDS, type GeneratedTool, type ToolbarDataByKind, type ToolbarKind } from "../model/generate-tools";
 import { GENERATIVE_SOURCES, useGenerativeSource, type GenerativeSource } from "../model/generative-source";
 import { suggestValues } from "../model/suggest-values";
-import { shownGroups, useContextSuggestions } from "../model/context-suggestions";
+import { useContextSuggestions } from "../model/context-suggestions";
 import { blankFollowUp, blanksStillOpen, rewriteDocument, runTool } from "../model/toolbar-api";
 import { describeUse, type ToolSpec, type ToolValue } from "../model/tool-spec";
 import { useGeneratedTools } from "../model/use-generated-tools";
@@ -91,7 +91,7 @@ export function useInterfaceGenerative<D>({
   const offeredColumns = useRef<Suggestion[] | undefined>(undefined);
   // Suggestions in place, from the model, read off the interface and the thread: for every interface with something to offer.
   const suggestOn = (suggest ?? enabled) && fits && source === "model";
-  const fromThread = useContextSuggestions({ kind, label: SHELL_META[kind].label, data, context, on: suggestOn, dismissed, groups: shownGroups(kind, size) });
+  const fromThread = useContextSuggestions({ kind, label: SHELL_META[kind].label, data, context, on: suggestOn, dismissed });
   const dismissSuggestion = (group: SuggestedGroup, value: string) => setDismissed((d) => ({ ...d, [group]: [...(d[group] ?? []), value] }));
   const [note, setNote] = useState<Note | null>(null);
   const [previous, setPrevious] = useState<D | null>(null);

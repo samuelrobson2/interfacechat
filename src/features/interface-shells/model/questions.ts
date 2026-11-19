@@ -9,15 +9,15 @@ import type { GuideShellData, ScheduleShellData, ShellKind } from "./shell-types
  * - confirm: Yes · No · Something else (plain chat)
  * - choose: two to four chips, one or several, and Something else
  * - number: a stepper with a unit (8 people, 3 days)
- * - time: chips around the guess, and a picker
+ * - time: chips for the usual hours, and a picker
  * - date: Today, the next few days, and a picker
  * - duration: 30 min, 1 hour, Half day …
  * - text: one line
  *
  * Each interface declares the questions it can ask (QUESTION_FIELDS), each
  * bound to a field, so an answer goes straight into the interface (Serves 8
- * sets the Guide's Serves). Every question comes with the model's guess, so
- * confirming is one tap. Read by the app and the chat API, so it imports
+ * sets the Guide's Serves). Nothing is pre-picked: what they leave blank, the
+ * model chooses. Read by the app and the chat API, so it imports
  * nothing but zod (and types).
  */
 
@@ -83,7 +83,7 @@ export function askableFields(kind: ShellKind) {
   return Object.entries(QUESTION_FIELDS[kind] ?? {}).map(([key, field]) => `${key} (${field.control}${field.unit ? `, ${field.unit}` : ""})`);
 }
 
-/** The ask tool's input: one to three questions, each with a guess. */
+/** The ask tool's input: one to three questions. */
 export const askInputSchema = z.object({
   questions: z
     .array(
@@ -95,7 +95,6 @@ export const askInputSchema = z.object({
         control: z.enum(QUESTION_CONTROLS).describe("confirm (yes or no), choose (options), number, time, date, duration, or text"),
         options: z.array(z.string()).optional().describe("For choose and duration: two to four options, one or two words each"),
         multi: z.boolean().optional().describe("For choose: several can be picked"),
-        guess: z.union([z.string(), z.number(), z.array(z.string())]).optional().describe('Your best guess, pre-selected: 8, "19:00", "2026-11-28", ["Vegetarian"], "Yes"'),
         unit: z.string().optional().describe("For number: people, days, guests"),
       }),
     )
@@ -123,7 +122,6 @@ export function normalizeQuestions(input: unknown, targets: { id: string; kind: 
       control: declared?.control ?? raw.control,
       ...((raw.options ?? declared?.options) ? { options: raw.options?.length ? raw.options : declared?.options } : {}),
       ...((raw.multi ?? declared?.multi) ? { multi: true } : {}),
-      ...(raw.guess !== undefined ? { guess: raw.guess } : {}),
       ...((declared?.unit ?? raw.unit) ? { unit: declared?.unit ?? raw.unit } : {}),
       ...(declared?.min !== undefined ? { min: declared.min } : {}),
       ...(declared?.max !== undefined ? { max: declared.max } : {}),

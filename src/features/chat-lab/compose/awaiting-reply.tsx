@@ -7,7 +7,7 @@ import { questionsOf, ReplyQuestions } from "./chat-lab-message";
  * Whether the latest reply is waiting on the person: it asked with question
  * cards they haven't answered, or it ends in a question.
  */
-export function needsReply(messages: ChatLabMessage[], answers: Record<string, AnswerValue[]> | undefined) {
+export function needsReply(messages: ChatLabMessage[], answers: Record<string, (AnswerValue | null)[]> | undefined) {
   const last = messages.at(-1);
   if (!last || last.role !== "assistant") return false;
   if (questionsOf(last).some((group) => !answers?.[group.key])) return true;

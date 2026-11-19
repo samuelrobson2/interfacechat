@@ -85,7 +85,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
   },
   document: {
     description:
-      "Create or edit a piece of writing: a paper, essay, report, memo or email, drafted in place and revised through direct edits. It can carry live stats, charts, tables, controls and code between the paragraphs: a data story or an explorable explanation where moving a slider changes the charts and the numbers in the text. Choose this when the person wants new writing produced, with or without data in it.",
+      "Create or edit a piece of writing: a paper, essay, report, memo, email or menu, drafted in place and revised through direct edits. It can carry live stats, charts, tables, controls and code between the paragraphs: a data story or an explorable explanation where moving a slider changes the charts and the numbers in the text. Choose this when the person wants new writing produced, with or without data in it.",
     notFor:
       "Understanding or finding something in a document they already have (use Reader), looking things up (use Search), or rows and columns (use Table).",
     queries: [
@@ -93,6 +93,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "Draft a memo about the hiring plan",
       "Compose an essay on what cools a city street",
       "Write an email to the location manager confirming the dates",
+      "What would you put on the menu for Saturday's dinner?",
       "Write an interactive article on why some streets run hotter, with a slider for tree cover",
       "Make a data story about our sales year with charts",
       "Explain compound interest with a calculator readers can play with",
@@ -128,6 +129,7 @@ export const SHELL_RETRIEVAL: Record<ShellKind, ShellRetrieval> = {
       "live charts",
       "readers can play",
       "brief",
+      "menu",
       "email",
       "write",
       "draft",
