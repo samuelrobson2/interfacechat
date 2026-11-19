@@ -29,7 +29,7 @@ Search shows how the layers split:
 | Search | The search itself: queries, sources and filters as it runs. |
 | Table | Columns and rows of text, tags or pictures: a shot list or a comparison. |
 | Schedule | Planning tasks across hours and days, as a Gantt chart. Fields are durations in days. |
-| Tracker | The steps to get something done, with owners and status. |
+| Tracker | The steps to get something done, with owners and status; optional columns of detail beside each item (Weight, Qty, Price). |
 | Calendar | Events on dates across a month: what's on, when, and at what time. You can add, rename and remove events. |
 | Reader | A smart reader for a document you already have: search it, ask it a question, find something. Answers go in the chat, and the passages they use are marked in the document. |
 | Map | Places, distances and a shortlist around a location. |
@@ -114,7 +114,7 @@ Every large interface has a toolbar under its title. It leads with **Undo** and 
 | --- | --- | --- |
 | Document | Google Docs | Text style (Normal text, Heading 1, Heading 2); Bold, Italic, Strikethrough (⌘⇧X), Inline code, Insert link, Clear formatting; Bulleted list, Numbered list, Quote; Copy as Markdown, Download .md |
 | Table | Google Sheets | Add a row, Add a column; Data cleanup (remove empty or duplicate rows); Copy as CSV, Download .csv. Each column header sorts A → Z, then Z → A |
-| Tracker | Apple Reminders | New item, New list; Sort by due date, owner, title or not done first; Show or hide completed; Mark all as done, Clear completed; Copy as a checklist |
+| Tracker | Apple Reminders | New item, New list, Add column, Show or hide owners, Show or hide due dates; Sort by due date, owner, title or not done first; Show or hide completed; Mark all as done, Clear completed; Copy as a checklist |
 | Search | Google | Type (All, News, Images, Videos, Papers, Datasets) and Time (Any time to Past year) as filter chips; Search within a site; Clear filters; Copy the links, Open the top result, Open in Google (with the same sites, time and type) |
 | Schedule | Gantt tools | New task, Add a day, Remove the last day; Longer or shorter days; Move everything 30 minutes earlier or later; Sort by start time; Copy as text, Download .csv |
 | Calendar | Google Calendar | Today, previous and next month, the month's name; New event; Show or hide the agenda; Copy the agenda, Export to calendar (.ics) |
@@ -182,7 +182,7 @@ Inline medium, by interface:
 | Guide | What's needed, then the first steps with their timers |
 | Generator | The three variations side by side, the chosen one ringed; clicking one chooses it |
 
-Inline medium can be edited where it stands, without changing size: titles and visible text take a caret (`InlineText`), checklist items and guide steps tick, map places star, and chips get a × while selected. Clicking or typing into it selects it: the same design takes a white background and an outline, so it reads as an interface. Escape finishes editing, then puts it back. **Pin ↗** moves it into a window. The Interface State page has an Inline · Small and an Inline · Medium column for every interface.
+Inline medium can be edited where it stands, without changing size: titles and visible text take a caret (`InlineText`), checklist items and guide steps tick, map places star, and chips get a × while selected. Clicking or typing into it selects it: the same design takes a white background and an outline, so it reads as an interface. Escape finishes editing, then puts it back. **Open ↗** moves it into a window. The Interface State page has an Inline · Small and an Inline · Medium column for every interface.
 
 The code is in `interface-shells/inline/`: `InlineSmall`, `InlineMedium` (one preview per interface), `InlineShell` (medium in a reply, selected on click) and `inline-summary.ts` (title and detail).
 
@@ -218,7 +218,7 @@ The approach follows how models pick tools and skills from a large library.
    It matches whole words, allowing for inflections: "compare" also catches "comparing" and "essay" catches "essays". This is one-way, so a listed plural such as "pros" still needs the plural. Accents are ignored ("cafés" is "cafes"). An interface beats a chat format on equal evidence, so "best restaurants in Lisbon" is a map.
 
    The chat home and a thread use the same scores, so they agree: "make a tracker" is a Tracker in both. In a thread the top five go to the model as candidates. The same score decides whether a follow-up asks for a different interface from the one open. Blog, Email, Code, Slides, Kanban and a plain Chart have no library profile yet, so a thread finds them by keyword, worth one trigger.
-2. **The model chooses from at most five candidates.** For each candidate, the model sees the description, the Not for line, the typed parts, up to four examples and up to three near misses. It then either opens one candidate (with `open_interface`, or by filling it straight away) or answers in chat. It never sees the whole library, which keeps its choice sharp as the library grows. It never opens more than one interface in a turn.
+2. **The model chooses from at most five candidates.** For each candidate, the model sees the description, the Not for line, the typed parts, up to four examples and up to three near misses. It then either opens one candidate (with `open_interface`, or by filling it straight away) or answers in chat. It never sees the whole library, which keeps its choice sharp as the library grows. It calls `open_interface` at most once a turn, but it can make several interfaces: every fill tool (`fill_guide`, `fill_table`…) takes an `id`: an open one's id writes over it, `"new"` adds another beside whatever is open (never replacing anything), and leaving it out writes the one used last. So "one vegan version and one normal" keeps the open recipe and adds a second guide. The id is the schema's first field, so it streams before the content; in the browser (`syncCatalogue`), a fill still arriving waits until its id is whole ("n" on its way to "new" names nothing) and, with no id yet, doesn't write into an interface from an earlier turn until it's finished.
 3. **A chosen card skips step 2.** If the chat home's card was suggested or chosen when you sent, that interface opens directly with the card's fields, and the model does not re-pick.
 
 The rules of thumb are:
@@ -233,7 +233,7 @@ The rules of thumb are:
 Every thread is a workbench (see [workbench.md](workbench.md)): Chat is the page, and interfaces are windows beside it that minimize to the strip in the top right. Each thread keeps its own layout.
 
 - **From the home.** Picking an interface card and sending opens that interface large, with Chat as a sidebar. Anything else opens as Chat alone.
-- **In a reply.** An interface the model makes is shown inline under the reply that made it. Something long (a document of about 900 characters or more) opens as its own window. **Pin ↗** on an inline interface, or clicking into it and sending another turn, moves it into a window; the reply then keeps a small pointer to it.
+- **In a reply.** An interface the model makes is shown inline under the reply that made it. Something long (a document of about 900 characters or more) opens as its own window. **Open ↗** on an inline interface, or clicking into it and sending another turn, moves it into a window; the reply then keeps a small pointer to it.
 - **Nothing closes by itself.** Windows stay until you minimize them. Right-click an app icon to delete it from the thread.
 - **What the model works on** is the window used last (or the interface it just made, or an inline one you clicked into). Turns go into it unless the message plainly asks for a different kind. It's fixed when the turn is sent, so switching windows mid-reply doesn't redirect the writing.
 - **Chat minimized.** The input stays on the page. The reply shows above it for a few seconds, and a new interface opens beside the work.
@@ -262,9 +262,9 @@ Each entry is one interface: a description, a few lines on writing it well, and 
 | --- | --- |
 | Document | `title`, `body` (markdown) |
 | Table | `title`, `columns` (label and type), `rows` (lists of cells in column order) |
-| Tracker | `title`, `groups`, `items` (label, owner, due, done, group) |
+| Tracker | `title`, `groups`, `fields` (`owner`, `due`: off unless the scenario needs them; shown too wherever an item holds one, `trackerFields`), `columns` (names, optional), `items` (label, owner, due, done, group, `values`: one per column, in order). Adding or removing a column with `update_interface` (`/columns/-`) moves every item's values with it; a value is set at `/items/2/values/0`. In the app, columns have ids and an item's values are keyed by them (`TrackerColumn`, `TrackerItem.values`). |
 
-**One entry per interface, not per size.** Every schema has an optional `placement` (`inline` or `window`). The app still decides: a long document opens a window, Pin moves anything into one, and Chat minimized opens beside the work. `placement: "window"` is the model asking for a window sooner.
+**One entry per interface, not per size.** Every schema has an optional `placement` (`inline` or `window`). The app still decides: a long document opens a window, Open moves anything into one, and Chat minimized opens beside the work. `placement: "window"` is the model asking for a window sooner.
 
 **It fills as it streams.** The tool's input arrives as partial JSON. `readCatalogueValue` keeps whatever is usable so far (dropping a column with no label yet, squaring up a half-written row), and the interface is redrawn about every 60ms. The title comes first, so the interface is named before it fills.
 

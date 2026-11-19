@@ -108,4 +108,42 @@ describe("changing part of an interface", () => {
     expect(applyCatalogueOperations("tracker", tracker, [{ op: "replace", path: "/items/0/done", value: "yes" }])).toMatchObject({ ok: false });
     expect(applyCatalogueOperations("tracker", tracker, [{ op: "add", path: "/items/-" }])).toMatchObject({ ok: false });
   });
+
+  it("gives a checklist columns, with each item's values lined up, and keeps them in step as columns come and go", () => {
+    const packing = readCatalogueValue("tracker", {
+      title: "Packing",
+      columns: ["Weight", "Qty"],
+      items: [{ label: "Tent", values: ["2.1 kg", 1] }, { label: "Stove", values: ["400 g"] }],
+    })!;
+    expect(packing.columns).toEqual(["Weight", "Qty"]);
+    expect(packing.items.map((item) => item.values)).toEqual([["2.1 kg", "1"], ["400 g", ""]]);
+
+    // A column added at the start: every item's values move along, and the new one can be set by position.
+    const added = applyCatalogueOperations("tracker", packing, [
+      { op: "add", path: "/columns/0", value: "Price" },
+      { op: "replace", path: "/items/0/values/0", value: "£120" },
+    ]);
+    expect(added.ok && added.value.items.map((item) => item.values)).toEqual([["£120", "2.1 kg", "1"], ["", "400 g", ""]]);
+
+    // One added to a plain checklist, which had no values yet.
+    const plain = readCatalogueValue("tracker", { title: "Prep", items: [{ label: "Book van" }] })!;
+    const weighed = applyCatalogueOperations("tracker", plain, [
+      { op: "add", path: "/columns/-", value: "Weight" },
+      { op: "replace", path: "/items/0/values/0", value: "3 kg" },
+    ]);
+    expect(weighed.ok && weighed.value).toMatchObject({ columns: ["Weight"], items: [{ values: ["3 kg"] }] });
+
+    const removed = applyCatalogueOperations("tracker", packing, [{ op: "remove", path: "/columns/0" }]);
+    expect(removed.ok && removed.value).toMatchObject({ columns: ["Qty"], items: [{ values: ["1"] }, { values: [""] }] });
+  });
+
+  it("leaves owner and due date off a checklist unless it names them or an item holds one", async () => {
+    const { trackerFields } = await import("../shell-types");
+    const packing = readCatalogueValue("tracker", { title: "Packing", items: [{ label: "Tent", owner: "", due: "" }] })!;
+    expect(packing.fields).toBeUndefined();
+    expect([...trackerFields({ items: packing.items.map(({ label, owner, due }, index) => ({ id: String(index), label, owner, due, done: false })) })]).toEqual([]);
+    const team = readCatalogueValue("tracker", { title: "Launch", fields: ["owner", "due", "nonsense"], items: [{ label: "Brief press" }] })!;
+    expect(team.fields).toEqual(["owner", "due"]);
+    expect([...trackerFields({ items: [{ id: "a", label: "x", done: false, due: "Fri" }] })]).toEqual(["due"]);
+  });
 });

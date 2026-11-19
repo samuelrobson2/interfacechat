@@ -25,6 +25,19 @@ describe("catalogue adapters", () => {
     expect(artefactCatalogueValue({ ...artefact, shell: second.shell })).toMatchObject({ items: [{ label: "Book van" }, { label: "Call cast", done: true }] });
   });
 
+  it("carries a checklist's columns and values both ways", () => {
+    const artefact = { ...base, ...newCatalogueArtefact("tracker", "Packing") } as ChatLabArtefact;
+    const patch = catalogueArtefactPatch(artefact, {
+      title: "Packing",
+      columns: ["Weight"],
+      items: [{ label: "Tent", values: ["2.1 kg"] }],
+    })!;
+    const data = patch.shell!.data as { columns: { id: string; label: string }[]; items: { values: Record<string, string> }[] };
+    expect(data.columns).toEqual([{ id: "col-0", label: "Weight" }]);
+    expect(data.items[0]!.values).toEqual({ "col-0": "2.1 kg" });
+    expect(artefactCatalogueValue({ ...artefact, shell: patch.shell })).toMatchObject({ columns: ["Weight"], items: [{ label: "Tent", values: ["2.1 kg"] }] });
+  });
+
   it("fills a dashboard opened in a thread, sample data and all", () => {
     const made = newCatalogueArtefact("dashboard", "Café sales");
     const artefact = { ...base, ...made } as ChatLabArtefact;

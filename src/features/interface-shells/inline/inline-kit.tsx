@@ -22,7 +22,7 @@ export function InlineHead({
   kind: ShellKind;
   title: string;
   detail?: string;
-  /** Shown at the end of the line (Pin, on hover). */
+  /** Shown at the end of the line (Open, on hover). */
   aside?: React.ReactNode;
   /** The title can be edited where it stands. */
   onTitleChange?: (title: string) => void;

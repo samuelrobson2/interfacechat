@@ -48,14 +48,23 @@ const trackerSchema = z.object({
   title: z.string().describe("What the checklist is for."),
   placement,
   groups: z.array(z.string()).optional().describe("Optional sections, such as Locations or Crew."),
+  columns: z
+    .array(z.string())
+    .optional()
+    .describe("Optional columns of detail every item has, lined up beside it: Weight, Qty, Price, Calories. Only when the items have a measure worth comparing."),
+  fields: z
+    .array(z.enum(["owner", "due"]))
+    .optional()
+    .describe("Owner and due date are off unless the scenario needs them: owner for work shared between people, due for things with deadlines. Name them here to show them even before they're filled. Leave out for a packing or shopping list."),
   items: z
     .array(
       z.object({
         label: z.string().describe("The thing to do, in a few words."),
-        owner: z.string().optional().describe("Who does it."),
-        due: z.string().optional().describe("When it's due, as short text such as Fri 4 Dec."),
+        owner: z.string().optional().describe("Who does it, only when the checklist has owners. Leave out otherwise; never an empty string."),
+        due: z.string().optional().describe("When it's due, as short text such as Fri 4 Dec, only when the checklist has due dates. Leave out otherwise; never an empty string."),
         done: z.boolean().optional().describe("True once it's finished. False unless told otherwise."),
         group: z.string().optional().describe("One of the groups."),
+        values: z.array(z.string()).optional().describe("One short value per column, in column order: 450 g, 2, £3. Empty text where unknown."),
       }),
     )
     .describe("Each thing to do, in order."),
@@ -263,8 +272,10 @@ export const CATALOGUE: { [K in CatalogueKind]: CatalogueEntry<K> } = {
     guidance: [
       "One item per thing to do, a few words each, in the order they'd be done.",
       "Keep items concise and specific: include amounts and details when known.",
+      "Owner and due date are not defaults: use them only when the scenario calls for them (work split between people: owner; deadlines: due). Then name them in fields and give each item its owner or due date where known. A packing list, a shopping list or a recipe's ingredients have neither.",
       "Only give an owner or a due date the user gave or plainly implied.",
       "Use groups only when the items fall into a few clear sections.",
+      "Add columns when every item has a measure worth lining up (a packing list's Weight, a shopping list's Qty and Price): name them in columns and give each item its values in that order. Keep values short, with units (450 g, 2, £3). To add one to an open checklist, add to /columns and set each item's /values.",
     ],
     schema: trackerSchema,
   },
@@ -509,10 +520,16 @@ export function readCatalogueValue(kind: CatalogueKind, input: unknown): Catalog
     return { ...base, columns, rows };
   }
 
+  // Columns as their names (or { label } objects); each item's values follow them, one each.
+  const columns = list(source.columns).flatMap((column) => {
+    const label = (typeof column === "string" ? column : text(record(column)?.label)).trim();
+    return label ? [label] : [];
+  });
   const items = list(source.items).flatMap((item) => {
     const fields = record(item);
     const label = text(fields?.label);
     if (!fields || !label) return [];
+    const values = list(fields.values).map((value) => (typeof value === "number" ? String(value) : text(value).trim()));
     return [
       {
         label,
@@ -520,11 +537,13 @@ export function readCatalogueValue(kind: CatalogueKind, input: unknown): Catalog
         ...(optionalText(fields.due) ? { due: optionalText(fields.due) } : {}),
         ...(typeof fields.done === "boolean" ? { done: fields.done } : {}),
         ...(optionalText(fields.group) ? { group: optionalText(fields.group) } : {}),
+        ...(columns.length ? { values: columns.map((_, index) => values[index] ?? "") } : {}),
       },
     ];
   });
   const groups = list(source.groups).filter((group): group is string => typeof group === "string" && !!group.trim());
-  return { ...base, ...(groups.length ? { groups } : {}), items };
+  const fields = [...new Set(list(source.fields).filter((field): field is "owner" | "due" => field === "owner" || field === "due"))];
+  return { ...base, ...(groups.length ? { groups } : {}), ...(columns.length ? { columns } : {}), ...(fields.length ? { fields } : {}), items };
 }
 
 /** A change to part of an interface, after JSON Patch: a path such as `/rows/2/1` or `/items/-`. */
@@ -546,6 +565,18 @@ export function applyCatalogueOperations<K extends CatalogueKind>(
   operations: CatalogueOperation[],
 ): Applied<K> {
   const draft = structuredClone(current) as Record<string, unknown>;
+  // A checklist's items each hold one value per column, so a value can be set by its position.
+  if (kind === "tracker") {
+    // A plain checklist has no columns yet: an empty list, so the first can be added at /columns/-.
+    if (!Array.isArray(draft.columns)) draft.columns = [];
+    const count = list(draft.columns).length;
+    for (const item of list(draft.items)) {
+      const fields = record(item);
+      if (!fields) continue;
+      const values = Array.isArray(fields.values) ? fields.values : [];
+      fields.values = Array.from({ length: count }, (_, index) => values[index] ?? "");
+    }
+  }
 
   for (const { op, path, value } of operations) {
     const keys = path.split("/").slice(1).map((key) => key.replace(/~1/g, "/").replace(/~0/g, "~"));
@@ -571,6 +602,15 @@ export function applyCatalogueOperations<K extends CatalogueKind>(
           if (!Array.isArray(row)) continue;
           if (op === "remove") row.splice(index, 1);
           else row.splice(index, 0, "");
+        }
+      }
+      // So do a checklist's values: a column added or removed adds or removes each item's value in its place.
+      if (kind === "tracker" && keys.length === 1 && keys[0] === "columns" && op !== "replace") {
+        for (const item of list(draft.items)) {
+          const values = record(item)?.values;
+          if (!Array.isArray(values)) continue;
+          if (op === "remove") values.splice(index, 1);
+          else values.splice(index, 0, "");
         }
       }
       if (op === "add") parent.splice(index, 0, value);
@@ -609,7 +649,10 @@ export function catalogueSummary(kind: CatalogueKind, value: CatalogueValue): st
     const table = value as CatalogueValueByKind["table"];
     return `${table.columns.length} columns, ${table.rows.length} rows`;
   }
-  if (kind === "tracker") return `${(value as CatalogueValueByKind["tracker"]).items.length} items`;
+  if (kind === "tracker") {
+    const tracker = value as CatalogueValueByKind["tracker"];
+    return `${tracker.items.length} items${tracker.columns?.length ? `, columns ${tracker.columns.join(", ")}` : ""}`;
+  }
   if (kind === "dashboard") {
     const app = value as CatalogueValueByKind["dashboard"];
     return `${app.blocks.length} blocks over ${app.datasets.length} datasets, ${app.variables.length} controls`;

@@ -241,6 +241,24 @@ const STREAM_FILL_MS = 60;
 
 // What's been applied of each tool call, so nothing is applied twice.
 const appliedCalls = new Map<string, string>();
+// The interface each `id: "new"` fill made, by tool call, so its streamed parts keep going into the same one.
+const newByCall = new Map<string, string>();
+
+/** A fill with `id: "new"`: its own interface, made on its first part, beside whatever is open. */
+function newCatalogueTarget(id: string, userMessageId: string, kind: CatalogueKind, title: string, callId: string) {
+  const store = useChatLabStore.getState();
+  const existing = newByCall.get(callId);
+  if (existing) return store.sessions[id]?.artefacts[existing];
+  const artefactId = store.createArtefact(id, {
+    ...newCatalogueArtefact(kind, title),
+    title: title || CATALOGUE[kind].label,
+    sourceUserMessageId: userMessageId,
+  });
+  if (!artefactId) return undefined;
+  newByCall.set(callId, artefactId);
+  if (isChatMinimized(id)) flash(openWindow(id, artefactId, "support"));
+  return useChatLabStore.getState().sessions[id]?.artefacts[artefactId];
+}
 const lastStreamedAt = new Map<string, number>();
 
 /**
@@ -306,10 +324,31 @@ function syncCatalogue(id: string, userMessageId: string, replies: ChatLabMessag
         const now = Date.now();
         if (streaming && now - (lastStreamedAt.get(id) ?? 0) < STREAM_FILL_MS) continue;
 
-        // A fill that names an open interface writes over it; otherwise the turn's, or a new one.
+        // A fill that names an open interface writes over it; "new" adds another; otherwise the turn's, or a new one.
         const named = (part.input as { id?: unknown } | undefined)?.id;
         const byId = typeof named === "string" ? useChatLabStore.getState().sessions[id]?.artefacts[named] : undefined;
-        const target = byId && artefactCatalogueKind(byId) === kind ? byId : catalogueTarget(id, userMessageId, kind, value.title);
+        // While it's still arriving, it waits until it knows where it goes. An id half written ("n", "ne" on its way
+        // to "new", or part of an interface's id) names nothing yet. And with no id so far it may yet turn out to be
+        // "new", so it doesn't write into an interface from an earlier turn until it's finished. What this turn made
+        // is safe to fill as it streams.
+        if (streaming) {
+          // Half written: it could still become "new" or an open interface's id, so wait. An id that can't become
+          // either (the model sometimes makes one up) names nothing: it's read as no id.
+          const session = useChatLabStore.getState().sessions[id];
+          const couldName = (text: string) => "new".startsWith(text) || Object.keys(session?.artefacts ?? {}).some((key) => key.startsWith(text));
+          if (typeof named === "string" && named !== "new" && !byId && couldName(named)) continue;
+          if (named === undefined || (typeof named === "string" && named !== "new" && !byId)) {
+            const session = useChatLabStore.getState().sessions[id];
+            const locked = session?.turnTarget?.userMessageId === userMessageId ? session.artefacts[session.turnTarget.artefactId] : undefined;
+            if (locked && locked.sourceUserMessageId !== userMessageId && artefactCatalogueKind(locked) === kind) continue;
+          }
+        }
+        const target =
+          named === "new"
+            ? newCatalogueTarget(id, userMessageId, kind, value.title, callId)
+            : byId && artefactCatalogueKind(byId) === kind
+              ? byId
+              : catalogueTarget(id, userMessageId, kind, value.title);
         if (!target) continue;
         lastStreamedAt.set(id, now);
         appliedCalls.set(callId, signature);
@@ -630,7 +669,8 @@ function retrievalForRequest(sessionId: string, messages: ChatLabMessage[]) {
   const session = useChatLabStore.getState().sessions[sessionId];
   const firstTurn = messages.filter((message) => message.role === "user").length === 1;
   if (!lastUser || (session?.fromChatCard && firstTurn)) return undefined;
-  return retrievalInput(getMessageText(lastUser));
+  const answered = messages.slice(0, messages.indexOf(lastUser)).reverse().find((message) => message.role === "assistant");
+  return retrievalInput(getMessageText(lastUser), answered ? getMessageText(answered) : "");
 }
 
 /**
@@ -644,8 +684,8 @@ function chatModesForRequest(sessionId: string, messages: ChatLabMessage[]) {
   const firstTurn = messages.filter((message) => message.role === "user").length === 1;
   const persona = session.persona ? { label: session.persona, instruction: assistantInstruction(session.persona) } : undefined;
   const layout = firstTurn && session.replyFormat ? formatInstruction(session.replyFormat) : undefined;
-  // Choices picked on the home card: context for the first reply, not words in their message.
-  const chose = firstTurn && session.brief ? `Settled on the home card, so don't ask about these again: ${session.brief}` : undefined;
+  // What the home card settled and offered: context for the first reply, not words in their message.
+  const chose = firstTurn && session.brief ? session.brief : undefined;
   // Everything they set up on the home card (what they typed into it, suggestions they accepted), whatever the interface can hold.
   const card = firstTurn && session.card ? `The interface as they set it up on the home card (JSON):\n${session.card}` : undefined;
   // A format shapes the reply (nothing opens); what they set on the card is context, and doesn't stop an interface opening.

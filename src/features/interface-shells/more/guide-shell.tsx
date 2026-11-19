@@ -5,7 +5,7 @@ import { shellId, type GuideFact, type GuideNeed, type GuideShellData, type Guid
 import { ghostLabels, ghostsAfter } from "../ui/shell-accents";
 import { InlineInput, PreviewBody, PreviewHead, ShellBody, ShellTitle, SHELL_BODY_PAD, SHELL_EDGE_X } from "../ui/shell-kit";
 import { ShellAppIcon } from "../ui/shell-icons";
-import { SuggestedBox, SuggestedText, placedSuggestions, suggestionsAfter, type PlacedSuggestion } from "../ui/suggested-chip";
+import { DismissSuggestion, SuggestedBox, SuggestedText, placedSuggestions, suggestionsAfter, type PlacedSuggestion } from "../ui/suggested-chip";
 import { useAskedField } from "../ui/question-card";
 import { Bar, AutoTextarea, fieldEvents, ShellSurface, stopFieldEvent } from "../ui/shell-surface";
 import { ShellToolbar, ShellToolButton, ShellToolDivider, ShellToolField, ShellToolPopover } from "../ui/shell-toolbar";
@@ -205,6 +205,7 @@ export function GuideShell({
   className,
   suggestions,
   suggested,
+  onDismissSuggestion,
 }: ShellProps<GuideShellData>) {
   const [cooking, setCooking] = useState(false);
   // Asked about in the chat: the control it fills lights up in the suggestion colour until it's answered.
@@ -421,6 +422,19 @@ export function GuideShell({
       needs,
     });
   };
+  // A suggested thing to get goes after the one it follows (or at the end), ticked off like the rest once added.
+  const needsWhere = suggestionsAfter(placedSuggestions(suggested?.needs, data.needs.map((need) => need.text)).slice(0, 2), data.needs.map((need) => need.text));
+  const suggestedNeed = (placed: PlacedSuggestion, at: number, group?: string) => (
+    <li key={placed.value} data-shell-part="suggest" className="flex min-w-0 items-start gap-2 py-0.5">
+      <SuggestedBox shape="round" className="mt-[3px] size-3.5 shrink-0" />
+      <SuggestedText
+        text={placed.value}
+        onAccept={update && (() => update({ needs: [...data.needs.slice(0, at), { id: shellId("need"), text: placed.value, have: false, ...(group ? { group } : {}) }, ...data.needs.slice(at)] }))}
+        className="min-w-0 flex-1 px-1 font-bureau text-[13px] leading-[1.35]"
+      />
+      {onDismissSuggestion && <DismissSuggestion label={placed.value} onDismiss={() => onDismissSuggestion("needs", placed.value)} />}
+    </li>
+  );
   const standardTools = (
     <>
       <span
@@ -524,7 +538,7 @@ export function GuideShell({
                   <span className="font-bureau text-[13px] font-light text-typography-secondary">{label}</span>
                 </li>
               ))}
-            {data.needs.map((need, i) => (
+            {data.needs.map((need, i) => [
               <li key={need.id} className={cn("group flex min-w-0 flex-col", need.group && need.group !== data.needs[i - 1]?.group && i > 0 && "mt-2.5")}>
                 {need.group && need.group !== data.needs[i - 1]?.group && (
                   <span className="pb-0.5 font-bureau text-[11px] text-typography-secondary">{need.group}</span>
@@ -546,8 +560,10 @@ export function GuideShell({
                 />
                 {update && <Remove label={`Remove ${need.text || "item"}`} onRemove={() => update({ needs: data.needs.filter((n) => n.id !== need.id) })} />}
                 </span>
-              </li>
-            ))}
+              </li>,
+              ...needsWhere.after(i).map((placed) => suggestedNeed(placed, i + 1, need.group)),
+            ])}
+            {needsWhere.atEnd.map((placed) => suggestedNeed(placed, data.needs.length, placed.group ?? data.needs.at(-1)?.group))}
           </ul>
           {update && (
             <Add

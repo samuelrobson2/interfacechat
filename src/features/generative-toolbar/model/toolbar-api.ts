@@ -248,6 +248,8 @@ export function applyOperations<D>(data: D, operations: DataOperation[]): D {
     if (value === IMAGE) throw new Error(`${path} would lose its picture`);
     const keys = path.split("/").slice(1).map((key) => key.replace(/~1/g, "/").replace(/~0/g, "~"));
     const last = keys.pop()!;
+    // An edit writes into the interface's own fields: a new top-level one (a setting stored as "/value") changes nothing anyone sees.
+    if (keys.length === 0 && op !== "remove" && isRecord(draft) && !(last in draft)) throw new Error(`There's no ${last} field to change`);
     let parent: unknown = draft;
     let holder: unknown = null;
     for (const [index, key] of keys.entries()) {

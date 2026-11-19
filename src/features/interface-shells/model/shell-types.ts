@@ -204,13 +204,35 @@ export type TrackerItem = {
   due?: string;
   done: boolean;
   group?: string;
+  /** Each column's value for this item, by column id: "450 g", "2", "£3". */
+  values?: Record<string, string>;
 };
+
+/** A detail every item has, lined up on the right: Weight, Qty, Price. */
+export type TrackerColumn = { id: string; label: string };
 
 export type TrackerShellData = ProjectSlot & {
   title: string;
   groups: string[];
   items: TrackerItem[];
+  /** Columns of detail beside each item, in order. None: a plain checklist. */
+  columns?: TrackerColumn[];
+  /**
+   * Owner and due date, shown only where the checklist uses them: named here
+   * (a team's to-dos, deadlines), or held by any item. Neither by default.
+   */
+  fields?: TrackerField[];
 };
+
+export type TrackerField = "owner" | "due";
+
+/** The fields a checklist shows: the ones it names, and any an item holds. */
+export function trackerFields(data: Pick<TrackerShellData, "fields" | "items">): Set<TrackerField> {
+  const shown = new Set<TrackerField>(data.fields ?? []);
+  if (data.items.some((item) => item.owner?.trim())) shown.add("owner");
+  if (data.items.some((item) => item.due?.trim())) shown.add("due");
+  return shown;
+}
 
 export type CalendarEvent = {
   id: string;
@@ -533,11 +555,11 @@ export type ShellProps<D> = {
 /**
  * Groups of values an interface can show suggestions in: Search's and Map's
  * filters, Generator's tones, styles and lengths, Schedule's constraints,
- * a Table's columns, a Tracker's items, a Moodboard canvas's notes, and text
+ * a Table's columns, a Tracker's items, a Guide's needs, a Moodboard canvas's notes, and text
  * offered in place: a Document's next sentences, a Guide's next steps, a
  * Schedule's next lines.
  */
-export const SUGGESTED_GROUPS = ["filters", "tones", "styles", "lengths", "constraints", "columns", "items", "notes", "text", "steps", "tasks", "serves", "time"] as const;
+export const SUGGESTED_GROUPS = ["filters", "tones", "styles", "lengths", "constraints", "columns", "items", "notes", "text", "steps", "needs", "tasks", "serves", "time"] as const;
 export type SuggestedGroup = (typeof SUGGESTED_GROUPS)[number];
 /**
  * One suggestion. Plain words go at the end of their list; a suggestion can

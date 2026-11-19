@@ -1,6 +1,7 @@
 import {
   shellId,
   type GeneratorShellData,
+  type GuideShellData,
   type ScheduleShellData,
   type SearchShellData,
 } from "@/features/interface-shells";
@@ -453,4 +454,51 @@ export function generatorTools(data: GeneratorShellData): GeneratedTool<Generato
     });
   }
   return mix(controlTools, actions);
+}
+
+/* ── Guide ────────────────────────────────────────────────────────────── */
+
+const LEVELS = ["Easy", "Medium", "Ambitious"];
+
+/**
+ * A Guide's tools when the model can't be asked: write the method when there
+ * is none; otherwise shape what's there (how hard, what it avoids, timings,
+ * what can be done ahead). Settings are carried out by the model, which
+ * rewrites the steps and the list to match.
+ */
+export function guideTools(data: GuideShellData): GeneratedTool<GuideShellData>[] {
+  if (data.steps.length === 0) {
+    return [
+      {
+        type: "action",
+        id: "write-method",
+        label: data.needs.length ? "Write the method" : "Write it out",
+        detail: data.needs.length ? `From the ${plural(data.needs.length, "thing")} you need` : "Steps and what you need, from the chat so far",
+        icon: "sparkles",
+      },
+    ];
+  }
+  const fact = (label: string) => data.facts.find((entry) => entry.label.toLowerCase() === label)?.value;
+  const level = LEVELS.find((option) => option.toLowerCase() === (fact("level") ?? fact("difficulty") ?? "").toLowerCase()) ?? "Medium";
+  const untimed = data.steps.filter((step) => !step.minutes).length;
+  const ungrouped = data.needs.length > 4 && data.needs.every((need) => !need.group);
+  const tools: GeneratedTool<GuideShellData>[] = [
+    {
+      type: "choice",
+      id: "level",
+      label: "Level",
+      detail: "Simpler or more ambitious steps",
+      icon: "sliders",
+      options: LEVELS.map((option) => ({ id: option, label: option })),
+      value: level,
+    },
+    { type: "toggle", id: "vegetarian", label: "Vegetarian", detail: "Swap out the meat and fish", icon: "check", value: /vegetarian|vegan/i.test(fact("diet") ?? "") },
+    { type: "action", id: "ahead", label: "Make ahead", detail: "Mark what can be done the day before", icon: "clock" },
+  ];
+  if (untimed >= 2) tools.push({ type: "action", id: "timings", label: "Add timings", detail: `${plural(untimed, "step")} without one`, icon: "clock" });
+  if (ungrouped) {
+    tools.push({ type: "action", id: "group-needs", label: "Group the list", detail: `Sort ${plural(data.needs.length, "item")} into sections`, icon: "list" });
+  }
+  tools.push({ type: "action", id: "simplify", label: "Fewer steps", detail: `Combine ${clip(data.steps[0]?.text ?? "", 24)} and the rest where they can be`, icon: "scissors" });
+  return tools;
 }

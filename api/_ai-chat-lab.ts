@@ -31,6 +31,7 @@ import {
 import type { InterfaceRole, ShellKind } from "../src/features/interface-shells/model/shell-types.js";
 import { askableFields, askInputSchema, normalizeQuestions } from "../src/features/interface-shells/model/questions.js";
 import { CHART_BLOCK, chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT, wantsChart } from "./_chat-lab.js";
+import { ALWAYS_MAKEABLE, makeIntent } from "../src/features/interface-shells/model/make-intent.js";
 import { hybridCandidates, type RetrievalInput } from "./_interface-retrieval.js";
 import { compactArtifactHistory } from "../src/features/chat-lab/model/artifact-history.js";
 import {
@@ -98,9 +99,6 @@ What can be asked, and where the answer goes:
 ${[...lines, '- for "chat": a plain question (confirm for yes or no, choose for options, text otherwise).'].join("\n")}`;
 }
 
-/** A plain request to make something: "Make the menu", "Now give me the recipe", "Can you draft a brief". */
-const MAKE_REQUEST =
-  /^\s*(?:(?:ok(?:ay)?|now|then|and|great|thanks)[,!.]?\s+)*(?:(?:please|can you|could you|would you)\s+)?(?:make|create|build|write|draft|give me|put together|generate|draw up|plan out|set up)\b/i;
 
 /** Another interface open beside the chat (not the one used last, not a tracked one): the model sees it too. */
 type OpenContext = { id: string; kind: InterfaceKind | "shell"; label: string; title: string; value?: string; snapshot?: string };
@@ -148,7 +146,7 @@ function inViewAddon(inView: { id: string; label: string; title: string; focused
   if (inView.length + rest.length < 2 && !inView.some((entry) => !entry.focused)) return null;
   return `Interfaces in this thread, in a window or in the reply that made them (what each holds now is at the end of the conversation):
 ${[...inView.map((entry) => `- id=${entry.id}: ${entry.label} "${entry.title}"${entry.focused ? " (the one they used last)" : ""}`), ...rest.map((entry) => `- id=${entry.id}: ${entry.label} "${entry.title}" (read it; you can't write to it)`)].join("\n")}
-- Work on the ones the request is about. To change part of one, call update_interface with its id; to rewrite one, call its fill tool with its id; leave the id out of a fill to make a new one.
+- Work on the ones the request is about. To change part of one, call update_interface with its id; to rewrite one, call its fill tool with its id; to make another beside them, call the fill tool with id "new" (it never replaces anything).
 - Keep what they say in one consistent across the others (a time moved in the schedule moves in the shot list).`;
 }
 
@@ -211,6 +209,8 @@ ${contents}
 
 Routing rules:
 - To write it or rewrite most of it, call ${entry.tool}. It appears in the ${name} as you write it.
+- To make another ${name} beside it (a second version, a different one), call ${entry.tool} with id "new": it's added
+  next to this one and never replaces it. You can have as many open as the request needs.
 ${change}
 - Keep chat messages short: what you did, or a question. Do not paste the ${name} into chat.
 - If the user is just chatting, reply in chat only and skip the tools.`;
@@ -295,18 +295,24 @@ Routing rules:
 const retrievedCatalogueKinds = (interfaces: InterfaceCandidate[]) =>
   CATALOGUE_KINDS.filter((kind) => interfaces.some((candidate) => candidate.opensAs === kind));
 
-const candidatesSystemAddon = (candidates: InterfaceCandidate[]) => {
-  const interfaces = candidates.filter((candidate) => candidate.layer !== "format");
+const candidatesSystemAddon = (candidates: InterfaceCandidate[], standing: InterfaceCandidate[] = []) => {
+  const retrievedOnes = candidates.filter((candidate) => candidate.layer !== "format");
+  const interfaces = [...retrievedOnes, ...standing];
   const formats = candidates.filter((candidate) => candidate.layer === "format");
   const list = (items: InterfaceCandidate[], arrow: (c: InterfaceCandidate) => string) =>
     items.map((candidate, index) => `${index + 1}. id="${candidate.id}" (${candidate.label})${arrow(candidate)}: ${candidate.description}`).join("\n");
   const interfaceBlock = interfaces.length
     ? `
-Interfaces (surfaces shown with your reply, which the user can move into a window), retrieved for this turn:
-${list(interfaces, (c) => ` → opens as ${c.opensAs}`)}
+Interfaces (surfaces shown with your reply, which the user can move into a window)${retrievedOnes.length ? `, retrieved for this turn:
+${list(retrievedOnes, (c) => ` → opens as ${c.opensAs}`)}` : ":"}${standing.length ? `
+Always available to make:
+${standing.map((candidate) => `- id="${candidate.id}" (${candidate.label}) → opens as ${candidate.opensAs}`).join("\n")}` : ""}
+
+- What the thread asks you to make goes in an interface, not in your reply: a menu, a list
+  to buy or do, a recipe, a day's plan, rows to compare. Your reply says in a sentence what you made.
 
 - If an interface clearly fits, call open_interface with that candidate's id and
-  a short title for it. Prefer the listed candidates only.
+  a short title for it. Prefer the ones retrieved for this turn when they fit.
 - Right after opening, fill it. ${CATALOGUE_KINDS.map((kind) => CATALOGUE[kind].label).join(", ")} each have their own tool
   (${CATALOGUE_KINDS.map((kind) => CATALOGUE[kind].tool).join(", ")}): it appears in the interface as you write it. For
   anything else call write_interface with the body (and filters for search).
@@ -314,7 +320,10 @@ ${list(interfaces, (c) => ` → opens as ${c.opensAs}`)}
 - For search, call web_search before write_interface, and write one result per
   line as "- [Title](https://source.url) — one-sentence finding".
 ${retrievedCatalogueKinds(interfaces).flatMap((kind) => CATALOGUE[kind].guidance.map((line) => `- ${CATALOGUE[kind].label}: ${line}`)).join("\n")}
-- Never open more than one interface in a single turn.
+- Call open_interface at most once a turn. One interface per thing asked for: when they
+  ask for more than one (two versions, one for each guest, a vegan and a normal one), call
+  the fill tool once for each, with id "new" for each one after the first. Never say you
+  only have room for one: each "new" fill adds another.
 - Don't say where the interface is on screen (no "side panel" or "on the right"):
   the user places it. Refer to it by what it is, as in "the table".`
     : "";
@@ -331,6 +340,9 @@ ${list(formats, () => "")}
 
 If nothing fits well, do NOT call open_interface: just reply in chat.`;
 };
+
+/** The fill tools' id for "add another one", rather than write over an open one. */
+const NEW_INTERFACE = "new";
 
 const writeInterfaceTool = tool({
   description:
@@ -404,6 +416,12 @@ export async function POST(req: Request) {
   const retrieved = retrieval ? await hybridCandidates(retrieval) : null;
   if (retrieved) console.log(`  [ai:retrieval] ${retrieved.trace}`);
   const candidates = (retrieved?.candidates as InterfaceCandidate[] | undefined) ?? interfaceCandidates?.slice(0, 5) ?? [];
+  // The everyday interfaces are always makeable, after what retrieval ranked for this turn: a turn that refers
+  // back ("do both", "add these to interfaces") names nothing retrieval can find, and still has to make them.
+  const standing: InterfaceCandidate[] = (retrieval?.catalogue ?? [])
+    .filter((entry) => (ALWAYS_MAKEABLE as readonly string[]).includes(entry.id) && !candidates.some((candidate) => candidate.id === entry.id))
+    .map((entry) => ({ id: entry.id, label: entry.label, description: entry.description, opensAs: entry.opensAs, layer: "interface" }) as InterfaceCandidate);
+  const makeable = [...candidates.filter((candidate) => candidate.layer !== "format"), ...standing];
   const tracked = (trackedInput ?? []).filter((entry) => roleSpec(entry.kind, entry.role));
   const others = (openInput ?? []).slice(0, 6);
 
@@ -434,7 +452,7 @@ export async function POST(req: Request) {
   const roleRules =
     [
       inViewAddon(inView, others),
-      inPlay.length ? rulesFor(inPlay) : null,
+      inPlay.length || makeable.length ? rulesFor(inPlay, { making: makeable.length > 0 }) : null,
       !tracked.some((entry) => entry.kind === "tracker") && tracked.some((entry) => entry.kind === "notes") ? PROGRESS_START.rules.map((line) => `- ${line}`).join("\n") : null,
     ]
       .filter(Boolean)
@@ -454,10 +472,10 @@ export async function POST(req: Request) {
     chatModes?.format ? `Reply format: ${chatModes.format} Use ordinary markdown text; nothing opens.` : null,
     chatModes?.context ?? null,
     artefact ? artefactSystemAddon(artefact) : null,
-    !artefact && candidates.length > 0
-      ? candidatesSystemAddon(candidates)
-      : artefact && candidates.some((candidate) => candidate.layer !== "format")
-        ? `To make something new rather than change what's open (a recipe while the menu is open), these fit the request:${candidatesSystemAddon(candidates.filter((candidate) => candidate.layer !== "format"))}`
+    !artefact && (candidates.length > 0 || standing.length > 0)
+      ? candidatesSystemAddon(candidates, standing)
+      : artefact && makeable.length
+        ? `To make something new rather than change what's open (a recipe while the menu is open):${candidatesSystemAddon(candidates.filter((candidate) => candidate.layer !== "format"), standing)}`
         : null,
     roleRules,
     askAddon(askTargets),
@@ -466,7 +484,7 @@ export async function POST(req: Request) {
     .join("\n\n");
 
   // Formats shape the reply; only interfaces can be opened.
-  const candidateIds = candidates.filter((candidate) => candidate.layer !== "format").map((candidate) => candidate.id);
+  const candidateIds = makeable.map((candidate) => candidate.id);
   const openInterfaceSchema =
     candidateIds.length > 0
       ? z.object({
@@ -485,25 +503,28 @@ export async function POST(req: Request) {
     ...new Set([
       ...inView.map((entry) => entry.kind),
       // The kinds this request could make: offered whatever's open, so a new one can be made beside it.
-      ...CATALOGUE_KINDS.filter((kind) => candidates.some((candidate) => candidate.layer !== "format" && candidate.opensAs === kind)),
+      ...CATALOGUE_KINDS.filter((kind) => makeable.some((candidate) => candidate.opensAs === kind)),
     ]),
   ];
   const fillTools: ToolSet = Object.fromEntries(
     fillKinds.map((kind) => {
       const ofKind = inView.filter((entry) => entry.kind === kind);
       const focused = ofKind.find((entry) => entry.focused);
-      const schema = ofKind.length
-        ? CATALOGUE[kind].schema.extend({
-            id: z
-              .enum(ofKind.map((entry) => entry.id) as [string, ...string[]])
-              .optional()
-              .describe(
-                focused
-                  ? `Which open ${CATALOGUE[kind].label.toLowerCase()} to write over. Leave out for the one they used last (${focused.id}).`
-                  : `Which open ${CATALOGUE[kind].label.toLowerCase()} to write over. Leave out to make a new one.`,
-              ),
-          })
-        : CATALOGUE[kind].schema;
+      const name = CATALOGUE[kind].label.toLowerCase();
+      // "new" adds another beside what's open, so a turn can make several (a vegan and a normal recipe).
+      // The id comes first, so it streams before the content: the content can't land in the wrong one while it waits.
+      const schema = z.object({
+        id: z
+          .enum([...ofKind.map((entry) => entry.id), NEW_INTERFACE] as [string, ...string[]])
+          .optional()
+          .describe(
+            focused
+              ? `Which open ${name} to write over, or "new" to add another beside it. Leave out for the one they used last (${focused.id}).`
+              : ofKind.length
+                ? `Which open ${name} to write over, or "new" to add another. Leave out to make a new one.`
+                : `"new" for each ${name} after the first when making several this turn. Leave out for the first.`,
+          ),
+      }).extend(CATALOGUE[kind].schema.shape);
       return [
         CATALOGUE[kind].tool,
         tool({
@@ -513,6 +534,8 @@ export async function POST(req: Request) {
             const value = readCatalogueValue(kind, input);
             if (!value) return { ok: false as const, error: "Nothing to fill." };
             const id = (input as { id?: string }).id;
+            // A new one leaves every open interface as it is.
+            if (id === NEW_INTERFACE) return { ok: true as const, added: catalogueSummary(kind, value) };
             const target = ofKind.find((entry) => entry.id === id) ?? focused;
             if (target) target.current = value;
             return { ok: true as const, filled: catalogueSummary(kind, value) };
@@ -559,10 +582,17 @@ export async function POST(req: Request) {
   // written; whether it's made isn't left to the model.
   const lastAsk = [...messages].reverse().find((message) => message.role === "user");
   const askText = (lastAsk?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
-  const offered = candidates.filter((candidate) => candidate.layer !== "format");
+  // The assistant's message it answers: "Yes, do both" makes what that message offered.
+  const answered = lastAsk ? messages.slice(0, messages.lastIndexOf(lastAsk)).reverse().find((message) => message.role === "assistant") : undefined;
+  const answeredText = (answered?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
+  // A plain "make" forces an interface only when retrieval found one that fits ("Write me a haiku" stays in chat);
+  // agreeing to an offer, or asking for an interface, always does.
+  const intent = makeIntent(askText, answeredText);
+  const retrievedMakeable = candidates.filter((candidate) => candidate.layer !== "format");
+  const offered = intent === "request" ? retrievedMakeable : makeable;
   const mustMake =
     !!openInterfaceSchema &&
-    MAKE_REQUEST.test(askText) &&
+    intent !== null &&
     offered.length > 0 &&
     !inView.some((entry) => entry.kind === offered[0]!.opensAs) &&
     !(artefact && artefact.kind === offered[0]!.opensAs);
@@ -588,7 +618,7 @@ export async function POST(req: Request) {
                 "Open one retrieved interface for this turn. Skip this tool to stay in plain chat. Follow with its fill tool, or write_interface, to fill it.",
               inputSchema: openInterfaceSchema,
               execute: async ({ id, title }) => {
-                const match = candidates.find((candidate) => candidate.id === id);
+                const match = makeable.find((candidate) => candidate.id === id);
                 return {
                   ok: true as const,
                   id,

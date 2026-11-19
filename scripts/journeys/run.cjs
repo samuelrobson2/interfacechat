@@ -34,8 +34,11 @@ function readTurn(body, stream) {
   const filled = called.filter((name) => name.startsWith("fill_")).map((name) => name.slice(5));
   // What the model said, from the streamed text deltas.
   const said = [...stream.matchAll(/"type":"text-delta"[^\n]*?"delta":"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`)).join("");
+  // What it asked, when it asked: the ask tool's questions, from its input.
+  const asked = [...stream.matchAll(/"toolName":"ask"[^\n]*?"input":(\{[^\n]*?\})\}?\s*$/gm)].map((m) => m[1]).join(" ").match(/"ask":"([^"]*)"/g)?.map((m) => m.slice(7, -1)) ?? [];
   return {
     said,
+    asked,
     called,
     made: [...new Set([...opened, ...filled])],
     inContext: [...(body.artefact ? [body.artefact.label ?? body.artefact.kind] : []), ...(body.open ?? []).map((entry) => entry.label)].map(String),
@@ -94,7 +97,7 @@ async function run(journey, browser) {
   const report = [];
   const record = async (say, expect, extra = []) => {
     const notes = await notesOf(page);
-    const turn = last ?? { said: "", called: [], made: [], inContext: [], tracked: [] };
+    const turn = last ?? { said: "", asked: [], called: [], made: [], inContext: [], tracked: [] };
     report.push({ say, fail: [...extra, ...check(expect, turn, notes)], turn, notes });
     last = null;
   };
@@ -134,6 +137,7 @@ async function run(journey, browser) {
       console.log(`      called: ${turn.called.join(", ") || "nothing"} · in context: ${turn.inContext.join(", ") || "nothing"}`);
       for (const line of fail) console.log(`      ✗ ${line}`);
       if (fail.length && turn.said) console.log(`      replied: ${turn.said.replace(/\s+/g, " ").slice(0, 400)}`);
+      if (fail.length && turn.asked?.length) console.log(`      asked: ${turn.asked.join(" · ")}`);
       if (fail.length) console.log(`      notes: ${notes.join(" / ")}`);
     }
     for (const error of errors) console.log(`  page error: ${error}`);

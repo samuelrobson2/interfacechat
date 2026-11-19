@@ -11,6 +11,7 @@ import { HomeField } from "./compose/home-field";
 import { FadeText } from "./compose/fade-headline";
 import type { StarterField } from "./compose/visual-starter-suggestions";
 import { ChatLabArtefactWindow } from "./compose/chat-lab-artefact";
+import { AwaitingReply, needsReply } from "./compose/awaiting-reply";
 import { ChatLabComposer } from "./compose/chat-lab-composer";
 import { ChatLabConversation } from "./compose/chat-lab-conversation";
 import { ChatLabTitle } from "./compose/chat-lab-heading";
@@ -324,6 +325,7 @@ function SessionViewInner({ sessionId }: { sessionId: string }) {
 
   if (!session || !layout) return null;
   const chatOpen = layout.entries[CHAT_WINDOW]?.presentation !== "minimized";
+  const waiting = needsReply(session.messages, session.answers);
 
   const renderBody = (instance: WorkbenchInstance, entry: LayoutEntry, rect: Rect | undefined) => {
     if (instance.id === CHAT_WINDOW) return <ChatPane width={rect?.width ?? 0} open={chatOpen} />;
@@ -373,7 +375,9 @@ function SessionViewInner({ sessionId }: { sessionId: string }) {
       flashId={flashId}
       floating={
         <>
-          {peek && (
+          {/* A reply waiting on them stays here, with its questions, until it's answered; anything else just flashes by. */}
+          {!chatOpen && <AwaitingReply onOpen={() => transact(sessionId, { type: "open", id: CHAT_WINDOW })} />}
+          {peek && !waiting && (
             <ReplyPeek
               text={peek.text}
               onOpen={() => {

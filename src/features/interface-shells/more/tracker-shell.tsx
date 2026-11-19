@@ -1,7 +1,7 @@
-import { ArrowDownAZ, ArrowUpDown, CalendarClock, Check, Eye, EyeOff, ListChecks, ListPlus, Plus, User, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpDown, CalendarClock, Check, Columns3, Eye, EyeOff, ListChecks, ListPlus, Plus, User, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/shared/lib/css";
-import { shellId, type ShellProps, type TrackerItem, type TrackerShellData } from "../model/shell-types";
+import { shellId, trackerFields, type ShellProps, type TrackerColumn, type TrackerField, type TrackerItem, type TrackerShellData } from "../model/shell-types";
 import { AddChip } from "../ui/shell-fields";
 import {
   InlineInput,
@@ -136,16 +136,104 @@ function AddItem({ large, onAdd }: { large: boolean; onAdd: () => void }) {
   );
 }
 
+/** A column's cell width, so every item's values line up under its name. */
+const columnWidth = (large: boolean) => (large ? "w-20" : "w-14");
+
+/** An item's values, one per column, lined up on the right. */
+function ColumnValues({
+  item,
+  columns,
+  large,
+  set,
+}: {
+  item: TrackerItem;
+  columns: TrackerColumn[];
+  large: boolean;
+  set?: (patch: Partial<TrackerItem>) => void;
+}) {
+  return (
+    <>
+      {columns.map((column) => (
+        <InlineInput
+          key={column.id}
+          value={item.values?.[column.id] ?? ""}
+          placeholder="–"
+          label={`${column.label || "Column"} for ${item.label || "item"}`}
+          onChange={set && ((value) => set({ values: { ...item.values, [column.id]: value } }))}
+          className={cn(
+            columnWidth(large),
+            "shrink-0 px-1 py-0.5 text-right text-typography-secondary tabular-nums",
+            large ? "text-[13px]" : "text-[11px]",
+          )}
+        />
+      ))}
+    </>
+  );
+}
+
+/** The columns' names, over the values: each can be renamed, and removed on hover. */
+function ColumnHeads({
+  columns,
+  large,
+  trailing,
+  onRename,
+  onRemove,
+}: {
+  columns: TrackerColumn[];
+  large: boolean;
+  /** Room kept at the end for each row's remove button, so the names sit over their values. */
+  trailing: boolean;
+  onRename?: (id: string, label: string) => void;
+  onRemove?: (id: string) => void;
+}) {
+  return (
+    <div data-tracker-columns="" className={cn("flex min-w-0 items-center", large ? "gap-3 pb-1" : "gap-2 pb-0.5")}>
+      <span className="flex-1" />
+      {columns.map((column) => (
+        <span key={column.id} className={cn("group/column relative shrink-0", columnWidth(large))}>
+          <InlineInput
+            value={column.label}
+            placeholder="Column"
+            label="Column name"
+            onChange={onRename && ((label) => onRename(column.id, label))}
+            className={cn("w-full px-1 py-0.5 text-right text-typography-secondary", large ? "text-[12px]" : "text-[10px]")}
+          />
+          {onRemove && (
+            <button
+              type="button"
+              aria-label={`Remove the ${column.label || "column"} column`}
+              {...fieldEvents}
+              onClick={(event) => {
+                stopFieldEvent(event);
+                onRemove(column.id);
+              }}
+              className="absolute top-1/2 -left-4 grid size-4 -translate-y-1/2 place-items-center rounded-full text-typography-secondary opacity-0 group-hover/column:opacity-100 hover:bg-shell-fill hover:text-typography-primary focus-visible:opacity-100"
+            >
+              <X className="size-3" />
+            </button>
+          )}
+        </span>
+      ))}
+      {trailing && <span aria-hidden className="size-6 shrink-0" />}
+    </div>
+  );
+}
+
 function ItemRow({
   item,
   index,
   large,
+  columns = [],
+  fields = new Set(),
   onChange,
   onRemove,
 }: {
   item: TrackerItem;
   index: number;
   large: boolean;
+  columns?: TrackerColumn[];
+  /** Owner and due date, where this checklist uses them. */
+  fields?: Set<TrackerField>;
   onChange?: (next: TrackerItem) => void;
   onRemove?: () => void;
 }) {
@@ -166,20 +254,25 @@ function ItemRow({
       />
       {large ? (
         <>
-          <InlineInput
-            value={item.owner ?? ""}
-            placeholder="Owner"
-            label="Owner"
-            onChange={set && ((owner) => set({ owner: owner || undefined }))}
-            className="w-20 px-1 py-0.5 text-[12px] text-typography-secondary"
-          />
-          <InlineInput
-            value={item.due ?? ""}
-            placeholder="Due"
-            label="Due"
-            onChange={set && ((due) => set({ due: due || undefined }))}
-            className="w-24 px-1 py-0.5 text-right text-[12px] text-typography-secondary tabular-nums"
-          />
+          {fields.has("owner") && (
+            <InlineInput
+              value={item.owner ?? ""}
+              placeholder="Owner"
+              label="Owner"
+              onChange={set && ((owner) => set({ owner: owner || undefined }))}
+              className="w-20 px-1 py-0.5 text-[12px] text-typography-secondary"
+            />
+          )}
+          {fields.has("due") && (
+            <InlineInput
+              value={item.due ?? ""}
+              placeholder="Due"
+              label="Due"
+              onChange={set && ((due) => set({ due: due || undefined }))}
+              className="w-24 px-1 py-0.5 text-right text-[12px] text-typography-secondary tabular-nums"
+            />
+          )}
+          <ColumnValues item={item} columns={columns} large set={set} />
           {onRemove && (
             <button
               type="button"
@@ -196,7 +289,10 @@ function ItemRow({
           )}
         </>
       ) : (
-        item.owner && <span className="shrink-0 font-bureau text-[10px] text-typography-secondary">{item.owner}</span>
+        <>
+          {fields.has("owner") && item.owner && <span className="shrink-0 font-bureau text-[10px] text-typography-secondary">{item.owner}</span>}
+          <ColumnValues item={item} columns={columns} large={false} set={set} />
+        </>
       )}
     </li>
   );
@@ -304,6 +400,36 @@ export function TrackerShell({
   const addItem = update
     ? (group?: string) => update({ items: [...data.items, { id: shellId("item"), label: "", done: false, group }] })
     : undefined;
+  // Columns of detail beside each item (Weight, Qty): added from the toolbar or by the model.
+  const columns = data.columns ?? [];
+  // Owner and due date only where the checklist uses them (the model's pick, or switched on here).
+  const fields = trackerFields(data);
+  const toggleField = update
+    ? (field: TrackerField) =>
+        fields.has(field)
+          ? // Off: the field goes, and so does what the items held in it.
+            update({
+              fields: (data.fields ?? []).filter((each) => each !== field),
+              items: data.items.map((item) => ({ ...item, [field]: undefined })),
+            })
+          : update({ fields: [...(data.fields ?? []), field] })
+    : undefined;
+  const addColumn = update ? () => update({ columns: [...columns, { id: shellId("col"), label: "" }] }) : undefined;
+  const renameColumn = update
+    ? (id: string, label: string) => update({ columns: columns.map((column) => (column.id === id ? { ...column, label } : column)) })
+    : undefined;
+  const removeColumn = update
+    ? (id: string) =>
+        update({
+          columns: columns.filter((column) => column.id !== id),
+          items: data.items.map((item) => {
+            if (!item.values || !(id in item.values)) return item;
+            const { [id]: _removed, ...values } = item.values;
+            void _removed;
+            return { ...item, values };
+          }),
+        })
+    : undefined;
 
   const done = data.items.filter((item) => item.done).length;
   const visible = (items: TrackerItem[]) => (hideDone ? items.filter((item) => !item.done) : items);
@@ -355,14 +481,23 @@ export function TrackerShell({
         >
           <ListPlus />
         </ShellToolButton>
+        <ShellToolButton label="Add column" disabled={!addColumn} onPress={() => addColumn?.()}>
+          <Columns3 />
+        </ShellToolButton>
+        <ShellToolButton label={fields.has("owner") ? "Hide owners" : "Show owners"} active={fields.has("owner")} disabled={!toggleField} onPress={() => toggleField?.("owner")}>
+          <User />
+        </ShellToolButton>
+        <ShellToolButton label={fields.has("due") ? "Hide due dates" : "Show due dates"} active={fields.has("due")} disabled={!toggleField} onPress={() => toggleField?.("due")}>
+          <CalendarClock />
+        </ShellToolButton>
         <ShellToolDivider />
         <ShellToolMenu
           label="Sort by"
           icon={<ArrowUpDown />}
           disabled={!update || data.items.length < 2}
           items={[
-            { id: "due", label: "Due date", icon: <CalendarClock />, onSelect: () => update?.({ items: sortItems(data.items, "due") }) },
-            { id: "owner", label: "Owner", icon: <User />, onSelect: () => update?.({ items: sortItems(data.items, "owner") }) },
+            ...(fields.has("due") ? [{ id: "due", label: "Due date", icon: <CalendarClock />, onSelect: () => update?.({ items: sortItems(data.items, "due") }) }] : []),
+            ...(fields.has("owner") ? [{ id: "owner", label: "Owner", icon: <User />, onSelect: () => update?.({ items: sortItems(data.items, "owner") }) }] : []),
             { id: "title", label: "Title", icon: <ArrowDownAZ />, onSelect: () => update?.({ items: sortItems(data.items, "title") }) },
             { id: "open", label: "Not done first", icon: <ListChecks />, onSelect: () => update?.({ items: sortItems(data.items, "open") }) },
           ]}
@@ -379,6 +514,10 @@ export function TrackerShell({
       </ShellToolbar>
       <ShellBody size={size}>
         {large && data.items.length > 0 && <Progress items={data.items} />}
+        {/* The columns' names, over the values they line up. */}
+        {columns.length > 0 && data.items.length > 0 && (
+          <ColumnHeads columns={columns} large={large} trailing={large && !!removeItem} onRename={renameColumn} onRemove={large ? removeColumn : undefined} />
+        )}
         {/* On the chat home: what the request leaves open, where the empty rows would be. */}
         {!large && suggestions?.brief}
         {/* No items: suggested items (below) take the placeholders' places; the rest stay placeholders after them. */}
@@ -411,6 +550,8 @@ export function TrackerShell({
                     item={item}
                     index={data.items.indexOf(item)}
                     large={large}
+                    columns={columns}
+                    fields={fields}
                     onChange={setItem}
                     onRemove={removeItem && (() => removeItem(item.id))}
                   />,

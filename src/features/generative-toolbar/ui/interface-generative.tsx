@@ -1,12 +1,12 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { SHELL_META, type ShellKind, type ShellSuggestions, type SuggestedGroup, type SuggestedValues } from "@/features/interface-shells";
+import { SHELL_META, type ShellKind, type ShellSuggestions, type Suggestion, type SuggestedGroup, type SuggestedValues } from "@/features/interface-shells";
 import { cn } from "@/shared/lib/css";
 import { TOOLBAR_KINDS, type GeneratedTool, type ToolbarDataByKind, type ToolbarKind } from "../model/generate-tools";
 import { GENERATIVE_SOURCES, useGenerativeSource, type GenerativeSource } from "../model/generative-source";
 import { suggestValues } from "../model/suggest-values";
-import { useContextSuggestions } from "../model/context-suggestions";
+import { shownGroups, useContextSuggestions } from "../model/context-suggestions";
 import { blankFollowUp, blanksStillOpen, rewriteDocument, runTool } from "../model/toolbar-api";
 import { describeUse, type ToolSpec, type ToolValue } from "../model/tool-spec";
 import { useGeneratedTools } from "../model/use-generated-tools";
@@ -87,9 +87,11 @@ export function useInterfaceGenerative<D>({
   const { tools, placed, status, from, error, regenerate, markUsed, restore, dismiss: dismissTool } = generated;
 
   const [dismissed, setDismissed] = useState<Partial<Record<SuggestedGroup, string[]>>>({});
+  // The columns on offer right now, read when an edit lands (accepting one fills it).
+  const offeredColumns = useRef<Suggestion[] | undefined>(undefined);
   // Suggestions in place, from the model, read off the interface and the thread: for every interface with something to offer.
   const suggestOn = (suggest ?? enabled) && fits && source === "model";
-  const fromThread = useContextSuggestions({ kind, label: SHELL_META[kind].label, data, context, on: suggestOn, dismissed });
+  const fromThread = useContextSuggestions({ kind, label: SHELL_META[kind].label, data, context, on: suggestOn, dismissed, groups: shownGroups(kind, size) });
   const dismissSuggestion = (group: SuggestedGroup, value: string) => setDismissed((d) => ({ ...d, [group]: [...(d[group] ?? []), value] }));
   const [note, setNote] = useState<Note | null>(null);
   const [previous, setPrevious] = useState<D | null>(null);
@@ -177,13 +179,46 @@ export function useInterfaceGenerative<D>({
     [toolbarKind, selection, markUsed, rewrite, carryOut],
   );
 
-  /** Edits from the interface; on a Document, a blank just filled is followed up by the model. */
+  /**
+ * A column added from a suggestion, still empty: the model fills it for every
+ * row, the way a toolbar tool would ("Fill Price"). A suggestion is the thing
+ * itself, so accepting a column means a column with its values.
+ */
+function addedSuggestedColumn(before: unknown, after: unknown, offered: string[]) {
+  const was = before as { columns?: { id: string; label: string }[] };
+  const now = after as { columns?: { id: string; label: string }[]; rows?: { cells: Record<string, unknown> }[] };
+  if (!now.columns || !now.rows?.length || !offered.length) return null;
+  const wanted = new Set(offered.map((label) => label.trim().toLowerCase()));
+  return (
+    now.columns.find(
+      (column) =>
+        wanted.has(column.label.trim().toLowerCase()) &&
+        !was.columns?.some((old) => old.id === column.id && old.label === column.label) &&
+        now.rows!.every((row) => !String(row.cells[column.id] ?? "").trim()),
+    ) ?? null
+  );
+}
+
+/** Edits from the interface; on a Document, a blank just filled is followed up by the model. */
   const onEdit = useCallback(
     (next: D) => {
       const before = (latest.current as unknown as ToolbarDataByKind["document"]).blanks ?? {};
       const blanks = (next as unknown as ToolbarDataByKind["document"]).blanks ?? {};
       const filled = on && toolbarKind === "document" ? Object.keys(blanks).find((key) => blanks[key]?.value && blanks[key]?.value !== before[key]?.value) : undefined;
+      // A suggested column accepted: fill it.
+      const offered = (offeredColumns.current ?? []).map((value) => (typeof value === "string" ? value : value.value));
+      const column = kind === "table" ? addedSuggestedColumn(latest.current, next, offered) : null;
       change.current(next);
+      if (column) {
+        const tool = { type: "action", id: `fill-${column.id}`, label: `Fill ${column.label}`, detail: `Fill the ${column.label} column for every row, from what each row is`, icon: "sparkles" } as unknown as GeneratedTool<Data>;
+        const work = runTool("table", next as unknown as Data, tool, undefined, null, (streamed) => change.current(streamed as unknown as D)).then((result) => ({
+          data: result.data as unknown as D | null,
+          reply: result.reply,
+          summary: result.summary,
+        }));
+        carryOut(next, `fill ${column.label}`, `Fill ${column.label}`, work);
+        return;
+      }
       if (!filled) return;
       const open = blanksStillOpen(blanks, filled);
       if (open.length) {
@@ -195,7 +230,7 @@ export function useInterfaceGenerative<D>({
       const body = (next as unknown as ToolbarDataByKind["document"]).body;
       carryOut(next, "fill that in", keys.map((other) => blanks[other]!.value).join(", "), rewrite(next, FILL_TOOL, undefined, blankFollowUp(blanks, keys, body)));
     },
-    [on, toolbarKind, rewrite, carryOut],
+    [on, kind, toolbarKind, rewrite, carryOut],
   );
 
   const undo = useCallback(() => {
@@ -207,6 +242,12 @@ export function useInterfaceGenerative<D>({
     if (spent.current) restore(spent.current);
     spent.current = null;
   }, [previous, restore]);
+
+  // The columns on offer, kept for the next edit, so accepting a suggested column can be told apart from adding one by hand.
+  const offeredNow = fromThread?.columns ?? (on && source === "rules" && status === "ready" ? suggestValues(toolbarKind, data as unknown as Data, dismissed).columns : undefined);
+  useEffect(() => {
+    offeredColumns.current = offeredNow;
+  });
 
   // No tools here (not a toolbar interface, or tools off for it): suggestions alone, when there are any.
   if (!on)

@@ -41,7 +41,7 @@ export type RoleSpec<D = unknown> = {
 
 export const BASE_RULES = [
   "Never ask for something an interface in play already answers.",
-  "When asked to make or change something, do it with sensible choices and say in a line what you chose; they'll change what they don't like. Ask first only when it truly can't go ahead without them.",
+  "When asked to make or change something, do it now with sensible choices and say in a line what you chose; they'll change what they don't like. Anything you'd ask first (a time, a number) goes in as your best guess instead. Ask first only when it truly can't go ahead without them.",
 ];
 
 /**
@@ -56,6 +56,8 @@ export const ROLE_RULES: Record<InterfaceRole, string[]> = {
     "Interfaces you make are what the person asked for. Write them from what the tracked interfaces say (the goal, the facts, the decisions), so nothing they've told you is lost or asked again.",
     CHOOSING_RULE,
     "Decide as you make it: where there's a choice (which main, which dessert), pick one that fits what the notes say instead of listing alternatives, and never ask them to choose between options you wrote yourself.",
+    "What you'd write out that an interface holds (a menu, a shopping list, a recipe, a plan for the day, a comparison) is made as that interface, never written in your reply. When they say yes to something you offered to make, make it; when they ask for several things, make each one.",
+    "Never ask which interface to use, or whether to put something in one: pick by what the thing is and make it.",
   ],
   track: [
     "Tracked interfaces hold this thread's working state. Keep them current as you go, in the same turn as anything else you do; don't wait to be asked and don't mention that you're doing it unless it matters.",
@@ -82,7 +84,7 @@ const notesTrack: RoleSpec<NotesShellData> = {
     "Don't copy into Notes what another interface holds (a recipe's steps, a schedule's times): each thing lives in one place; the notes say only what it settles.",
     "Never add a line that repeats a fact already there under another label (Where and Location are the same fact); change that line instead if it's now more exact.",
     "Notes holds facts, decisions, what's next and what's open, never the things you make. When they ask for something, make it as its own interface (open it and fill it), then note what it settles and tick it off in what's next.",
-    "While the goal is still being worked out, don't make anything unasked: ask about what's open, a couple of things at a time, and offer what you could make from the notes next (a menu, a shopping list, a schedule, a shot list), by name.",
+    "While the goal is still being worked out, don't make anything unasked: ask about what's open, a couple of things at a time, and offer what you could make from the notes next (a menu, a shopping list, a schedule, a shot list), by name. A question whose answer is the thing itself (what's on the menu, what to buy) asks for it.",
   ],
   contents: (data) => `Notes "${data.title}":\n${data.body.trim() || "(empty)"}`,
   tools: [
@@ -235,9 +237,12 @@ export const PROGRESS_START = {
 
 export type InPlay = { kind: ShellKind; role: InterfaceRole; label: string };
 
-/** The model's instructions for what's in play: base, then each role present, then each interface's own. */
-export function rulesFor(inPlay: InPlay[]): string {
-  const roles = [...new Set(inPlay.map((entry) => entry.role))];
+/**
+ * The model's instructions for what's in play: base, then each role present, then each interface's own.
+ * `making`: the turn can make interfaces, so the make rules hold even before one is open.
+ */
+export function rulesFor(inPlay: InPlay[], { making = false }: { making?: boolean } = {}): string {
+  const roles = [...new Set<InterfaceRole>([...(making ? (["make"] as const) : []), ...inPlay.map((entry) => entry.role)])];
   const own = inPlay.flatMap((entry) => {
     const spec = roleSpec(entry.kind, entry.role);
     return spec?.rules.length ? [`${entry.label} (${entry.role === "track" ? "tracked" : "being made"}):\n${spec.rules.map((line) => `- ${line}`).join("\n")}`] : [];

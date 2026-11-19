@@ -68,3 +68,12 @@ describe("the tool table", () => {
     expect(visibleTools("table", table, 5).tools.map((tool) => tool.id)).toEqual(["name-columns", "b"]);
   });
 });
+
+describe("applying a tool's edits", () => {
+  it("refuses an edit that would store a setting as a new field, since nothing visible would change", async () => {
+    const { applyOperations } = await import("../toolbar-api");
+    const tracker = { title: "Packing", groups: [], items: [{ id: "a", label: "Tent", done: false }] };
+    expect(() => applyOperations(tracker, [{ op: "replace", path: "/value", value: "mixed" }])).toThrow(/no value field/);
+    expect(applyOperations(tracker, [{ op: "replace", path: "/items/a/done", value: true }]).items[0]!.done).toBe(true);
+  });
+});

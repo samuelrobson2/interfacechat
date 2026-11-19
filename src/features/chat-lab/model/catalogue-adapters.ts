@@ -54,15 +54,20 @@ export function artefactCatalogueValue(artefact: ChatLabArtefact): CatalogueValu
   }
   if (kind === "tracker") {
     const data = artefact.shell!.data as TrackerShellData;
+    const columns = data.columns ?? [];
     return {
       title: data.title,
       ...(data.groups.length ? { groups: data.groups } : {}),
-      items: data.items.map(({ label, owner, due, done, group }) => ({
+      ...(columns.length ? { columns: columns.map((column) => column.label) } : {}),
+      ...(data.fields?.length ? { fields: data.fields } : {}),
+      items: data.items.map(({ label, owner, due, done, group, values }) => ({
         label,
         ...(owner ? { owner } : {}),
         ...(due ? { due } : {}),
         done,
         ...(group ? { group } : {}),
+        // One value per column, in order: what the model reads and writes.
+        ...(columns.length ? { values: columns.map((column) => values?.[column.id] ?? "") } : {}),
       })),
     };
   }
@@ -130,7 +135,8 @@ export function catalogueArtefactPatch(artefact: ChatLabArtefact, value: Catalog
   if (kind === "tracker") {
     const tracker = value as CatalogueValueByKind["tracker"];
     const previous = artefact.shell!.data as TrackerShellData;
-    // Ids follow position, so an item keeps its place in the list while it streams.
+    // Ids follow position, so an item (or a column) keeps its place while it streams.
+    const columns = (tracker.columns ?? []).map((label, index) => ({ id: previous.columns?.[index]?.id ?? `col-${index}`, label }));
     const items = tracker.items.map((item, index) => ({
       id: previous.items[index]?.id ?? `item-${index}`,
       label: item.label,
@@ -138,9 +144,10 @@ export function catalogueArtefactPatch(artefact: ChatLabArtefact, value: Catalog
       ...(item.due ? { due: item.due } : {}),
       done: item.done ?? false,
       ...(item.group ? { group: item.group } : {}),
+      ...(columns.length ? { values: Object.fromEntries(columns.map((column, at) => [column.id, item.values?.[at] ?? ""])) } : {}),
     }));
     const groups = [...new Set([...(tracker.groups ?? []), ...items.flatMap((item) => (item.group ? [item.group] : []))])];
-    const data: TrackerShellData = { ...previous, title: tracker.title || previous.title, groups, items };
+    const data: TrackerShellData = { ...previous, title: tracker.title || previous.title, groups, items, columns, fields: tracker.fields ?? [] };
     return { title: tracker.title, shell: { kind: "tracker", data } as ArtefactShell };
   }
   if (kind === "dashboard") {

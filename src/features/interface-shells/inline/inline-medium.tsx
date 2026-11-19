@@ -105,7 +105,7 @@ export function InlineMedium({
 }: {
   kind: ShellKind;
   data: ShellData;
-  /** At the end of the head line (Pin, on hover). */
+  /** At the end of the head line (Open, on hover). */
   aside?: React.ReactNode;
   /** Edit what's shown where it stands. Omit for a read-only preview. */
   onChange?: (data: ShellData) => void;

@@ -6,23 +6,23 @@ import type { ShellData, ShellKind } from "../model/shell-types";
 import { InlineMedium } from "./inline-medium";
 import { inlineTitle } from "./inline-summary";
 
-function PinButton({ label, onPin, quiet }: { label: string; onPin: () => void; quiet: boolean }) {
+function OpenButton({ label, onOpen, quiet }: { label: string; onOpen: () => void; quiet: boolean }) {
   return (
     <button
       type="button"
       onClick={(event) => {
-        // Pinning isn't a click into the interface.
+        // Opening isn't a click into the interface.
         event.stopPropagation();
-        onPin();
+        onOpen();
       }}
-      aria-label={`Pin this ${label.toLowerCase()} beside the chat`}
-      title="Pin beside the chat"
+      aria-label={`Open this ${label.toLowerCase()} beside the chat`}
+      title="Open beside the chat"
       className={cn(
         "flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 font-bureau text-[12px] text-typography-secondary transition-opacity hover:bg-shell-fill hover:text-typography-primary",
         quiet && "opacity-0 group-hover/inline:opacity-100 focus-visible:opacity-100",
       )}
     >
-      Pin
+      Open
       <ArrowUpRight className="size-3.5" />
     </button>
   );
@@ -33,7 +33,7 @@ function PinButton({ label, onPin, quiet }: { label: string; onPin: () => void; 
  * nothing that says "edit me". Clicking into it selects it: the same design
  * at the same size takes a white background and an outline, so it reads as
  * an interface. What's on screen can be edited where it stands (text takes a
- * caret, ticks and stars can be pressed), and doing so selects it too. Pin
+ * caret, ticks and stars can be pressed), and doing so selects it too. Open
  * moves it into its own window, where large lives.
  */
 export function InlineShell({
@@ -47,12 +47,12 @@ export function InlineShell({
 }: {
   kind: ShellKind;
   data: ShellData;
-  /** Clicked into: drawn as an interface, with Pin showing. */
+  /** Clicked into: drawn as an interface, with Open showing. */
   selected: boolean;
   onSelect?: () => void;
   /** Edits made in the reply. */
   onChange?: (data: ShellData) => void;
-  /** Pin it: move it into its own window. */
+  /** Open it: move it into its own window. */
   onOpen?: () => void;
   className?: string;
 }) {
@@ -86,7 +86,7 @@ export function InlineShell({
         data={data}
         onChange={onChange}
         selected={selected}
-        aside={onOpen && <PinButton label={label} onPin={onOpen} quiet={!selected} />}
+        aside={onOpen && <OpenButton label={label} onOpen={onOpen} quiet={!selected} />}
       />
     </div>
   );

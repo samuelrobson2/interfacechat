@@ -71,37 +71,34 @@ function isUrlCitation(
   return record.type === "url_citation" && typeof record.url === "string";
 }
 
-function AgentThought({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
-  const [open, setOpen] = useState(false);
-
-  // The reply's own type, in grey; its first line sits level with the orb's middle.
+/** "Thought": shows or hides the reply's reasoning. Beside the orb where the orb sits over the reply. */
+function ThoughtToggle({ open, onToggle, className }: { open: boolean; onToggle: () => void; className?: string }) {
   return (
-    <div className={className}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className={cn(textVariants({ variant: "label" }), "flex h-[18px] cursor-pointer items-center text-typography-secondary hover:text-typography-primary")}
-      >
-        {open ? "Hide thought" : "Thought"}
-      </button>
-      {open && (
-        <p className={cn(textVariants({ variant: "label" }), "mt-1 whitespace-pre-wrap text-typography-secondary")}>
-          {text}
-        </p>
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      className={cn(
+        textVariants({ variant: "label" }),
+        "flex h-[18px] cursor-pointer items-center text-typography-secondary hover:text-typography-primary",
+        // The type sits high in its line (more room above the letters than below): down a pixel, so the word's
+        // middle meets the orb's, beside it or in the gutter. Measured at 2x: it was 1.25 to 1.5px high.
+        "translate-y-px",
+        className,
       )}
-    </div>
+    >
+      {open ? "Hide thought" : "Thought"}
+    </button>
   );
 }
 
+/** The reasoning itself, in the reply's own type, in grey. */
+function ThoughtText({ text, className }: { text: string; className?: string }) {
+  return <p className={cn(textVariants({ variant: "label" }), "whitespace-pre-wrap text-typography-secondary", className)}>{text}</p>;
+}
+
 /** The questions a reply asked with the ask tool, by its call, once the server has checked them. */
-function questionsOf(message: ChatLabMessage) {
+export function questionsOf(message: ChatLabMessage) {
   return (message.parts as { type?: string; toolCallId?: string; state?: string; output?: unknown }[]).flatMap((part) => {
     if (part.type !== "tool-ask" || part.state !== "output-available" || !part.toolCallId) return [];
     const output = part.output as { ok?: boolean; questions?: Question[] } | undefined;
@@ -114,7 +111,7 @@ function questionsOf(message: ChatLabMessage) {
  * they're for and sends one message. A plain reply that ends in a yes-or-no
  * question gets Yes · No · Something else even when the model didn't ask with the tool.
  */
-function ReplyQuestions({ message, text, live, shown }: { message: ChatLabMessage; text: string; live: boolean; shown: string[] }) {
+export function ReplyQuestions({ message, text, live, shown }: { message: ChatLabMessage; text: string; live: boolean; shown: string[] }) {
   const { sessionId, sendText, isGenerating } = useChatLabSession();
   const answers = useChatLabStore((state) => state.sessions[sessionId]?.answers);
   const artefacts = useChatLabStore((state) => state.sessions[sessionId]?.artefacts);
@@ -163,6 +160,7 @@ export function ChatLabMessageItem({
 }) {
   const { sessionId, isGenerating, isTextGenerating, regenerate } = useChatLabSession();
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [thoughtOpen, setThoughtOpen] = useState(false);
   const text = getMessageText(message);
   const sources = sourcesFromMessage(message);
 
@@ -186,17 +184,28 @@ export function ChatLabMessageItem({
     <ChatAssistantMessageLayout
       data-message-id={message.id}
       data-role="assistant"
-      className={cn(text || inline?.length ? "gap-4" : "gap-0")}
+      // Spaced whenever something shows: text, interfaces, or questions alone (no text), so the buttons below never touch them.
+      className={cn(text || inline?.length || questionsOf(message).length ? "gap-4" : "gap-0")}
     >
       <ChatAssistantFrame
         isActive={isLatestAssistantMessage && isGenerating}
         preload={isLatestAssistantMessage}
+        // Where the orb sits over the reply (a narrow Chat, a phone), "Thought" is beside it.
+        beside={thought && !isGenerating ? <ThoughtToggle open={thoughtOpen} onToggle={() => setThoughtOpen((value) => !value)} /> : undefined}
       >
         {isLatestAssistantMessage && isGenerating && (
           <AgentIsland className="order-2 md:order-0" />
         )}
         {thought && !isGenerating && (
-          <AgentThought text={thought} className="order-2 md:order-0" />
+          // With the orb in the gutter, "Thought" is the reply's first line, level with the orb; otherwise it's beside the orb, above.
+          <div className="order-2 flex flex-col gap-1 md:order-0">
+            <ThoughtToggle
+              open={thoughtOpen}
+              onToggle={() => setThoughtOpen((value) => !value)}
+              className="max-md:hidden group-data-narrow/chat:hidden!"
+            />
+            {thoughtOpen && <ThoughtText text={thought} />}
+          </div>
         )}
         {text && (
           <ChatAssistantMessage
@@ -268,17 +277,24 @@ export function ChatLabMessageItem({
 export function ChatAssistantFrame({
   isActive,
   preload,
+  beside,
   children,
-}: React.PropsWithChildren<{ isActive: boolean; preload: boolean }>) {
+}: React.PropsWithChildren<{
+  isActive: boolean;
+  preload: boolean;
+  /** Next to the avatar where it sits over the reply (a narrow Chat, a phone): "Thought". Hidden with the avatar in the gutter. */
+  beside?: React.ReactNode;
+}>) {
   return (
     <div className="relative flex min-w-0 flex-col gap-4">
-      {/* In a narrow Chat there's no gutter: the avatar sits above the reply. */}
-      <aside className="order-1 group-data-narrow/chat:static! group-data-narrow/chat:mr-0! group-data-narrow/chat:w-auto! md:absolute md:right-full md:top-0 md:order-0 md:mr-4 md:w-66.25">
+      {/* In a narrow Chat there's no gutter: the avatar sits above the reply, with "Thought" beside it. */}
+      <aside className="order-1 flex items-center gap-2.5 group-data-narrow/chat:static! group-data-narrow/chat:mr-0! group-data-narrow/chat:flex! group-data-narrow/chat:w-auto! md:absolute md:right-full md:top-0 md:order-0 md:mr-4 md:block md:w-66.25">
         <ChatAiAvatar
           active={isActive}
           preload={preload}
-          className="pointer-events-none w-[32px] select-none group-data-narrow/chat:static! group-data-narrow/chat:w-[32px]! md:absolute md:right-0 md:-top-4 md:w-[50px]"
+          className="pointer-events-none w-[32px] shrink-0 select-none group-data-narrow/chat:static! group-data-narrow/chat:w-[32px]! md:absolute md:right-0 md:-top-4 md:w-[50px]"
         />
+        {beside && <div className="md:hidden group-data-narrow/chat:block!">{beside}</div>}
       </aside>
       {children}
     </div>

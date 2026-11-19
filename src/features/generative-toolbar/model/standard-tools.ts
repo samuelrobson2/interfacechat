@@ -74,6 +74,12 @@ export const STANDARD_TOOLS: Record<ToolbarKind, StandardTool[]> = {
     { label: "Sort by start time", jobs: ["sort"] },
     { label: "Copy as text, Download .csv", jobs: ["copy", "download"] },
   ],
+  guide: [
+    { label: "Servings, fewer or more, scaling the amounts", jobs: [] },
+    { label: "Add a fact (Serves, Time, Difficulty)", jobs: [] },
+    { label: "Cook mode", jobs: [] },
+    { label: "Start over (untick everything)", jobs: ["cleanup"] },
+  ],
   generator: [
     { label: "Text or Image", jobs: [] },
     { label: "Tone, Length, Style, Aspect and Creativity controls, with Presets", jobs: [] },

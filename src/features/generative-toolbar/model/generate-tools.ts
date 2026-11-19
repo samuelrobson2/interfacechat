@@ -3,6 +3,7 @@ import type {
   DashboardShellData,
   DocumentShellData,
   GeneratorShellData,
+  GuideShellData,
   MoodboardShellData,
   ScheduleShellData,
   SearchShellData,
@@ -14,7 +15,7 @@ import { clip, mix, plural, type ToolContext } from "./tool-helpers";
 import type { GeneratedTool, ToolIcon } from "./tool-spec";
 import { canvasTools } from "./generate-tools-canvas";
 import { diagramTools } from "./generate-tools-diagram";
-import { generatorTools, scheduleTools, searchTools } from "./generate-tools-more";
+import { generatorTools, guideTools, scheduleTools, searchTools } from "./generate-tools-more";
 import { dashboardTools } from "./generate-tools-apps";
 import { withoutStandard } from "./standard-tools";
 
@@ -29,6 +30,7 @@ export const TOOLBAR_KINDS = [
   "moodboard",
   "search",
   "schedule",
+  "guide",
   "generator",
   "dashboard",
 ] as const;
@@ -42,6 +44,7 @@ export type ToolbarDataByKind = {
   moodboard: MoodboardShellData;
   search: SearchShellData;
   schedule: ScheduleShellData;
+  guide: GuideShellData;
   generator: GeneratorShellData;
   dashboard: DashboardShellData;
 };
@@ -963,6 +966,7 @@ const GENERATORS: { [K in ToolbarKind]: (data: ToolbarDataByKind[K], context: To
   moodboard: canvasTools,
   search: searchTools,
   schedule: scheduleTools,
+  guide: guideTools,
   generator: generatorTools,
   dashboard: dashboardTools,
 };

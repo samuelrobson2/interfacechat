@@ -136,6 +136,91 @@
           }
         }
       ]
+    },
+    {
+      "name": "Dinner party (make): saying yes to what was offered",
+      "$comment": "From a real thread: the assistant offered a menu and a shopping list, the person said yes to both, and got them as text, then a question about which interface. Agreeing to an offer is asking for it, and each thing is made as its own interface.",
+      "start": "Help me organize food for a dinner party next week",
+      "expect": {
+        "tracked": [
+          "Notes"
+        ]
+      },
+      "turns": [
+        {
+          "say": "6 guests, no dietary restrictions, fancy, medium budget, meat main",
+          "expect": {
+            "calledAny": [
+              "notes_add",
+              "notes_change",
+              "notes_rewrite"
+            ],
+            "notes": [
+              "6"
+            ]
+          }
+        },
+        {
+          "say": "Yes sounds good. can you do both?",
+          "expect": {
+            "made": [
+              "document",
+              "tracker"
+            ],
+            "notCalled": [
+              "ask"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dinner party (make): content goes in interfaces, not the reply",
+      "$comment": "Asked for a menu and a shopping list without a make verb: what a reply would write out goes in the interfaces that hold it.",
+      "start": "Help me organize food for a dinner party next week",
+      "expect": {
+        "tracked": [
+          "Notes"
+        ]
+      },
+      "turns": [
+        {
+          "say": "6 guests, no dietary restrictions, fancy, medium budget, meat main",
+          "expect": {
+            "calledAny": [
+              "notes_add",
+              "notes_change",
+              "notes_rewrite"
+            ],
+            "notes": [
+              "6"
+            ]
+          }
+        },
+        {
+          "say": "What would you put on the menu, and what do I need to buy?",
+          "expect": {
+            "made": [
+              "document",
+              "tracker"
+            ],
+            "notCalled": [
+              "ask"
+            ]
+          }
+        },
+        {
+          "say": "can you add a prep plan for the day too",
+          "expect": {
+            "made": [
+              "schedule"
+            ],
+            "notCalled": [
+              "ask"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

@@ -12,6 +12,23 @@ type DragHandlers = {
   onCancel?: () => void;
 };
 
+/**
+ * While dragging (a window, or the bar between them), nothing on the page is
+ * selected: the text the pointer passes over would otherwise highlight, and
+ * the highlight-to-edit tool would offer itself.
+ */
+function holdSelection() {
+  window.getSelection()?.removeAllRanges();
+  const root = document.documentElement.style;
+  const before = { userSelect: root.userSelect, webkitUserSelect: root.webkitUserSelect };
+  root.userSelect = "none";
+  root.webkitUserSelect = "none";
+  return () => {
+    root.userSelect = before.userSelect;
+    root.webkitUserSelect = before.webkitUserSelect;
+  };
+}
+
 /** Fields keep their own pointer behaviour: selecting text never drags a frame. */
 function startsInField(target: EventTarget | null) {
   return (
@@ -39,6 +56,7 @@ export function usePointerDrag(handlers: DragHandlers) {
     if (event.button !== 0 || startsInField(event.target)) return;
     const origin = { x: event.clientX, y: event.clientY };
     let dragging = false;
+    let releaseSelection: (() => void) | null = null;
     suppressClick.current = false;
 
     const move = (moveEvent: PointerEvent) => {
@@ -47,6 +65,7 @@ export function usePointerDrag(handlers: DragHandlers) {
         if (Math.hypot(point.x - origin.x, point.y - origin.y) < DRAG_THRESHOLD) return;
         dragging = true;
         suppressClick.current = true;
+        releaseSelection = holdSelection();
         handlersRef.current.onStart?.(origin);
       }
       moveEvent.preventDefault();
@@ -75,6 +94,8 @@ export function usePointerDrag(handlers: DragHandlers) {
     window.addEventListener("pointercancel", cancel);
     window.addEventListener("keydown", key);
     cleanup.current = () => {
+      releaseSelection?.();
+      releaseSelection = null;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", cancel);

@@ -83,6 +83,10 @@ the tool says, and nothing else.
 - Values that read "[image]" are pictures; leave them alone.
 - Text fields are one string: to change one, replace the whole field with the
   full new text. Markdown fields stay Markdown.
+- A setting (a choice, slider, grid or toggle) has no field of its own: carry
+  it out by changing the content to match the value chosen ("Owners: Mixed"
+  gives the items different owners; "Detail: In depth" expands the text).
+  Never write the setting or its value into the data as a field.
 - If the tool asks for an answer rather than an edit (compare, explain, check),
   put it in reply and return no operations.
 - Write like the content already does. Never use em dashes.`,

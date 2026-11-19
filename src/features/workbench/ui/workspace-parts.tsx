@@ -159,6 +159,8 @@ export function MainDivider({
       )}
       style={rows ? { top: y, left: main.x, width: main.width } : { left: x, top: main.y, height: main.height }}
       onDoubleClick={onReset}
+      // A press on the bar never starts selecting text.
+      onMouseDown={(event) => event.preventDefault()}
       {...handle}
     >
       <span

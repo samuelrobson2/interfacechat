@@ -501,13 +501,25 @@ export type RetrievalInput = {
  * catalogue, for the chat API to merge with a ranking by meaning (embeddings,
  * which need its key). See api/_interface-retrieval.ts.
  */
-export function retrievalInput(draft: string): RetrievalInput {
+export function retrievalInput(draft: string, answered = ""): RetrievalInput {
+  // A message is read with the one it answers: "Yes, do both" means what was just offered (a menu, a shopping list).
+  // Its own words rank first; the answered message's add what they don't already name, at half weight.
+  const offer = answered.trim().slice(-ANSWERED_CHARS);
+  const own = rankInterfaces(draft).map((entry) => ({ id: entry.item.id, score: entry.score }));
+  const fromOffer = offer
+    ? rankInterfaces(offer)
+        .filter((entry) => !own.some((mine) => mine.id === entry.item.id))
+        .map((entry) => ({ id: entry.item.id, score: entry.score / 2 }))
+    : [];
   return {
-    query: draft.trim(),
+    query: [draft.trim(), offer].filter(Boolean).join("\n"),
     catalogue: VISUAL_INTERFACES.map((item) => ({ ...toCandidate(item), meaning: meaningOf(item) })),
-    keyword: rankInterfaces(draft).map((entry) => ({ id: entry.item.id, score: entry.score })),
+    keyword: [...own, ...fromOffer],
   };
 }
+
+/** How much of the answered message retrieval reads: its end, where an offer or question sits. */
+const ANSWERED_CHARS = 600;
 
 /**
  * What the model reads about a library interface: when to use it, what it isn't
