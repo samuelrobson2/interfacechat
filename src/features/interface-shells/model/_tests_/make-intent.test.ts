@@ -72,11 +72,20 @@ describe("what an offer names", () => {
       ["Want me to make a menu and a shopping list?", ["menu", "shopping list"]],
       ["Got it, a fancy menu for 6. Next I’d turn that into the shopping list.", ["shopping list"]],
       ["The menu is set. Have a lovely dinner!", []],
+      ["If you want, I can turn that into either a menu, a shopping list, or a cooking timeline next.", ["menu", "shopping list", "cooking timeline"]],
+      // Framing and determiners of every sort come off; what describes the thing stays.
+      ["I can make both the menu and the shopping list.", ["menu", "shopping list"]],
+      ["I could draft maybe also a tighter shoot schedule.", ["tighter shoot schedule"]],
+      ["I can put together a couple of recipes or alternatively a prep plan.", ["recipes", "prep plan"]],
+      ["Want me to build your shot list, and at least a call sheet?", ["shot list", "call sheet"]],
+      ["I'd suggest perhaps another table instead.", ["table"]],
       ["Great, I’d plan it around five setups, with the product shots first.", []],
     ];
     for (const [text, expected] of cases) {
       const found = offeredThings(text);
       expect(found.map((thing) => text.slice(thing.start, thing.end)), text).toEqual(expected);
+      // What a click asks for starts at the thing, never at the framing ("a menu", not "either a menu").
+      for (const thing of found) expect(thing.thing, text).not.toMatch(/^(?:either|both|maybe)\b/i);
     }
   });
 });

@@ -55,7 +55,16 @@ const OFFER_OBJECT =
   /\b(?:i can|i could|i['’]d|i would|i['’]ll|i will|shall i|want me to|would you like me to|should i|happy to|let me|we can|we could)\b[^.?!]*?\b(?:make|create|build|write|draft|put together|pull together|come up with|suggest|turn (?:this|that|it|them|these|those) into|turn|draw up|plan|set up|map out|sketch|outline)\s+([^.?!]+)/gi;
 /** Where a thing's name ends: what follows is about it, not part of it ("for next week", "so the day runs on time"). */
 const THING_END = /\s+(?:for|so|to|that|with|from|based|next|if|by|in|on|when|which|you|too|as well|instead)\b.*$/i;
-const ARTICLE = /^(?:a|an|the|your|a quick|a full|some)\s+/i;
+/** What comes before a thing's name in place of an article: "a", "your", "a couple of", "another", "two". Longest first. */
+const ARTICLE =
+  /^(?:a couple of|a couple|a few|a new|a quick|a full|a fresh|a second|an extra|a|an|the|your|my|our|their|his|her|its|this|that|these|those|some|another|any|each|one|two|three|four|five)\s+/i;
+/**
+ * Words that frame the offer rather than name the thing, before the article:
+ * "either a menu", "both the menu and the list", "maybe also a schedule",
+ * "instead a table", "at least a shopping list". Several can stack.
+ */
+const FRAMING =
+  /^(?:(?:either|both|maybe|perhaps|possibly|probably|also|just|even|then|next|now|later|instead|alternatively|additionally|optionally|ideally|simply|quickly|first|second|finally|eventually|actually|really|or|and|at least|at most|if needed|if you like|if you want|if helpful|as well as|along with|plus)\s+)+/i;
 /** A part that starts with its own verb: "then turn it into a shopping list", "make a schedule". */
 const LEADING_VERB = /^(?:then\s+|also\s+)*(?:turn (?:this|that|it|them|these|those) into|make|draft|build|write|create|put together|do|add)\s+/i;
 
@@ -75,12 +84,13 @@ export function offeredThings(text: string): OfferedThing[] {
       const at = object.indexOf(part, cursor);
       cursor = at + part.length;
       const lead = part.match(LEADING_VERB)?.[0].length ?? 0;
-      const name = part.slice(lead).replace(THING_END, "").trim();
+      const framed = part.slice(lead).match(FRAMING)?.[0].length ?? 0;
+      const name = part.slice(lead + framed).replace(THING_END, "").trim();
       const bare = name.replace(ARTICLE, "");
       // A thing has a name: "plan it around five setups" says how, it doesn't offer anything, and what follows
       // ("with the product shots first") belongs to that clause, not to a list of things.
       if (!bare || bare.split(/\s+/).length > 5 || /^(?:it|this|that|them|these|those|one|something|anything|everything|with|for|so|to|while|because|from|on|in|at|by)\b/i.test(bare)) break;
-      const start = objectAt + at + lead + (name.length - bare.length) + (part.slice(lead).length - part.slice(lead).trimStart().length);
+      const start = objectAt + at + lead + framed + (name.length - bare.length) + (part.slice(lead + framed).length - part.slice(lead + framed).trimStart().length);
       found.push({ thing: name, start, end: start + bare.length });
     }
   }

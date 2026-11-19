@@ -20,6 +20,12 @@ describe("offers as links", () => {
     expect(readOfferLink("#make:table:a%20shot%20list")).toEqual({ kind: "table", request: "Make a shot list" });
   });
 
+  it("links only the thing, not the words that frame the choice", () => {
+    const linked = withOfferLinks("If you want, I can turn that into either a menu, a shopping list, or a cooking timeline next.");
+    expect(linked).toContain("either a [menu](#make:document:a%20menu)");
+    expect(linked).toContain("a [shopping list](#make:tracker:a%20shopping%20list)");
+  });
+
   it("leaves a reply with no offer, or an offer of something no interface makes, as it is", () => {
     for (const reply of ["The menu is set. Have a lovely dinner!", "I can write you a haiku about it."]) expect(withOfferLinks(reply)).toBe(reply);
     expect(readOfferLink("https://example.com")).toBeNull();
