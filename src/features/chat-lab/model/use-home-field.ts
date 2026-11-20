@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { SHELL_META, type ShellDataByKind, type ChatShellKind, type SuggestedGroup, type SuggestedValues } from "@/features/interface-shells";
+import { mentionedKind, SHELL_META, withoutMentions, type ShellDataByKind, type ChatShellKind, type SuggestedGroup, type SuggestedValues } from "@/features/interface-shells";
 import { useChatLabStore } from "./chat-lab-store";
 import {
   EMPTY_MEMORY,
@@ -119,10 +119,15 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     setDismissed(false);
     setExtras(null);
   }
+  // "@Table" in the request picks the Table's card, whatever the words would rank; the card reads the rest.
+  const mentioned = mentionedKind(draft);
+  const asked = mentioned ? withoutMentions(draft) : draft;
+  const mentionTile = mentioned ? tiles.find((item) => item.type === "blank" && item.kind === mentioned) : undefined;
   const chosenTileId =
-    chosen && rewrittenShare(chosen.anchor, draft) <= RELEASE_RATIO
+    mentionTile?.id ??
+    (chosen && rewrittenShare(chosen.anchor, draft) <= RELEASE_RATIO
       ? chosen.tileId
-      : null;
+      : null);
 
   // Memory advances once per draft, however many times this renders.
   const [track, setTrack] = useState<{
@@ -145,8 +150,8 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
     : undefined;
   // The name comes from the request at once; the model only condenses a very long one, and writes a Guide's or Schedule's first steps.
   const nameKind = leader && tile && tile.type !== "history" && tile.type !== "project" ? leader.interface.kind : null;
-  const ruleTitle = useMemo(() => (nameKind ? String((parsePrompt(nameKind, draft).data as { title?: unknown }).title ?? "") : ""), [nameKind, draft]);
-  const name = useInterfaceName(nameKind, nameKind ? SHELL_META[nameKind].label : "", draft, ruleTitle);
+  const ruleTitle = useMemo(() => (nameKind ? String((parsePrompt(nameKind, asked).data as { title?: unknown }).title ?? "") : ""), [nameKind, asked]);
+  const name = useInterfaceName(nameKind, nameKind ? SHELL_META[nameKind].label : "", asked, ruleTitle);
 
   const card: HomeCard | null = useMemo(() => {
     if (!leader || !tile) return null;
@@ -154,7 +159,7 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
       return { leader, interface: leader.interface, editable: false };
     }
     const kind = leader.interface.kind;
-    const parsed = parsePrompt(kind, draft).data;
+    const parsed = parsePrompt(kind, asked).data;
     const base =
       tile.type === "suggested" ? overlay(tile.data, parsed) : parsed;
     const kept = extras?.tileId === tile.id ? extras.data : {};
@@ -166,11 +171,11 @@ export function useHomeField(draft: string, setDraft: (text: string) => void) {
       // Every recognised card is open to edit: it goes to medium plus as soon as it's detected.
       editable: true,
     };
-  }, [leader, tile, draft, extras, name.title]);
+  }, [leader, tile, asked, extras, name.title]);
 
   // The few choices the request leaves open, for the card that's open (Document, for now).
   const choiceKind = card?.editable ? card.interface.kind : null;
-  const choices = usePromptChoices(choiceKind, choiceKind ? SHELL_META[choiceKind].label : "", draft, partsOf(card?.interface));
+  const choices = usePromptChoices(choiceKind, choiceKind ? SHELL_META[choiceKind].label : "", asked, partsOf(card?.interface));
   // Notes holds what's been settled: a choice picked on its card becomes a line in it.
   const shownCard = card && card.interface.kind === "notes" ? withPickedLines(card, choices.picked) : card;
 

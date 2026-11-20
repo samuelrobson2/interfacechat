@@ -9,6 +9,7 @@ import {
 } from "@/shared/compose/prompt-input";
 import { cn } from "@/shared/lib/css";
 
+import { MentionField } from "../../../../compose/prompt-mentions";
 import { useInputStore } from "../../_model/input-store";
 
 export function ChatComposerInput({
@@ -84,13 +85,20 @@ export function ChatComposerInput({
         </button>
       )}
 
-      <PromptInputTextarea
-        value={message}
-        onChange={(event) => setMessage(event.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        maxRows={maxRows}
-      />
+      {/* "@" asks for an interface by name, drawn in the text as its icon and name. */}
+      <MentionField value={message ?? ""} onValueChange={setMessage} onKeyDown={handleKeyDown}>
+        {(field) => (
+          <PromptInputTextarea
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            onKeyDown={field.onKeyDown}
+            onSelect={field.onSelect}
+            onInput={field.onSelect}
+            placeholder={placeholder}
+            maxRows={maxRows}
+          />
+        )}
+      </MentionField>
 
       <PromptInputFooter>
         <PromptInputActions>{leftActions}</PromptInputActions>

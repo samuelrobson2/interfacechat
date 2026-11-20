@@ -17,10 +17,13 @@ export function ChatUserMessage({
   text,
   variant = "bubble",
   className,
+  render,
   ...props
 }: React.ComponentProps<"div"> & {
   text: string;
   variant?: "bubble" | "block";
+  /** Draws the text (a host's own marks, such as "@Table" as its interface); plain text without it. */
+  render?: (text: string) => React.ReactNode;
 }) {
   const isBlock = variant === "block";
 
@@ -38,7 +41,7 @@ export function ChatUserMessage({
         variant="label"
         className="whitespace-pre-wrap wrap-anywhere"
       >
-        {text}
+        {render ? render(text) : text}
       </Text>
     </div>
   );

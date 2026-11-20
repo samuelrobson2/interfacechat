@@ -13,6 +13,7 @@ import {
 } from "@/shared/model/routes";
 import { SidebarLayout } from "@/shared/ui/kit/sidebar";
 import {
+  Briefcase,
   Grid3x3,
   LayoutGrid,
   LayoutTemplate,
@@ -82,6 +83,28 @@ const toolsSection: SidebarSection = {
   defaultOpen: false,
 };
 
+// Workspace: New (the chat home) and History. (Its Home page, /workspace, is left out of the menu for now.)
+const workspaceSection: SidebarSection = {
+  title: "Workspace",
+  icon: <Briefcase className="size-5" />,
+  items: [
+    {
+      // Chat Lab's home: start something new. Open chats highlight their own sub-item instead.
+      title: "New",
+      url: ROUTES.CHAT_LAB,
+      matchPaths: [{ path: ROUTES.CHAT_LAB, end: true }],
+      icon: <ChatIcon />,
+    },
+    {
+      // Recent chats with their interfaces, and the interfaces as apps.
+      title: "History",
+      url: ROUTES.WORKSPACE_HISTORY,
+      matchPaths: [{ path: ROUTES.WORKSPACE_HISTORY, end: true }],
+      icon: <ChatHistoryIcon />,
+    },
+  ],
+};
+
 const pharosItems: SidebarEntry[] = [
   {
     title: "Build",
@@ -108,15 +131,7 @@ const pharosItems: SidebarEntry[] = [
     matchPaths: [ROUTES.DATASETS, { path: ROUTES.DASHBOARD_DATASET, end: true }],
     icon: <DashboardIcon />,
   },
-  {
-    // Chat Lab: the pharos chat surface powered by OpenAI, for iterating on chat.
-    // The untouched pharos New Chat stays reachable from Archive → Chat.
-    // Open chats highlight their own sub-item below it instead.
-    title: "Chat",
-    url: ROUTES.CHAT_LAB,
-    matchPaths: [{ path: ROUTES.CHAT_LAB, end: true }],
-    icon: <ChatIcon />,
-  },
+  workspaceSection,
   toolsSection,
   ...(isChatVisualizeEnabled()
     ? [
@@ -131,20 +146,6 @@ const pharosItems: SidebarEntry[] = [
         } satisfies MenuItem,
       ]
     : []),
-  {
-    title: "History",
-    url: ROUTES.CHAT_FOLDERS,
-    matchPaths: [
-      ROUTES.CHAT_FOLDERS,
-      { path: ROUTES.CHAT_FOLDER, end: false },
-      { path: ROUTES.CHAT, end: false },
-    ],
-    excludePaths: [
-      { path: ROUTES.CHAT_VISUALIZE, end: false },
-      { path: ROUTES.NEW_CHAT_ORIGINAL, end: false },
-    ],
-    icon: <ChatHistoryIcon />,
-  },
 ];
 
 // The UI Kit reference — a developer tool.

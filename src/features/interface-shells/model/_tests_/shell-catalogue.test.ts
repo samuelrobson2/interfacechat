@@ -28,7 +28,7 @@ describe("catalogue", () => {
   it("writes the fields the model reads from the schema", () => {
     const fields = catalogueFields("tracker");
     expect(fields).toContain("title (text, required)");
-    expect(fields).toContain("placement (inline | window)");
+    expect(fields).not.toContain("placement");
     expect(fields).toContain("items (list, required)");
     expect(fields).toContain("Each: label (text, required)");
   });
@@ -61,9 +61,15 @@ describe("reading a fill as it streams", () => {
     expect(value?.items).toEqual([{ label: "Book van", owner: "Sam" }]);
   });
 
-  it("only takes a placement it knows", () => {
-    expect(readCatalogueValue("document", { title: "A", placement: "win" })?.placement).toBeUndefined();
-    expect(readCatalogueValue("document", { title: "A", placement: "window" })?.placement).toBe("window");
+  it("opens as its own panel past a size, the same every time", async () => {
+    const { opensInWindow } = await import("../shell-catalogue");
+    const steps = (n: number) => Array.from({ length: n }, (_, i) => ({ text: `Step ${i + 1}`, done: false }));
+    expect(opensInWindow("guide", { title: "Stew", facts: [], needs: [], steps: steps(7) } as never)).toBe(false);
+    expect(opensInWindow("guide", { title: "Stew", facts: [], needs: [], steps: steps(8) } as never)).toBe(true);
+    expect(opensInWindow("document", { title: "Menu", body: "x".repeat(899) } as never)).toBe(false);
+    expect(opensInWindow("document", { title: "Menu", body: "x".repeat(900) } as never)).toBe(true);
+    expect(opensInWindow("tracker", { title: "List", items: steps(9).map((s) => ({ label: s.text, done: false })) } as never)).toBe(false);
+    expect(opensInWindow("generator", { title: "Lines" } as never)).toBe(false);
   });
 
   it("reads nothing from nothing", () => {

@@ -72,13 +72,17 @@ describe("layout controller", () => {
     expect(result.evicted).toEqual(["search"]);
   });
 
-  it("splits the main area, then minimizes when a third large arrives", () => {
+  it("splits the main area, stacked by default, then minimizes when a third large arrives", () => {
     let layout = research();
     const split = applyLayoutChange(layout, { type: "present", id: "search", presentation: "large" }, 10);
-    // Search came from the right column, so it takes the right slot.
+    // Two large stack one above the other unless side by side is chosen; Search, arriving second, is below.
     expect(at(split.layout, "doc")).toBe("large main 0");
     expect(at(split.layout, "search")).toBe("large main 1");
-    expect(describePlacement(split.layout, split.layout.entries.search!)).toBe("large, right");
+    expect(isStacked(split.layout)).toBe(true);
+    expect(describePlacement(split.layout, split.layout.entries.search!)).toBe("large, bottom");
+    // Chosen side by side, it takes the right slot (it came from the right column).
+    const sideBySide = applyLayoutChange(split.layout, { type: "arrange", stacked: false }, 10.5).layout;
+    expect(describePlacement(sideBySide, sideBySide.entries.search!)).toBe("large, right");
     layout = split.layout;
     const third = applyLayoutChange(layout, { type: "present", id: "table", presentation: "large" }, 11);
     expect(third.evicted).toEqual(["doc"]);
@@ -140,11 +144,11 @@ describe("layout controller", () => {
     expect(at(result.layout, "table")).toBe("minimized strip 0");
   });
 
-  it("makes room when two large interfaces would be too narrow", () => {
+  it("makes room when two large interfaces side by side would be too narrow", () => {
     // 1300 wide: two columns leave the main area too small to split; one is enough room.
     const fits = (layout: WorkspaceLayout) => fitsWidth(layout, 1300);
     const result = applyLayoutChange(
-      research(),
+      { ...research(), stacked: false },
       { type: "present", id: "search", presentation: "large" },
       10,
       { fits },

@@ -9,6 +9,7 @@ import {
   applyRoleTool,
   isCatalogueKind,
   makeIntent,
+  opensInWindow,
   writeAnswer,
   type AnswerValue,
   type Question,
@@ -198,6 +199,7 @@ function syncOpenInterface(id: string, messages: ChatLabMessage[]) {
         ...(tracker?.shell ? { shell: tracker.shell } : {}),
       });
       if (!artefactId) continue;
+      madeByTools.add(artefactId);
       useChatLabStore.getState().setTurnTarget(id, userMessageId, artefactId);
       if (isChatMinimized(id)) flash(openWindow(id, artefactId, "support"));
     }
@@ -246,6 +248,9 @@ const appliedCalls = new Map<string, string>();
 const newByCall = new Map<string, string>();
 // Interfaces a fill has written into. One this turn opened that's still unwritten is waiting for its fill.
 const written = new Set<string>();
+// Interfaces the model's tools made (opened, or made by a fill). Only these are ever dropped for being empty:
+// what the person made themselves (a home card's interface) stays, however empty.
+const madeByTools = new Set<string>();
 // The interface each fill call writes into, once it's started: a call keeps it to the end. Its first parts can
 // arrive before its id does (a title, then `id: "new"`), and choosing again then would split one interface in two.
 const targetByCall = new Map<string, string>();
@@ -274,6 +279,7 @@ function newCatalogueTarget(id: string, userMessageId: string, kind: CatalogueKi
     sourceUserMessageId: userMessageId,
   });
   if (!artefactId) return undefined;
+  madeByTools.add(artefactId);
   newByCall.set(callId, artefactId);
   if (isChatMinimized(id)) flash(openWindow(id, artefactId, "support"));
   return useChatLabStore.getState().sessions[id]?.artefacts[artefactId];
@@ -302,6 +308,7 @@ function catalogueTarget(id: string, userMessageId: string, kind: CatalogueKind,
       sourceUserMessageId: userMessageId,
     });
   if (!artefactId) return undefined;
+  if (!made) madeByTools.add(artefactId);
   store.setTurnTarget(id, userMessageId, artefactId);
   if (!made && isChatMinimized(id)) flash(openWindow(id, artefactId, "support"));
   return useChatLabStore.getState().sessions[id]?.artefacts[artefactId];
@@ -315,9 +322,9 @@ function applyCatalogueValue(id: string, artefactId: string, value: CatalogueVal
   written.add(artefactId);
   useChatLabStore.getState().updateArtefact(id, patch, artefactId);
 
-  // Short results stay in the reply. A full document, or one asked for as a window, opens.
-  const long = "body" in value && value.body.trim().length >= DOCUMENT_WINDOW_CHARS;
-  if ((long || value.placement === "window") && !hasWindow(layoutOf(id), artefactId)) {
+  // Short results stay in the reply, with Open; past a size (opensInWindow), it opens as its own panel.
+  const kind = artefactCatalogueKind(artefact);
+  if (kind && opensInWindow(kind, value) && !hasWindow(layoutOf(id), artefactId)) {
     flash(openWindow(id, artefactId, "open"));
   }
 }
@@ -505,7 +512,7 @@ function dropEmptyMade(id: string, messages: ChatLabMessage[]) {
     ),
   );
   for (const artefact of Object.values(session.artefacts)) {
-    if (artefact.sourceUserMessageId !== userMessageId || roleOf(artefact) !== "make" || askedFor.has(artefact.id)) continue;
+    if (!madeByTools.has(artefact.id) || artefact.sourceUserMessageId !== userMessageId || roleOf(artefact) !== "make" || askedFor.has(artefact.id)) continue;
     const value = artefactCatalogueKind(artefact) ? artefactCatalogueValue(artefact) : null;
     if (value && holdsNothing(value)) useChatLabStore.getState().deleteArtefact(id, artefact.id);
   }

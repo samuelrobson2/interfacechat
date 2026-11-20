@@ -49,7 +49,7 @@ export const BASE_RULES = [
  * model picks by what the thing is (something to read, steps to follow, a
  * timed plan), never by the words of the request.
  */
-export const CHOOSING_RULE = `Pick the interface by what the thing is, not the words used to ask: ${CATALOGUE_KINDS.map((kind) => `${CATALOGUE[kind].label} for ${CATALOGUE[kind].makes}`).join("; ")}. One thing per interface: a menu and each of its recipes are separate.`;
+export const CHOOSING_RULE = `Pick the interface by what the thing is, not the words used to ask, unless they name the interface itself (a table, a checklist, a document): then make that one. Otherwise: ${CATALOGUE_KINDS.map((kind) => `${CATALOGUE[kind].label} for ${CATALOGUE[kind].makes}`).join("; ")}. One thing per interface: a menu and each of its recipes are separate.`;
 
 export const ROLE_RULES: Record<InterfaceRole, string[]> = {
   make: [

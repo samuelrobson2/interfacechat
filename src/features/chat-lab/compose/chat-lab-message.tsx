@@ -30,6 +30,7 @@ import { applyAnswers } from "../model/chat-lab-runtime";
 import { useChatLabStore } from "../model/chat-lab-store";
 import { AgentIsland } from "./agent-island";
 import { OfferLink } from "./offer-link";
+import { MentionText } from "./prompt-mentions";
 import { readOfferLink, withOfferLinks } from "../model/offer-links";
 
 function sourcesFromMessage(message: ChatLabMessage): ChatSource[] {
@@ -169,7 +170,7 @@ export function ChatLabMessageItem({
   if (message.role === "user") {
     return (
       <ChatUserMessageLayout data-message-id={message.id} data-role="user">
-        <ChatUserMessage text={text} />
+        <ChatUserMessage text={text} render={(said) => <MentionText text={said} />} />
       </ChatUserMessageLayout>
     );
   }

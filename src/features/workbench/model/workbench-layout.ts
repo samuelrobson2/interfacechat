@@ -145,9 +145,13 @@ export function canStackLarge(layout: WorkspaceLayout) {
   return layoutRules().largeStacked && inRegion(layout, "left").some((entry) => entry.chat && entry.presentation === "sidebar");
 }
 
-/** Whether the main area is drawn stacked now: asked for (or side by side isn't allowed), where stacking can be. */
+/**
+ * Whether the main area is drawn stacked now, where stacking can be: two large
+ * stack by default, one above the other; side by side only when chosen (the
+ * layout menu, a drag to the side) or when stacking isn't allowed.
+ */
 export function isStacked(layout: WorkspaceLayout) {
-  return canStackLarge(layout) && (!!layout.stacked || !layoutRules().largeSideBySide);
+  return canStackLarge(layout) && (layout.stacked !== false || !layoutRules().largeSideBySide);
 }
 
 /** How many large interfaces the main area holds: two where they can sit side by side or stack, else one. */

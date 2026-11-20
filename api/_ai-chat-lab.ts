@@ -32,6 +32,7 @@ import type { InterfaceRole, ShellKind } from "../src/features/interface-shells/
 import { askableFields, askInputSchema, normalizeQuestions } from "../src/features/interface-shells/model/questions.js";
 import { CHART_BLOCK, chatLabModel, DEFAULT_CHAT_LAB_SYSTEM_PROMPT, wantsChart } from "./_chat-lab.js";
 import { ALWAYS_MAKEABLE, makeIntent, onlyTells } from "../src/features/interface-shells/model/make-intent.js";
+import { mentionedKind } from "../src/features/interface-shells/model/mentions.js";
 import { hybridCandidates, type RetrievalInput } from "./_interface-retrieval.js";
 import { compactArtifactHistory } from "../src/features/chat-lab/model/artifact-history.js";
 import {
@@ -421,16 +422,25 @@ export async function POST(req: Request) {
   const answeredText = (answered?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join(" ");
   // A plain "make" forces an interface only when retrieval found one that fits ("Write me a haiku" stays in chat);
   // agreeing to an offer, or asking for an interface, always does.
-  const intent = makeIntent(askText, answeredText);
+  // Asked for by name ("@Table"): that interface is made, whatever else the words suggest.
+  const mentioned = mentionedKind(askText);
+  const mentionedEntry = mentioned
+    ? ((retrieval?.catalogue ?? []).find((entry) => entry.id === mentioned && entry.opensAs === mentioned) ?? (retrieval?.catalogue ?? []).find((entry) => entry.opensAs === mentioned))
+    : undefined;
+  const intent = mentionedEntry ? "into" : makeIntent(askText, answeredText);
   // Nothing new is made unless something is asked for: not on the first turn from a home card (they chose its
   // interface there), and not when the message only gives facts ("8 of us, Saturday at 7pm"). What's open can
   // still change.
   const cardOnly = intent === null && (fromCard || onlyTells(askText));
-  const candidates = cardOnly ? [] : ((retrieved?.candidates as InterfaceCandidate[] | undefined) ?? interfaceCandidates?.slice(0, 5) ?? []);
+  const candidates: InterfaceCandidate[] = mentionedEntry
+    ? [{ id: mentionedEntry.id, label: mentionedEntry.label, description: mentionedEntry.description, opensAs: mentionedEntry.opensAs, layer: "interface" } as InterfaceCandidate]
+    : cardOnly
+      ? []
+      : ((retrieved?.candidates as InterfaceCandidate[] | undefined) ?? interfaceCandidates?.slice(0, 5) ?? []);
   // When the turn asks to make something, the everyday interfaces can be made too, after what retrieval ranked:
   // a turn that refers back ("do both", "add these to interfaces") names nothing retrieval can find. A turn that
   // doesn't ask (a fact, a question) only has what retrieval found for it.
-  const standing: InterfaceCandidate[] = (intent === null ? [] : (retrieval?.catalogue ?? []))
+  const standing: InterfaceCandidate[] = (intent === null || mentionedEntry ? [] : (retrieval?.catalogue ?? []))
     .filter((entry) => (ALWAYS_MAKEABLE as readonly string[]).includes(entry.id) && !candidates.some((candidate) => candidate.id === entry.id))
     .map((entry) => ({ id: entry.id, label: entry.label, description: entry.description, opensAs: entry.opensAs, layer: "interface" }) as InterfaceCandidate);
   const makeable = [...candidates.filter((candidate) => candidate.layer !== "format"), ...standing];

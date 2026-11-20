@@ -489,8 +489,11 @@ export function GuideShell({
         {standardTools}
       </ShellToolbar>
       <div className={cn("pt-3", SHELL_EDGE_X)}>{facts}</div>
-      <div data-shell-part="body" className={cn("flex min-h-0 flex-1", SHELL_BODY_PAD)}>
-        <aside aria-label="What you need" className="no-scrollbar flex w-56 shrink-0 flex-col gap-1.5 overflow-y-auto">
+      {/* Wide, what you need is a column beside the steps; narrow (two large side by side), it sits above them,
+          so the steps never get squeezed to a few letters a line. */}
+      <div className="@container flex min-h-0 flex-1 flex-col">
+      <div data-shell-part="body" className={cn("flex min-h-0 flex-1 flex-col @2xl:flex-row", SHELL_BODY_PAD)}>
+        <aside aria-label="What you need" className="no-scrollbar flex max-h-[35%] w-full shrink-0 flex-col gap-1.5 overflow-y-auto pb-3 @2xl:max-h-none @2xl:w-56 @2xl:pb-0">
           <h3 className="font-bureau text-[12px] text-typography-secondary">
             You need{data.needs.length ? ` · ${data.needs.filter((n) => n.have).length} of ${data.needs.length}` : ""}
           </h3>
@@ -540,6 +543,7 @@ export function GuideShell({
           {steps}
           {update && <Add label="Add a step" size={size} onAdd={() => update({ steps: [...data.steps, { id: shellId("step"), text: "", done: false }] })} />}
         </div>
+      </div>
       </div>
     </ShellSurface>
   );

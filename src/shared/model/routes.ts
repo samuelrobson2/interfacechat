@@ -103,6 +103,10 @@ export const ROUTES = {
   DESIGN_SYSTEM: "/design-system",
   // A test bed for the flexible workspace before it goes into chat.
   WORKBENCH: "/workbench",
+  // Workspace's Home page: beside New (the chat home) and History in the sidebar.
+  WORKSPACE: "/workspace",
+  // Workspace History: recent chats with their interfaces, and the interfaces as apps.
+  WORKSPACE_HISTORY: "/workspace/history",
   // Where a generated toolbar sits on the large Document, Table and Checklist.
   GENERATIVE_TOOLS: "/generative-tools",
   USER_PROFILE: "/user-profile",

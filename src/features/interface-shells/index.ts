@@ -31,7 +31,9 @@ export {
   applyCatalogueOperations,
   catalogueFields,
   isCatalogueKind,
+  opensInWindow,
   readCatalogueValue,
+  WINDOW_AT,
   type CatalogueKind,
   type CatalogueOperation,
   type CatalogueValue,
@@ -100,3 +102,4 @@ export { BLANK_TOKEN, resolveBlanks } from "./model/markdown-blocks";
 export { fillParts, SUGGESTION_KINDS, SUGGESTION_PARTS, type PartGroup, type PartKind, type SuggestionPart } from "./model/suggestion-parts";
 export { ShellTooltips } from "./ui/shell-tooltips";
 export { ALWAYS_MAKEABLE, asksToMake, makeIntent, offeredThings, onlyTells, type OfferedThing } from "./model/make-intent";
+export { MENTIONABLE, mentionedKind, mentionMatches, mentionsIn, withoutMentions, type Mention } from "./model/mentions";

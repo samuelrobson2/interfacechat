@@ -16,17 +16,8 @@ import { blockSchema, variableSchema } from "../apps/app-types.js";
 export const CATALOGUE_KINDS = ["document", "table", "tracker", "dashboard", "guide", "schedule", "generator"] as const;
 export type CatalogueKind = (typeof CATALOGUE_KINDS)[number];
 
-/** One entry per interface, not per size: the app places it, and this is the model's say. */
-const placement = z
-  .enum(["inline", "window"])
-  .optional()
-  .describe(
-    "Where it should show: inline in the reply (short, to glance at) or in its own window (long, or to keep working on). Leave out to let the app decide.",
-  );
-
 const tableSchema = z.object({
   title: z.string().describe("What the table lists, such as Shot list."),
-  placement,
   columns: z
     .array(
       z.object({
@@ -46,7 +37,6 @@ const tableSchema = z.object({
 
 const trackerSchema = z.object({
   title: z.string().describe("What the checklist is for."),
-  placement,
   groups: z.array(z.string()).optional().describe("Optional sections, such as Locations or Crew."),
   columns: z
     .array(z.string())
@@ -103,7 +93,6 @@ const appParts = {
  */
 const documentSchema = z.object({
   title: z.string().describe("The document's title, without markdown."),
-  placement,
   body: z
     .string()
     .describe(
@@ -119,14 +108,12 @@ const documentSchema = z.object({
 
 const dashboardSchema = z.object({
   title: z.string().describe("What the dashboard tracks."),
-  placement,
   description: z.string().optional().describe("One line on what it covers and where the numbers come from."),
   ...appParts,
 });
 
 const guideSchema = z.object({
   title: z.string().describe("What it makes or does, such as Fish stew for six."),
-  placement,
   facts: z
     .array(z.object({ label: z.string(), value: z.string() }))
     .describe("Two or three short facts this kind of guide calls for: Serves and Time for a recipe; Time, Difficulty and People for assembly."),
@@ -147,7 +134,6 @@ const guideSchema = z.object({
 const TIME = /^\d{1,2}:\d{2}$/;
 const scheduleSchema = z.object({
   title: z.string().describe("What's being scheduled, such as Skincare shoot."),
-  placement,
   start: z.string().optional().describe("The first day as an ISO date (2026-11-20), when it's known."),
   dayCount: z.number().int().min(1).max(14).describe("How many days it covers."),
   hours: z.array(z.string()).length(2).describe('The working hours each day spans, as ["08:00", "13:00"].'),
@@ -167,7 +153,6 @@ const scheduleSchema = z.object({
 
 const generatorSchema = z.object({
   title: z.string().describe("The prompt: what to make, written as the person would ask for it."),
-  placement,
   mode: z.enum(["text", "image"]).describe("text for words (a tagline, a caption, a name); image for pictures."),
   tone: z.string().optional().describe("Text: the tone, such as Warm or Confident."),
   length: z.string().optional().describe('Text: "short", "medium" or "long", or their own ("Under 10 words").'),
@@ -197,6 +182,31 @@ export type CatalogueValueByKind = {
 };
 export type AppCatalogueDataset = z.infer<typeof appDatasetSchema>;
 export type CatalogueValue = CatalogueValueByKind[CatalogueKind];
+
+/**
+ * When something made opens as its own panel beside the chat, rather than
+ * staying in the reply with an Open button: once it holds more than a glance
+ * takes in. Measured on what it holds, so it's the same every time (the model
+ * doesn't choose). A dashboard or a generator stays in the reply until opened.
+ */
+export const WINDOW_AT = {
+  document: { chars: 900 },
+  guide: { steps: 8, needs: 14 },
+  table: { rows: 8, columns: 6 },
+  tracker: { items: 10 },
+  schedule: { tasks: 8 },
+} as const;
+
+export function opensInWindow(kind: CatalogueKind, value: CatalogueValue): boolean {
+  const data = value as { body?: string; steps?: unknown[]; needs?: unknown[]; rows?: unknown[]; columns?: unknown[]; items?: unknown[]; tasks?: unknown[] };
+  const count = (list: unknown[] | undefined) => list?.length ?? 0;
+  if (kind === "document") return (data.body ?? "").trim().length >= WINDOW_AT.document.chars;
+  if (kind === "guide") return count(data.steps) >= WINDOW_AT.guide.steps || count(data.needs) >= WINDOW_AT.guide.needs;
+  if (kind === "table") return count(data.rows) >= WINDOW_AT.table.rows || count(data.columns) >= WINDOW_AT.table.columns;
+  if (kind === "tracker") return count(data.items) >= WINDOW_AT.tracker.items;
+  if (kind === "schedule") return count(data.tasks) >= WINDOW_AT.schedule.tasks;
+  return false;
+}
 
 /** How Dashboard and a Document with live pieces use data: the person's own first, sample numbers only until theirs arrives. */
 const APP_DATA_GUIDANCE = [
@@ -382,9 +392,6 @@ const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 
-function readPlacement(value: unknown): "inline" | "window" | undefined {
-  return value === "inline" || value === "window" ? value : undefined;
-}
 
 /** The data, variables and blocks of a dashboard or a document, read as they stream. */
 function readPieces(source: Record<string, unknown>) {
@@ -434,8 +441,7 @@ export function readCatalogueValue<K extends CatalogueKind>(kind: K, input: unkn
 export function readCatalogueValue(kind: CatalogueKind, input: unknown): CatalogueValue | null {
   const source = record(input);
   if (!source) return null;
-  const where = readPlacement(source.placement);
-  const base = { title: text(source.title), ...(where ? { placement: where } : {}) };
+  const base = { title: text(source.title) };
 
   if (kind === "document") {
     const body = { ...base, body: text(source.body) };

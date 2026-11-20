@@ -10,7 +10,6 @@ import {
   type SuggestedGroup,
   type SuggestedValues,
 } from "@/features/interface-shells";
-import { useInterfaceGenerative } from "@/features/generative-toolbar";
 import { PromptChoices } from "./prompt-choices";
 import { cn } from "@/shared/lib/css";
 import "./home-field.css";
@@ -94,43 +93,21 @@ function Shell({
   suggested?: SuggestedValues;
   onDismissSuggestion?: (group: SuggestedGroup, value: string) => void;
 }) {
-  // The open card gets generated tools too: in its toolbar, and beside the parts they act on.
-  const root = useRef<HTMLDivElement>(null);
-  const generative = useInterfaceGenerative({
-    root,
-    kind: value.kind,
-    size,
-    data: value.data as unknown,
-    onChange: (data: unknown) => onChange?.({ kind: value.kind, data } as KindData),
-    enabled: Boolean(onChange),
-    // The card changes with every keystroke: ask once they've paused, so the name and fills aren't held up.
-    settleMs: 1400,
-    // The home card has its own suggestions, read off the request (prompt-choices).
-    suggest: false,
-  });
-  const own = generative.props;
-  // The home's own suggestions (read off the request) come first; the system's fill groups it has none for.
-  const mergedSuggested: SuggestedValues | undefined =
-    suggested || own.suggested ? { ...(own.suggested ?? {}), ...Object.fromEntries(Object.entries(suggested ?? {}).filter(([, list]) => list?.length)) } : undefined;
+  // No generated tools on the home card: its own suggestions, read off the request, are enough while typing.
   return (
-    <div ref={root} data-home-card="" className="relative size-full rounded-[18px]">
+    <div data-home-card="" className="relative size-full rounded-[18px]">
       <InterfaceShell
         {...({
           kind: value.kind,
           size,
           data: value.data,
-          onChange: onChange && own.onChange,
+          onChange,
           onSubmit,
-          tools: own.tools,
-          suggestions: { ...(own.suggestions ?? {}), ...(suggestions ?? {}) },
-          suggested: mergedSuggested,
-          onDismissSuggestion: (group: SuggestedGroup, dismissed: string) => {
-            onDismissSuggestion?.(group, dismissed);
-            own.onDismissSuggestion?.(group, dismissed);
-          },
+          suggestions,
+          suggested,
+          onDismissSuggestion,
         } as Parameters<typeof InterfaceShell>[0])}
       />
-      {generative.note}
     </div>
   );
 }
